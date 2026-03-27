@@ -22,7 +22,7 @@
    </ItemGroup>
 
    <ItemGroup>
-      <ProjectReference Include="..\..\..\nuget\mvdmio.TranslationTools.Tool\mvdmio.TranslationTools.Tool.csproj" />
+      <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Tool\mvdmio.TranslationTools.Tool.csproj" />
    </ItemGroup>
 
 </Project>

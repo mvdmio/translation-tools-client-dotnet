@@ -1,8 +1,8 @@
 <Solution>
   <Folder Name="/Nuget/">
-    <Project Path="nuget/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj" />
-    <Project Path="nuget/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
-    <Project Path="nuget/mvdmio.TranslationTools.Tool/mvdmio.TranslationTools.Tool.csproj" />
+    <Project Path="src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj" />
+    <Project Path="src/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
+    <Project Path="src/mvdmio.TranslationTools.Tool/mvdmio.TranslationTools.Tool.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/mvdmio.TranslationTools.Client.Tests.Unit.csproj" />

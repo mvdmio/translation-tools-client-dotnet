@@ -27,8 +27,8 @@
    </ItemGroup>
 
    <ItemGroup>
-      <ProjectReference Include="..\..\..\nuget\mvdmio.TranslationTools.Client\mvdmio.TranslationTools.Client.csproj" />
-      <ProjectReference Include="..\..\..\nuget\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
+      <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Client\mvdmio.TranslationTools.Client.csproj" />
+      <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
    </ItemGroup>
 
 </Project>

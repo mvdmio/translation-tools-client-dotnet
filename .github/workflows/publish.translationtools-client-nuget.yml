@@ -6,8 +6,8 @@ on:
       branches:
       - master
       paths:
-      - "nuget/mvdmio.TranslationTools.Client/**"
-      - "nuget/mvdmio.TranslationTools.Client.SourceGenerator/**"
+      - "src/mvdmio.TranslationTools.Client/**"
+      - "src/mvdmio.TranslationTools.Client.SourceGenerator/**"
       - "test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/**"
 
 jobs:
@@ -29,17 +29,17 @@ jobs:
 
       -  name: Restore package and tests
          run: |
-            dotnet restore nuget/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj
-            dotnet restore nuget/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj
+            dotnet restore src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj
+            dotnet restore src/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj
             dotnet restore test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/mvdmio.TranslationTools.Client.Tests.Unit.csproj
 
       -  name: Build package
-         run: dotnet build nuget/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj --configuration Release --no-restore
+         run: dotnet build src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj --configuration Release --no-restore
 
       -  name: Test client package
          run: dotnet test test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/mvdmio.TranslationTools.Client.Tests.Unit.csproj --configuration Release --no-restore --verbosity normal
 
       -  name: Pack and publish package
          run: |
-            dotnet pack nuget/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj --configuration Release --no-build -o ./artifacts
+            dotnet pack src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj --configuration Release --no-build -o ./artifacts
             nuget push ./artifacts/*.nupkg -Source 'https://api.nuget.org/v3/index.json' -NonInteractive -SkipDuplicate -Verbosity normal
