@@ -1,0 +1,106 @@
+using mvdmio.TranslationTools.Tool.Configuration;
+using mvdmio.TranslationTools.Tool.Pull;
+using mvdmio.TranslationTools.Tool.Scaffolding;
+
+namespace mvdmio.TranslationTools.Tool.Push;
+
+internal sealed class PushHandler
+{
+   private readonly TranslationApiService _translationApiService;
+   private readonly ProjectManifestScanner _projectManifestScanner;
+   private readonly IPushReporter _reporter;
+
+   public PushHandler()
+      : this(new TranslationApiService(), new ProjectManifestScanner(), new ConsolePushReporter())
+   {
+   }
+
+   internal PushHandler(TranslationApiService translationApiService, ProjectManifestScanner projectManifestScanner, IPushReporter reporter)
+   {
+      _translationApiService = translationApiService;
+      _projectManifestScanner = projectManifestScanner;
+      _reporter = reporter;
+   }
+
+   public Task HandleAsync(CancellationToken cancellationToken = default)
+   {
+      var config = ToolConfigurationLoader.Load();
+      return HandleAsync(config, cancellationToken);
+   }
+
+   internal async Task HandleAsync(ToolConfiguration config, CancellationToken cancellationToken = default)
+   {
+      if (string.IsNullOrWhiteSpace(config.ApiKey))
+      {
+         _reporter.WriteError("Error: No API key provided. Add apiKey to .mvdmio-translations.yml.");
+         return;
+      }
+
+      var projectDirectory = ResolveProjectDirectory(config);
+      var scanResult = _projectManifestScanner.ScanProject(projectDirectory);
+      if (!scanResult.FoundManifest)
+         throw new InvalidOperationException($"No translation manifests found in project '{projectDirectory}'.");
+
+      _reporter.WriteInfo($"Scanning translation manifests in {projectDirectory}...");
+      _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation keys to {ToolConfiguration.DEFAULT_BASE_URL}...");
+
+      var result = await _translationApiService.PushProjectTranslationsAsync(
+         config.ApiKey,
+         new TranslationPushRequest {
+            Items = scanResult.Items.Select(
+               static x => new TranslationPushItemRequest {
+                  Key = x.Key,
+                  DefaultValue = x.DefaultValue
+               }
+            ).ToArray()
+         },
+         cancellationToken
+      );
+
+      _reporter.WriteInfo($"Push complete. Synced {result.ReceivedKeyCount} keys.");
+      _reporter.WriteInfo($"Created: {result.CreatedKeyCount}. Updated default values: {result.UpdatedKeyCount}. Removed: {result.RemovedKeyCount}.");
+   }
+
+   internal static string ResolveProjectDirectory(ToolConfiguration config)
+   {
+      var startPath = !string.IsNullOrWhiteSpace(config.Output)
+         ? Path.GetDirectoryName(ToolPathResolver.GetOutputPath(config))
+         : config.ConfigDirectory;
+
+      if (string.IsNullOrWhiteSpace(startPath))
+         throw new InvalidOperationException("Unable to resolve project directory.");
+
+      var directory = new DirectoryInfo(startPath);
+      if (!directory.Exists)
+         directory = directory.Parent ?? throw new DirectoryNotFoundException($"Directory not found: {startPath}");
+
+      while (directory is not null)
+      {
+         if (directory.GetFiles("*.csproj").Length > 0)
+            return directory.FullName;
+
+         directory = directory.Parent;
+      }
+
+      throw new InvalidOperationException("Could not find a .csproj for the configured translation project.");
+   }
+}
+
+internal interface IPushReporter
+{
+   void WriteInfo(string message);
+   void WriteError(string message);
+}
+
+internal sealed class ConsolePushReporter : IPushReporter
+{
+   public void WriteInfo(string message)
+   {
+      Console.WriteLine(message);
+   }
+
+   public void WriteError(string message)
+   {
+      Console.Error.WriteLine(message);
+   }
+}

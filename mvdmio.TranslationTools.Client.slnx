@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/Nuget/">
+    <Project Path="nuget/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj" />
+    <Project Path="nuget/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
+    <Project Path="nuget/mvdmio.TranslationTools.Tool/mvdmio.TranslationTools.Tool.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/mvdmio.TranslationTools.Client.Tests.Unit.csproj" />
+    <Project Path="test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit/mvdmio.TranslationTools.Tool.Tests.Unit.csproj" />
+  </Folder>
+  <Folder Name="/Git Workflows/">
+    <File Path=".github/workflows/publish.translationtools-client-nuget.yml" />
+    <File Path=".github/workflows/publish.translationtools-dotnet-tool-nuget.yml" />
+  </Folder>
+</Solution>

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+   <PropertyGroup Label="Project configuration">
+      <OutputType>Exe</OutputType>
+      <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <Nullable>enable</Nullable>
+      <LangVersion>latest</LangVersion>
+      <PackAsTool>true</PackAsTool>
+      <ToolCommandName>translations</ToolCommandName>
+      <NoWarn>$(NoWarn);RS1034</NoWarn>
+   </PropertyGroup>
+
+   <PropertyGroup Label="Package configuration">
+      <Version>0.1.2</Version>
+      <Title>mvdmio.TranslationTools.Tool</Title>
+      <Description>CLI tool for pulling translation manifests from TranslationTools.</Description>
+      <Company>mvdmio</Company>
+      <Authors>Michiel van der Meer</Authors>
+      <PackageReadmeFile>README.md</PackageReadmeFile>
+      <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <None Include="README.md" PackagePath="" Pack="true" />
+      <None Include="LICENSE.txt" PackagePath="" Pack="true" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+         <_Parameter1>mvdmio.TranslationTools.Tool.Tests.Unit</_Parameter1>
+      </AssemblyAttribute>
+   </ItemGroup>
+
+   <ItemGroup>
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
+      <PackageReference Include="System.CommandLine" Version="2.0.3" />
+      <PackageReference Include="YamlDotNet" Version="16.3.0" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="..\mvdmio.TranslationTools.Client\mvdmio.TranslationTools.Client.csproj" />
+   </ItemGroup>
+
+</Project>
