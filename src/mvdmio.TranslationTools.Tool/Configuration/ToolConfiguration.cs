@@ -11,6 +11,8 @@ internal sealed class ToolConfiguration
 
    [YamlIgnore]
    public string ConfigDirectory { get; set; } = Directory.GetCurrentDirectory();
+   [YamlIgnore]
+   internal string? SharedKeyPrefix { get; set; }
    public string? ApiKey { get; set; }
    public string? DefaultLocale { get; set; }
    public string? Output { get; set; }

@@ -375,11 +375,76 @@ public class MigrateHandlerTests
             apiService.ImportRequest.Items.Should().ContainSingle(x => x.Key == "Title");
             pullRunner.Calls.Should().ContainSingle();
             pullRunner.Calls[0].overwrite.Should().BeTrue();
+            pullRunner.Calls[0].config.SharedKeyPrefix.Should().Be("Errors");
          }
          finally
          {
             Directory.Delete(projectDirectory, recursive: true);
          }
+      }
+
+      [Fact]
+      public void ShouldPassSingleResourceSetPrefixToPullConfig()
+      {
+         var config = new ToolConfiguration {
+            ApiKey = "api-key",
+            Output = "Localizations.cs"
+         };
+         var scanResult = new ResxMigrationScanResult {
+            HasBaseFiles = true,
+            SourceFiles = [
+               new ResxMigrationSourceFile {
+                  FilePath = "Resources.Translations.resx",
+                  RelativePath = "Resources.Translations.resx",
+                  ResourceSetPath = "Resources.Translations",
+                  ResourceSetName = "Resources.Translations",
+                  Locale = null
+               },
+               new ResxMigrationSourceFile {
+                  FilePath = "Resources.Translations.nl.resx",
+                  RelativePath = "Resources.Translations.nl.resx",
+                  ResourceSetPath = "Resources.Translations",
+                  ResourceSetName = "Resources.Translations",
+                  Locale = "nl"
+               }
+            ]
+         };
+
+         var pullConfig = MigrateHandler.CreatePullConfig(config, scanResult);
+
+         pullConfig.SharedKeyPrefix.Should().Be("Resources.Translations");
+      }
+
+      [Fact]
+      public void ShouldNotPassSharedPrefixToPullConfigWhenMultipleResourceSetsExist()
+      {
+         var config = new ToolConfiguration {
+            ApiKey = "api-key",
+            Output = "Localizations.cs"
+         };
+         var scanResult = new ResxMigrationScanResult {
+            HasBaseFiles = true,
+            SourceFiles = [
+               new ResxMigrationSourceFile {
+                  FilePath = "Errors.resx",
+                  RelativePath = "Errors.resx",
+                  ResourceSetPath = "Errors",
+                  ResourceSetName = "Errors",
+                  Locale = null
+               },
+               new ResxMigrationSourceFile {
+                  FilePath = "Labels.resx",
+                  RelativePath = "Labels.resx",
+                  ResourceSetPath = "Labels",
+                  ResourceSetName = "Labels",
+                  Locale = null
+               }
+            ]
+         };
+
+         var pullConfig = MigrateHandler.CreatePullConfig(config, scanResult);
+
+         pullConfig.SharedKeyPrefix.Should().BeNull();
       }
    }
 

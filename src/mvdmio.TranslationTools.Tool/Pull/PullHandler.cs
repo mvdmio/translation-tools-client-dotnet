@@ -67,7 +67,7 @@ internal sealed class PullHandler
       _reporter.WriteInfo($"Pulling default locale '{defaultLocale}' from {ToolConfiguration.DEFAULT_BASE_URL}...");
       var items = await _translationApiService.FetchLocaleAsync(request.ApiKey, defaultLocale, cancellationToken);
 
-      var definitions = BuildPropertyDefinitions(items, request.KeyNaming);
+       var definitions = BuildPropertyDefinitions(items, request.KeyNaming, request.SharedKeyPrefix);
       string manifest;
 
       if (!overwrite && _fileSystem.FileExists(request.OutputPath))
@@ -126,25 +126,28 @@ internal sealed class PullHandler
       var outputPath = ToolPathResolver.GetOutputPath(config);
       var resolvedNamespace = string.IsNullOrWhiteSpace(config.Namespace) ? NamespaceResolver.Resolve(outputPath) : config.Namespace;
 
-      return new TranslationPullRequest {
-         ApiKey = config.ApiKey,
-         OutputPath = outputPath,
-         Namespace = resolvedNamespace,
-         ClassName = config.ClassName,
-         KeyNaming = config.KeyNaming
-      };
-   }
+       return new TranslationPullRequest {
+          ApiKey = config.ApiKey,
+          OutputPath = outputPath,
+          Namespace = resolvedNamespace,
+          ClassName = config.ClassName,
+          KeyNaming = config.KeyNaming,
+          SharedKeyPrefix = config.SharedKeyPrefix
+       };
+    }
 
-   internal static IReadOnlyCollection<ManifestPropertyDefinition> BuildPropertyDefinitions(IEnumerable<TranslationItemResponse> items, TranslationKeyNaming keyNaming)
-   {
-      var definitions = new Dictionary<string, ManifestPropertyDefinition>(StringComparer.Ordinal);
+    internal static IReadOnlyCollection<ManifestPropertyDefinition> BuildPropertyDefinitions(IEnumerable<TranslationItemResponse> items, TranslationKeyNaming keyNaming, string? sharedKeyPrefix = null)
+    {
+       var definitions = new Dictionary<string, ManifestPropertyDefinition>(StringComparer.Ordinal);
+       var normalizedPrefix = NormalizeSharedKeyPrefix(sharedKeyPrefix);
 
-      foreach (var item in items.OrderBy(static x => x.Key, StringComparer.Ordinal))
-      {
-         var propertyName = ManifestPropertyNameResolver.Resolve(item.Key);
-         var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
-         var definition = new ManifestPropertyDefinition {
-            PropertyName = propertyName,
+       foreach (var item in items.OrderBy(static x => x.Key, StringComparer.Ordinal))
+       {
+          var propertyKey = RemoveSharedKeyPrefix(item.Key, normalizedPrefix);
+          var propertyName = ManifestPropertyNameResolver.Resolve(propertyKey);
+          var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
+          var definition = new ManifestPropertyDefinition {
+             PropertyName = propertyName,
             Key = item.Key,
             EmitExplicitKey = !string.Equals(derivedKey, item.Key, StringComparison.Ordinal),
             DefaultValue = item.Value
@@ -154,8 +157,32 @@ internal sealed class PullHandler
             definitions[propertyName] = MergeDuplicatePropertyDefinition(definitions[propertyName], definition, derivedKey, keyNaming);
       }
 
-      return [.. definitions.Values];
-   }
+       return [.. definitions.Values];
+    }
+
+    private static string? NormalizeSharedKeyPrefix(string? sharedKeyPrefix)
+    {
+       if (string.IsNullOrWhiteSpace(sharedKeyPrefix))
+          return null;
+
+       return sharedKeyPrefix.TrimEnd('.');
+    }
+
+    private static string RemoveSharedKeyPrefix(string key, string? sharedKeyPrefix)
+    {
+       if (string.IsNullOrWhiteSpace(sharedKeyPrefix))
+          return key;
+
+       if (!key.StartsWith(sharedKeyPrefix, StringComparison.Ordinal))
+          return key;
+
+       if (key.Length == sharedKeyPrefix.Length)
+          return key;
+
+       return key[sharedKeyPrefix.Length] == '.'
+          ? key[(sharedKeyPrefix.Length + 1)..]
+          : key;
+    }
 
    private static ManifestPropertyDefinition MergeDuplicatePropertyDefinition(
       ManifestPropertyDefinition existingDefinition,

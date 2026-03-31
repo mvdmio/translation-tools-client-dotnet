@@ -9,4 +9,5 @@ internal sealed class TranslationPullRequest
    public required string? Namespace { get; init; }
    public required string ClassName { get; init; }
    public required TranslationKeyNaming KeyNaming { get; init; }
+   public string? SharedKeyPrefix { get; init; }
 }

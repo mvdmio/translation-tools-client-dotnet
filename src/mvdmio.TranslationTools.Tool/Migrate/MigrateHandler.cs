@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
 
@@ -94,9 +95,40 @@ internal sealed class MigrateHandler
 
       _reporter.WriteInfo($"Import complete. Keys: {response.ReceivedKeyCount}. Locales: {response.ReceivedLocaleCount}. Created translations: {response.CreatedTranslationCount}. Updated translations: {response.UpdatedTranslationCount}.");
 
-      await _pullRunner.RunAsync(config, overwrite: true, cancellationToken);
-      _reporter.WriteInfo("Manifest regenerated from API state.");
-   }
+       await _pullRunner.RunAsync(CreatePullConfig(config, scanResult), overwrite: true, cancellationToken);
+       _reporter.WriteInfo("Manifest regenerated from API state.");
+    }
+
+    internal static ToolConfiguration CreatePullConfig(ToolConfiguration config, ResxMigrationScanResult scanResult)
+    {
+       if (!TryGetSingleResourceSetPrefix(scanResult, out var sharedKeyPrefix))
+          return config;
+
+       return new ToolConfiguration {
+          ConfigDirectory = config.ConfigDirectory,
+          ApiKey = config.ApiKey,
+          DefaultLocale = config.DefaultLocale,
+          Output = config.Output,
+          Namespace = config.Namespace,
+          ClassName = config.ClassName,
+          KeyNaming = config.KeyNaming,
+          SharedKeyPrefix = sharedKeyPrefix
+       };
+    }
+
+    internal static bool TryGetSingleResourceSetPrefix(ResxMigrationScanResult scanResult, [NotNullWhen(true)] out string? sharedKeyPrefix)
+    {
+       var resourceSetNames = scanResult.SourceFiles
+          .Select(static x => x.ResourceSetName)
+          .Distinct(StringComparer.Ordinal)
+          .ToArray();
+
+       sharedKeyPrefix = resourceSetNames.Length == 1
+          ? resourceSetNames[0]
+          : null;
+
+       return !string.IsNullOrWhiteSpace(sharedKeyPrefix);
+    }
 }
 
 internal interface IMigrateConfigurationLoader

@@ -54,6 +54,20 @@ public class PullHandlerTests
          result.Should().ContainSingle();
          result.Should().ContainSingle(x => x.PropertyName == "Link_Back" && x.Key == "Link.Back" && !x.EmitExplicitKey && x.DefaultValue == "Back");
       }
+
+      [Fact]
+      public void ShouldTrimSharedPrefixFromPropertyNameWhenProvided()
+      {
+         var result = PullHandler.BuildPropertyDefinitions(
+            [
+               new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
+            ],
+            TranslationKeyNaming.UnderscoreToDot,
+            sharedKeyPrefix: "Resources.Translations"
+         );
+
+         result.Should().ContainSingle(x => x.PropertyName == "Button_Save" && x.Key == "Resources.Translations.Button.Save" && x.EmitExplicitKey);
+      }
    }
 
    public class ResolveRequest
