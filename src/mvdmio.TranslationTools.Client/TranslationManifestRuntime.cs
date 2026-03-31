@@ -34,6 +34,7 @@ public static class TranslationManifestRuntime
    public static string Get(Type manifestType, string key, CultureInfo locale, string? defaultValue = null)
    {
       key = Internal.TranslationClientInputValidator.ValidateKey(key);
+      locale = ResolveLocale(locale, GetSnapshot(manifestType.Assembly));
 
       if (TryGetSnapshotValue(manifestType.Assembly, locale, key, out var value))
          return value ?? defaultValue ?? key;
@@ -49,6 +50,7 @@ public static class TranslationManifestRuntime
    public static async Task<string> GetAsync(Type manifestType, string key, CultureInfo locale, string? defaultValue = null, CancellationToken cancellationToken = default)
    {
       key = Internal.TranslationClientInputValidator.ValidateKey(key);
+      locale = ResolveLocale(locale, GetSnapshot(manifestType.Assembly));
 
       if (TryGetSnapshotValue(manifestType.Assembly, locale, key, out var value))
          return value ?? defaultValue ?? key;
@@ -63,6 +65,17 @@ public static class TranslationManifestRuntime
    internal static TranslationAssemblySnapshot? GetSnapshot(Assembly assembly)
    {
       return SnapshotCache.GetOrAdd(assembly, LoadSnapshot);
+   }
+
+   private static CultureInfo ResolveLocale(CultureInfo locale, TranslationAssemblySnapshot? snapshot)
+   {
+      if (!string.IsNullOrWhiteSpace(locale.Name))
+         return locale;
+
+      if (!string.IsNullOrWhiteSpace(snapshot?.DefaultLocale))
+         return CultureInfo.GetCultureInfo(snapshot.DefaultLocale);
+
+      return CultureInfo.GetCultureInfo("en");
    }
 
    private static bool TryGetSnapshotValue(Assembly assembly, CultureInfo locale, string key, out string? value)
@@ -95,14 +108,17 @@ internal sealed class TranslationAssemblySnapshot
 {
    private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>> _translations;
 
-   private TranslationAssemblySnapshot(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>> translations)
+   private TranslationAssemblySnapshot(string defaultLocale, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string?>> translations)
    {
+      DefaultLocale = Internal.TranslationClientInputValidator.NormalizeLocale(defaultLocale);
       _translations = translations;
    }
 
+   public string DefaultLocale { get; }
+
    public static TranslationAssemblySnapshot FromResource(TranslationSnapshotResource snapshot)
    {
-      return new TranslationAssemblySnapshot(snapshot.Translations);
+      return new TranslationAssemblySnapshot(snapshot.Project.DefaultLocale, snapshot.Translations);
    }
 
    public bool TryGetValue(string locale, string key, out string? value)

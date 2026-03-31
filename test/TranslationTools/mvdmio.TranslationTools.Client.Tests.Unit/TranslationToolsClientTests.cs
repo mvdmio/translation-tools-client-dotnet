@@ -198,36 +198,67 @@ public abstract class TranslationToolsClientTests : IDisposable
       [Fact]
       public async Task ShouldUseRegisteredClientForAsyncReads()
       {
-         var cancellationToken = TestContext.Current.CancellationToken;
-         EnqueueJson("""{"key":"home.title","value":"Hello"}""");
-         using var client = CreateClient();
+          var cancellationToken = TestContext.Current.CancellationToken;
+          EnqueueJson("""{"key":"home.title","value":"Hello"}""");
+          using var client = CreateClient();
+          var originalCulture = CultureInfo.CurrentUICulture;
 
-         TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
-         var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "home.title", cancellationToken: cancellationToken);
+          try
+          {
+             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
-         value.Should().Be("Hello");
+             TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
+             var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "checkout.title", cancellationToken: cancellationToken);
+
+             value.Should().Be("Hello");
+          }
+          finally
+          {
+             CultureInfo.CurrentUICulture = originalCulture;
+          }
       }
 
       [Fact]
       public async Task ShouldReturnDefaultValue_WhenTranslationValueNull()
       {
-         var cancellationToken = TestContext.Current.CancellationToken;
-         EnqueueJson("""{"key":"home.title","value":null}""");
-         using var client = CreateClient();
+          var cancellationToken = TestContext.Current.CancellationToken;
+          EnqueueJson("""{"key":"checkout.title","value":null}""");
+          using var client = CreateClient();
+          var originalCulture = CultureInfo.CurrentUICulture;
 
-         TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
-         var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "home.title", defaultValue: "Fallback", cancellationToken: cancellationToken);
+          try
+          {
+             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
-         value.Should().Be("Fallback");
+             TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
+             var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "checkout.title", defaultValue: "Fallback", cancellationToken: cancellationToken);
+
+             value.Should().Be("Fallback");
+          }
+          finally
+          {
+             CultureInfo.CurrentUICulture = originalCulture;
+          }
       }
 
       [Fact]
       public void ShouldReturnFallbackWithoutFetching_WhenSyncGetMissesSnapshot()
       {
-          var value = TranslationManifestRuntime.Get(typeof(TranslationToolsClientTests), "checkout.title", "Checkout");
+          var originalCulture = CultureInfo.CurrentUICulture;
 
-          value.Should().Be("Checkout");
-          Handler.Requests.Should().BeEmpty();
+          try
+          {
+             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+             var value = TranslationManifestRuntime.Get(typeof(TranslationToolsClientTests), "checkout.title", "Checkout");
+
+             value.Should().Be("Checkout");
+             Handler.Requests.Should().BeEmpty();
+          }
+          finally
+          {
+             CultureInfo.CurrentUICulture = originalCulture;
+          }
       }
 
       [Fact]
