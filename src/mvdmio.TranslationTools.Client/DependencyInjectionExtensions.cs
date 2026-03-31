@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System;
 using System.Linq;
 using System.Net.Http;
@@ -13,6 +14,7 @@ namespace mvdmio.TranslationTools.Client;
 /// <summary>
 /// Service registration helpers for the TranslationTools client.
 /// </summary>
+[PublicAPI]
 public static class DependencyInjectionExtensions
 {
    private const string HTTP_CLIENT_NAME = nameof(TranslationToolsClient);
@@ -23,7 +25,7 @@ public static class DependencyInjectionExtensions
    public static IServiceCollection AddTranslationToolsClient(this IServiceCollection services, Action<TranslationToolsClientOptions> options)
    {
       services.Configure(options);
-      
+
       services.AddOptions<TranslationToolsClientOptions>().PostConfigure<IOptions<RequestLocalizationOptions>>(
          static (clientOptions, localizationOptions) => {
             if (clientOptions.SupportedLocales.Length > 0)
@@ -32,9 +34,9 @@ public static class DependencyInjectionExtensions
             clientOptions.SupportedLocales = localizationOptions.Value.SupportedUICultures?.ToArray() ?? localizationOptions.Value.SupportedCultures?.ToArray() ?? [];
          }
       );
-      
+
       services.AddHttpClient(HTTP_CLIENT_NAME);
-      services.TryAddSingleton<TranslationToolsClient>(static serviceProvider => {
+      services.TryAddSingleton<ITranslationToolsClient>(static serviceProvider => {
          var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
          var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
          var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
@@ -42,17 +44,17 @@ public static class DependencyInjectionExtensions
          Translate.Configure(client);
          return client;
       });
-      
+
       return services;
    }
-   
+
    /// <summary>
    ///   Initializes the Translation Tools Client.
    /// </summary>
-   public static async Task InitializeTranslationToolsClient(this WebApplication app, CancellationToken cancellationToken = default)
+   public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)
    {
       using var scope = app.Services.CreateScope();
-      var client = scope.ServiceProvider.GetRequiredService<TranslationToolsClient>();
+      var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
       await client.Initialize(cancellationToken);
    }
 }
