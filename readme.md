@@ -4,7 +4,7 @@ Public .NET packages for working with the TranslationTools API and generated loc
 
 ## Packages
 
-- `mvdmio.TranslationTools.Client` - API client, caching, DI helpers, static `Translate` facade, and source-generated manifest support
+- `mvdmio.TranslationTools.Client` - API client, DI helpers, embedded snapshot bootstrap, and source-generated manifest support
 - `mvdmio.TranslationTools.Tool` - .NET tool for initializing config, migrating `.resx` files, pulling manifests, and pushing manifest keys back to TranslationTools
 - `mvdmio.TranslationTools.Client.SourceGenerator` - bundled with the client package; not shipped as a separate public package
 
@@ -52,8 +52,8 @@ Read translations at runtime:
 ```csharp
 using mvdmio.TranslationTools.Client;
 
-var title = await Translate.GetAsync("home.title", "Home");
-var cachedTitle = Translate.Get("home.title", "Home");
+var title = Localizations.Action_Save;
+var fetchedTitle = await Localizations.GetAsync(Localizations.Keys.Action_Save);
 var locale = await app.Services.GetRequiredService<ITranslationToolsClient>().GetLocaleAsync(new System.Globalization.CultureInfo("en"));
 ```
 
@@ -78,7 +78,15 @@ After generation, consume strongly-typed properties and keys:
 ```csharp
 var label = Localizations.Action_Save;
 var key = Localizations.Keys.Action_Save;
+var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Action_Save);
 ```
+
+Offline mode details:
+
+- `translations pull` writes `.mvdmio-translations.snapshot.json` in the project root.
+- The client package auto-embeds that snapshot into the consuming assembly.
+- Sync generated properties read from the in-memory cache and embedded snapshot only.
+- Async generated helpers use embedded snapshot first, then network on miss.
 
 ## CLI quick start
 
@@ -116,6 +124,8 @@ Pull translations into a manifest file:
 translations pull
 translations pull --overwrite
 ```
+
+`translations pull` also refreshes the root `.mvdmio-translations.snapshot.json` file used for startup bootstrap.
 
 Push manifest keys and default values back to the API:
 

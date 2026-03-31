@@ -10,11 +10,12 @@ internal sealed class PullHandler
    private readonly ManifestFileBuilder _manifestFileBuilder;
    private readonly ManifestFileParser _manifestFileParser;
    private readonly ManifestFileMerger _manifestFileMerger;
+   private readonly TranslationSnapshotFileWriter _snapshotFileWriter;
    private readonly IPullFileSystem _fileSystem;
    private readonly IPullReporter _reporter;
 
    public PullHandler()
-      : this(new TranslationApiService(), new ManifestFileBuilder(), new ManifestFileParser(), new ManifestFileMerger(new ManifestFileParser(), new ManifestFileBuilder()), new PullFileSystem(), new ConsolePullReporter())
+      : this(new TranslationApiService(), new ManifestFileBuilder(), new ManifestFileParser(), new ManifestFileMerger(new ManifestFileParser(), new ManifestFileBuilder()), new TranslationSnapshotFileWriter(), new PullFileSystem(), new ConsolePullReporter())
    {
    }
 
@@ -23,14 +24,16 @@ internal sealed class PullHandler
       ManifestFileBuilder manifestFileBuilder,
       ManifestFileParser manifestFileParser,
       ManifestFileMerger manifestFileMerger,
+      TranslationSnapshotFileWriter snapshotFileWriter,
       IPullFileSystem fileSystem,
       IPullReporter reporter
-   )
+    )
    {
       _translationApiService = translationApiService;
       _manifestFileBuilder = manifestFileBuilder;
       _manifestFileParser = manifestFileParser;
       _manifestFileMerger = manifestFileMerger;
+      _snapshotFileWriter = snapshotFileWriter;
       _fileSystem = fileSystem;
       _reporter = reporter;
    }
@@ -64,10 +67,16 @@ internal sealed class PullHandler
          ? metadata.DefaultLocale!
          : locales[0];
 
-      _reporter.WriteInfo($"Pulling default locale '{defaultLocale}' from {ToolConfiguration.DEFAULT_BASE_URL}...");
-      var items = await _translationApiService.FetchLocaleAsync(request.ApiKey, defaultLocale, cancellationToken);
+      var localeItems = new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal);
 
-       var definitions = BuildPropertyDefinitions(items, request.KeyNaming, request.SharedKeyPrefix);
+      foreach (var locale in locales.OrderBy(static x => x, StringComparer.Ordinal))
+      {
+         _reporter.WriteInfo($"Pulling locale '{locale}' from {ToolConfiguration.DEFAULT_BASE_URL}...");
+         localeItems[locale] = await _translationApiService.FetchLocaleAsync(request.ApiKey, locale, cancellationToken);
+      }
+
+      var defaultLocaleItems = localeItems[defaultLocale];
+      var definitions = BuildPropertyDefinitions(localeItems.Values.SelectMany(static x => x), defaultLocaleItems, request.KeyNaming, request.SharedKeyPrefix);
       string manifest;
 
       if (!overwrite && _fileSystem.FileExists(request.OutputPath))
@@ -112,8 +121,12 @@ internal sealed class PullHandler
 
       await _fileSystem.WriteAllTextAsync(request.OutputPath, manifest, cancellationToken);
 
+      var snapshot = BuildSnapshot(defaultLocale, locales, localeItems);
+      await _fileSystem.WriteAllTextAsync(request.SnapshotPath, _snapshotFileWriter.Write(snapshot), cancellationToken);
+
       _reporter.WriteInfo($"Wrote manifest to {request.OutputPath}");
-      _reporter.WriteInfo($"Generated {definitions.Count} translation properties from default locale '{defaultLocale}'");
+      _reporter.WriteInfo($"Wrote snapshot to {request.SnapshotPath}");
+      _reporter.WriteInfo($"Generated {definitions.Count} translation properties from {locales.Length} locales.");
       if (!overwrite)
          _reporter.WriteInfo("Existing manifest values were preserved where matching properties already existed.");
    }
@@ -123,66 +136,99 @@ internal sealed class PullHandler
       if (string.IsNullOrWhiteSpace(config.ApiKey))
          return null;
 
-      var outputPath = ToolPathResolver.GetOutputPath(config);
-      var resolvedNamespace = string.IsNullOrWhiteSpace(config.Namespace) ? NamespaceResolver.Resolve(outputPath) : config.Namespace;
+      var projectContext = ToolProjectResolver.Resolve(config);
+      var outputPath = ToolPathResolver.GetOutputPath(config, projectContext);
+      var resolvedNamespace = string.IsNullOrWhiteSpace(config.Namespace) ? NamespaceResolver.Resolve(outputPath, projectContext) : config.Namespace;
 
-       return new TranslationPullRequest {
-          ApiKey = config.ApiKey,
-          OutputPath = outputPath,
-          Namespace = resolvedNamespace,
-          ClassName = config.ClassName,
-          KeyNaming = config.KeyNaming,
-          SharedKeyPrefix = config.SharedKeyPrefix
-       };
-    }
+      return new TranslationPullRequest {
+         ApiKey = config.ApiKey,
+         ProjectDirectory = projectContext.ProjectDirectory,
+         OutputPath = outputPath,
+         SnapshotPath = ToolProjectResolver.GetSnapshotPath(config),
+         Namespace = resolvedNamespace,
+         ClassName = config.ClassName,
+         KeyNaming = config.KeyNaming,
+         SharedKeyPrefix = config.SharedKeyPrefix
+      };
+   }
 
-    internal static IReadOnlyCollection<ManifestPropertyDefinition> BuildPropertyDefinitions(IEnumerable<TranslationItemResponse> items, TranslationKeyNaming keyNaming, string? sharedKeyPrefix = null)
-    {
-       var definitions = new Dictionary<string, ManifestPropertyDefinition>(StringComparer.Ordinal);
-       var normalizedPrefix = NormalizeSharedKeyPrefix(sharedKeyPrefix);
+   internal static IReadOnlyCollection<ManifestPropertyDefinition> BuildPropertyDefinitions(
+      IEnumerable<TranslationItemResponse> items,
+      IEnumerable<TranslationItemResponse> defaultLocaleItems,
+      TranslationKeyNaming keyNaming,
+      string? sharedKeyPrefix = null
+   )
+   {
+      var definitions = new Dictionary<string, ManifestPropertyDefinition>(StringComparer.Ordinal);
+      var normalizedPrefix = NormalizeSharedKeyPrefix(sharedKeyPrefix);
+      var defaultValues = defaultLocaleItems.ToDictionary(static x => x.Key, static x => x.Value, StringComparer.Ordinal);
 
-       foreach (var item in items.OrderBy(static x => x.Key, StringComparer.Ordinal))
-       {
-          var propertyKey = RemoveSharedKeyPrefix(item.Key, normalizedPrefix);
-          var propertyName = ManifestPropertyNameResolver.Resolve(propertyKey);
-          var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
-          var definition = new ManifestPropertyDefinition {
-             PropertyName = propertyName,
-            Key = item.Key,
-            EmitExplicitKey = !string.Equals(derivedKey, item.Key, StringComparison.Ordinal),
-            DefaultValue = item.Value
+      foreach (var key in items.Select(static x => x.Key).Distinct(StringComparer.Ordinal).OrderBy(static x => x, StringComparer.Ordinal))
+      {
+         var propertyKey = RemoveSharedKeyPrefix(key, normalizedPrefix);
+         var propertyName = ManifestPropertyNameResolver.Resolve(propertyKey);
+         var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
+         var definition = new ManifestPropertyDefinition {
+            PropertyName = propertyName,
+            Key = key,
+            EmitExplicitKey = !string.Equals(derivedKey, key, StringComparison.Ordinal),
+            DefaultValue = defaultValues.GetValueOrDefault(key)
          };
 
          if (!definitions.TryAdd(propertyName, definition))
             definitions[propertyName] = MergeDuplicatePropertyDefinition(definitions[propertyName], definition, derivedKey, keyNaming);
       }
 
-       return [.. definitions.Values];
-    }
+      return [.. definitions.Values];
+   }
 
-    private static string? NormalizeSharedKeyPrefix(string? sharedKeyPrefix)
-    {
-       if (string.IsNullOrWhiteSpace(sharedKeyPrefix))
-          return null;
+   private static TranslationSnapshotFile BuildSnapshot(
+      string defaultLocale,
+      IEnumerable<string> locales,
+      IReadOnlyDictionary<string, TranslationItemResponse[]> localeItems
+   )
+   {
+      return new TranslationSnapshotFile {
+         SchemaVersion = 1,
+         Project = new TranslationSnapshotProject {
+            DefaultLocale = defaultLocale,
+            Locales = locales.OrderBy(static x => x, StringComparer.Ordinal).ToArray()
+         },
+         Translations = localeItems
+            .OrderBy(static x => x.Key, StringComparer.Ordinal)
+            .ToDictionary(
+               static x => x.Key,
+               static x => (IReadOnlyDictionary<string, string?>)x.Value
+                  .OrderBy(static item => item.Key, StringComparer.Ordinal)
+                  .ToDictionary(static item => item.Key, static item => item.Value, StringComparer.Ordinal),
+               StringComparer.Ordinal
+            )
+      };
+   }
 
-       return sharedKeyPrefix.TrimEnd('.');
-    }
+   private static string? NormalizeSharedKeyPrefix(string? sharedKeyPrefix)
+   {
+      if (string.IsNullOrWhiteSpace(sharedKeyPrefix))
+         return null;
 
-    private static string RemoveSharedKeyPrefix(string key, string? sharedKeyPrefix)
-    {
-       if (string.IsNullOrWhiteSpace(sharedKeyPrefix))
-          return key;
+      return sharedKeyPrefix.TrimEnd('.');
+   }
 
-       if (!key.StartsWith(sharedKeyPrefix, StringComparison.Ordinal))
-          return key;
+   private static string RemoveSharedKeyPrefix(string key, string? sharedKeyPrefix)
+   {
+      if (string.IsNullOrWhiteSpace(sharedKeyPrefix))
+         return key;
 
-       if (key.Length == sharedKeyPrefix.Length)
-          return key;
+      if (!key.StartsWith(sharedKeyPrefix, StringComparison.Ordinal))
+         return key;
 
-       return key[sharedKeyPrefix.Length] == '.'
-          ? key[(sharedKeyPrefix.Length + 1)..]
-          : key;
-    }
+      if (key.Length == sharedKeyPrefix.Length)
+         return key;
+
+      return key[sharedKeyPrefix.Length] == '.'
+         ? key[(sharedKeyPrefix.Length + 1)..]
+         : key;
+   }
 
    private static ManifestPropertyDefinition MergeDuplicatePropertyDefinition(
       ManifestPropertyDefinition existingDefinition,

@@ -18,8 +18,7 @@ builder.Services.AddTranslationToolsClient(options => {
 });
 
 var app = builder.Build();
-app.Services.UseTranslationToolsClient();
-await app.Services.InitializeTranslationToolsClientAsync();
+await app.InitializeTranslationToolsClientAsync();
 ```
 
 ## Authentication model
@@ -59,10 +58,11 @@ var client = app.Services.GetRequiredService<TranslationToolsClient>();
 var item = await client.GetAsync("home.title", new CultureInfo("en"));
 var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 var cached = client.TryGetCached("home.title");
-var syncText = Translate.Get("home.title", "Home");
-var text = await Translate.GetAsync("home.title");
-var fallback = await Translate.GetAsync("checkout.title", "Checkout");
-var dutch = await Translate.GetAsync("home.title", new CultureInfo("nl-NL"));
+
+var syncText = Localizations.Button_Save;
+var text = await Localizations.GetAsync(Localizations.Keys.Button_Save);
+var fallback = await Localizations.GetAsync("checkout.title", "Checkout");
+var dutch = await Localizations.GetAsync("home.title", new CultureInfo("nl-NL"));
 ```
 
 ## Generated localizations
@@ -90,18 +90,28 @@ Usage after generation:
 ```csharp
 var label = Localizations.Button_Save;
 var key = Localizations.Keys.Button_Save;
+var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Button_Save);
 ```
 
-- Sync generated properties call `Translate.Get(...)`.
+- Sync generated properties call `TranslationManifestRuntime` through generated code.
+- Generated manifest classes also expose `GetAsync(...)` helpers.
 - Sync reads are cache-only; they never trigger network fetches.
-- Fallback order: cached value -> manifest `DefaultValue` -> key.
+- Async reads use embedded snapshot first, then network on miss.
+- Fallback order: cache -> snapshot -> network.
 - Call `InitializeTranslationToolsClientAsync()` during app startup before relying on sync generated access.
+
+## Offline snapshot
+
+- `translations pull` writes `.mvdmio-translations.snapshot.json` in the project root.
+- The client package auto-embeds that root snapshot through a `buildTransitive` props file.
+- Snapshot lookup is assembly-scoped, so generated manifests read their own assembly's embedded snapshot.
+- If no embedded snapshot contains the key, sync reads fall back to manifest `DefaultValue`, then key.
 
 ## Create-on-read and `defaultValue`
 
 - API single-item fetch creates a missing translation row.
 - Missing row starts with `null` value.
-- `Translate.GetAsync(..., defaultValue: ...)` uses the internal single-item overload that appends `defaultValue` to the request.
+- Generated `GetAsync(..., defaultValue: ...)` helpers use the internal single-item overload that appends `defaultValue` to the request.
 - Server seeds the default-locale row only when its current value is missing or empty.
 - Server never overwrites an existing non-empty default-locale value.
 
@@ -109,18 +119,12 @@ var key = Localizations.Keys.Button_Save;
 
 - Client stores fetched single-item payload per locale/key cache entry.
 - Client stores fetched locale payloads per locale cache entry.
-- Repeated single-item requests reuse cached values until cache expiry.
-- Repeated locale requests reuse cached locale dictionaries until cache expiry.
+- Repeated single-item requests reuse cached values for the process lifetime.
+- Repeated locale requests reuse cached locale dictionaries for the process lifetime.
 - Locale initialization fetches locale payloads and hydrates per-item cache entries.
 - Locale fetches also hydrate per-item cache entries used by sync APIs.
-- Sync APIs (`TryGetCached`, `Translate.Get`, generated localization properties) read only from the local cache.
-
-## Cache providers
-
-- `IMemoryCache`
-- `IDistributedCache`
-- `HybridCache` on `net10.0+`
-- If none registered, package falls back to an internal local cache.
+- Sync APIs (`TryGetCached`, generated localization properties) read only from the local cache and embedded snapshot.
+- Only the built-in in-memory dictionary cache remains.
 
 ## Initialize behavior
 
@@ -140,8 +144,7 @@ await app.Services.InitializeTranslationToolsClientAsync();
 - `ITranslationToolsClient.GetAsync(string key, CancellationToken)`
 - `ITranslationToolsClient.GetAsync(string key, CultureInfo locale, CancellationToken)`
 - `ITranslationToolsClient.GetLocaleAsync(CultureInfo locale, CancellationToken)`
-- `Translate.Get(...)`
-- `Translate.GetAsync(...)`
+- generated manifest properties and generated manifest `GetAsync(...)` helpers
 - `InitializeTranslationToolsClientAsync(CancellationToken)`
 
 ## OpenAPI and docs

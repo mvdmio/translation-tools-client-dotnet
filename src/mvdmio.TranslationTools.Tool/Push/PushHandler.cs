@@ -63,26 +63,7 @@ internal sealed class PushHandler
 
    internal static string ResolveProjectDirectory(ToolConfiguration config)
    {
-      var startPath = !string.IsNullOrWhiteSpace(config.Output)
-         ? Path.GetDirectoryName(ToolPathResolver.GetOutputPath(config))
-         : config.ConfigDirectory;
-
-      if (string.IsNullOrWhiteSpace(startPath))
-         throw new InvalidOperationException("Unable to resolve project directory.");
-
-      var directory = new DirectoryInfo(startPath);
-      if (!directory.Exists)
-         directory = directory.Parent ?? throw new DirectoryNotFoundException($"Directory not found: {startPath}");
-
-      while (directory is not null)
-      {
-         if (directory.GetFiles("*.csproj").Length > 0)
-            return directory.FullName;
-
-         directory = directory.Parent;
-      }
-
-      throw new InvalidOperationException("Could not find a .csproj for the configured translation project.");
+      return ToolProjectResolver.Resolve(config).ProjectDirectory;
    }
 }
 

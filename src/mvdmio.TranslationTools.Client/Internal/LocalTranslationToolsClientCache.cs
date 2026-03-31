@@ -7,13 +7,7 @@ namespace mvdmio.TranslationTools.Client.Internal;
 
 internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClientCache
 {
-   private readonly ConcurrentDictionary<string, CacheEntry> _entries = new();
-   private readonly TimeSpan _cacheDuration;
-
-   public LocalTranslationToolsClientCache(TimeSpan cacheDuration)
-   {
-      _cacheDuration = cacheDuration;
-   }
+   private readonly ConcurrentDictionary<string, object> _entries = new();
 
    public ValueTask<TranslationToolsClientCacheEntry<T>?> GetAsync<T>(string key, CancellationToken cancellationToken)
       where T : class
@@ -24,32 +18,16 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
    public TranslationToolsClientCacheEntry<T>? Get<T>(string key)
       where T : class
    {
-      if (!_entries.TryGetValue(key, out var entry))
-         return null;
-
-      if (entry.ExpiresAt <= DateTimeOffset.UtcNow)
-      {
-         _entries.TryRemove(key, out _);
-         return null;
-      }
-
-      return entry.Value as TranslationToolsClientCacheEntry<T>;
+      return _entries.TryGetValue(key, out var entry)
+         ? entry as TranslationToolsClientCacheEntry<T>
+         : null;
    }
 
    public ValueTask SetAsync<T>(string key, TranslationToolsClientCacheEntry<T> value, CancellationToken cancellationToken)
       where T : class
    {
-      _entries[key] = new CacheEntry {
-         Value = value,
-         ExpiresAt = DateTimeOffset.UtcNow.Add(_cacheDuration)
-      };
+      _entries[key] = value;
 
       return ValueTask.CompletedTask;
-   }
-
-   private sealed class CacheEntry
-   {
-      public required object Value { get; init; }
-      public required DateTimeOffset ExpiresAt { get; init; }
    }
 }

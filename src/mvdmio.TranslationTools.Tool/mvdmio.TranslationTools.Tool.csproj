@@ -12,7 +12,7 @@
    </PropertyGroup>
 
    <PropertyGroup Label="Package configuration">
-      <Version>0.2.1</Version>
+      <Version>0.3.0</Version>
       <Title>mvdmio.TranslationTools.Tool</Title>
       <Description>CLI tool for initializing, migrating, pulling, and pushing TranslationTools manifests.</Description>
       <Company>mvdmio</Company>

@@ -11,14 +11,15 @@
    </PropertyGroup>
 
    <PropertyGroup>
-      <Version>0.3.0</Version>
+      <Version>0.4.0</Version>
       <Title>mvdmio.TranslationTools.Client</Title>
       <Description>Client library for the mvdm.io TranslationTools translation API.</Description>
       <Company>mvdmio</Company>
       <Authors>Michiel van der Meer</Authors>
       <PackageReadmeFile>Readme.md</PackageReadmeFile>
       <PackageLicenseFile>License.txt</PackageLicenseFile>
-   </PropertyGroup>
+      <PackageId>mvdmio.TranslationTools.Client</PackageId>
+    </PropertyGroup>
 
    <ItemGroup>
       <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -33,9 +34,13 @@
      <PackageReference Include="JetBrains.Annotations" Version="2025.2.4" />
    </ItemGroup>
 
-   <ItemGroup>
+    <ItemGroup>
       <ProjectReference Include="..\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
-   </ItemGroup>
+    </ItemGroup>
+
+    <ItemGroup>
+       <None Include="buildTransitive\mvdmio.TranslationTools.Client.props" PackagePath="buildTransitive\mvdmio.TranslationTools.Client.props" Pack="true" />
+    </ItemGroup>
 
     <Target Name="PackTranslationToolsSourceGenerator" BeforeTargets="_GetPackageFiles">
        <ItemGroup>

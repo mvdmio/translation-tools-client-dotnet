@@ -35,18 +35,20 @@ public class TranslationManifestGeneratorTests
          """
       );
 
-      result.GeneratorDiagnostics.Should().BeEmpty();
-      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
-      result.GeneratedSource.Should().Contain("public const string Button_Hello = \"Button.Hello\";");
-      result.GeneratedSource.Should().Contain("public const string Button_Save = \"Button.Save\";");
-      result.GeneratedSource.Should().Contain("public const string Button_SaveAndClose = \"button.save_and_close\";");
+       result.GeneratorDiagnostics.Should().BeEmpty();
+       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+       result.GeneratedSource.Should().Contain("private static global::System.Type ManifestType => typeof(Localizations);");
+       result.GeneratedSource.Should().Contain("public const string Button_Hello = \"Button.Hello\";");
+       result.GeneratedSource.Should().Contain("public const string Button_Save = \"Button.Save\";");
+       result.GeneratedSource.Should().Contain("public const string Button_SaveAndClose = \"button.save_and_close\";");
       result.GeneratedSource.Should().Contain("public static partial string Button_Hello");
       result.GeneratedSource.Should().Contain("get => Get(Keys.Button_Hello, \"Hello\");");
       result.GeneratedSource.Should().Contain("public static partial string Button_Save");
       result.GeneratedSource.Should().Contain("get => Get(Keys.Button_Save);");
-      result.GeneratedSource.Should().Contain("public static partial string Button_SaveAndClose");
-      result.GeneratedSource.Should().Contain("get => Get(Keys.Button_SaveAndClose, \"Save and close\");");
-   }
+       result.GeneratedSource.Should().Contain("public static partial string Button_SaveAndClose");
+       result.GeneratedSource.Should().Contain("get => Get(Keys.Button_SaveAndClose, \"Save and close\");");
+       result.GeneratedSource.Should().Contain("public static global::System.Threading.Tasks.Task<string> GetAsync(string key");
+    }
 
    [Fact]
    public void ShouldGenerateForNonStaticPartialClass()
@@ -87,9 +89,9 @@ public class TranslationManifestGeneratorTests
          """
       );
 
-      result.GeneratorDiagnostics.Should().BeEmpty();
-      result.GeneratedSource.Should().Contain("public const string Button_HelloWorld = \"button_hello_world\";");
-   }
+       result.GeneratorDiagnostics.Should().BeEmpty();
+       result.GeneratedSource.Should().Contain("public const string Button_HelloWorld = \"button_hello_world\";");
+    }
 
    [Fact]
    public void ShouldReportMissingManifest()
@@ -145,9 +147,9 @@ public class TranslationManifestGeneratorTests
          """
       );
 
-      result.GeneratorDiagnostics.Should().BeEmpty();
-      result.GeneratedSource.Should().Contain("Translate.Get(key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue)");
-   }
+       result.GeneratorDiagnostics.Should().BeEmpty();
+       result.GeneratedSource.Should().Contain("TranslationManifestRuntime.Get(ManifestType, key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue)");
+    }
 
    [Fact]
    public void ShouldGenerateMultiplePartialProperties()

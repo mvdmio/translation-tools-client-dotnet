@@ -14,13 +14,17 @@ public class PullHandlerTests
       [Fact]
       public void ShouldGenerateExplicitKeyWhenDerivedKeyDiffers()
       {
-         var result = PullHandler.BuildPropertyDefinitions(
-            [
-               new TranslationItemResponse { Key = "Label_Past90Days", Value = "Past 90 days" },
-               new TranslationItemResponse { Key = "Action.Save", Value = "Save" }
-            ],
-            TranslationKeyNaming.UnderscoreToDot
-         );
+          var result = PullHandler.BuildPropertyDefinitions(
+             [
+                new TranslationItemResponse { Key = "Label_Past90Days", Value = "Past 90 days" },
+                new TranslationItemResponse { Key = "Action.Save", Value = "Save" }
+             ],
+             [
+                new TranslationItemResponse { Key = "Label_Past90Days", Value = "Past 90 days" },
+                new TranslationItemResponse { Key = "Action.Save", Value = "Save" }
+             ],
+             TranslationKeyNaming.UnderscoreToDot
+          );
 
          result.Should().ContainSingle(x => x.PropertyName == "Label_Past90Days" && x.EmitExplicitKey && x.Key == "Label_Past90Days");
          result.Should().ContainSingle(x => x.PropertyName == "Action_Save" && !x.EmitExplicitKey && x.Key == "Action.Save");
@@ -29,27 +33,35 @@ public class PullHandlerTests
       [Fact]
       public void ShouldThrowForDuplicateResolvedPropertyNames()
       {
-         var action = () => PullHandler.BuildPropertyDefinitions(
+          var action = () => PullHandler.BuildPropertyDefinitions(
+             [
+                new TranslationItemResponse { Key = "Action.Save", Value = "Save" },
+                new TranslationItemResponse { Key = "Action.Save", Value = "Save again" }
+            ],
             [
                new TranslationItemResponse { Key = "Action.Save", Value = "Save" },
                new TranslationItemResponse { Key = "Action.Save", Value = "Save again" }
             ],
-            TranslationKeyNaming.UnderscoreToDot
-         );
+             TranslationKeyNaming.UnderscoreToDot
+          );
 
-         action.Should().Throw<InvalidOperationException>();
-      }
+          action.Should().Throw<ArgumentException>();
+       }
 
       [Fact]
       public void ShouldPreferKeyMatchingConfiguredNamingWhenLegacyAndCanonicalKeysCollide()
       {
-         var result = PullHandler.BuildPropertyDefinitions(
-            [
-               new TranslationItemResponse { Key = "Link_Back", Value = "Back legacy" },
-               new TranslationItemResponse { Key = "Link.Back", Value = "Back" }
-            ],
-            TranslationKeyNaming.UnderscoreToDot
-         );
+          var result = PullHandler.BuildPropertyDefinitions(
+             [
+                new TranslationItemResponse { Key = "Link_Back", Value = "Back legacy" },
+                new TranslationItemResponse { Key = "Link.Back", Value = "Back" }
+             ],
+             [
+                new TranslationItemResponse { Key = "Link_Back", Value = "Back legacy" },
+                new TranslationItemResponse { Key = "Link.Back", Value = "Back" }
+             ],
+             TranslationKeyNaming.UnderscoreToDot
+          );
 
          result.Should().ContainSingle();
          result.Should().ContainSingle(x => x.PropertyName == "Link_Back" && x.Key == "Link.Back" && !x.EmitExplicitKey && x.DefaultValue == "Back");
@@ -58,13 +70,16 @@ public class PullHandlerTests
       [Fact]
       public void ShouldTrimSharedPrefixFromPropertyNameWhenProvided()
       {
-         var result = PullHandler.BuildPropertyDefinitions(
-            [
-               new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
-            ],
-            TranslationKeyNaming.UnderscoreToDot,
-            sharedKeyPrefix: "Resources.Translations"
-         );
+          var result = PullHandler.BuildPropertyDefinitions(
+             [
+                new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
+             ],
+             [
+                new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
+             ],
+             TranslationKeyNaming.UnderscoreToDot,
+             sharedKeyPrefix: "Resources.Translations"
+          );
 
          result.Should().ContainSingle(x => x.PropertyName == "Button_Save" && x.Key == "Resources.Translations.Button.Save" && x.EmitExplicitKey);
       }

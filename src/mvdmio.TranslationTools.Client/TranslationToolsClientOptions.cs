@@ -20,8 +20,4 @@ public sealed class TranslationToolsClientOptions
    /// </summary>
    public CultureInfo[] SupportedLocales { get; set; } = [];
 
-   /// <summary>
-   /// Duration used by internal client cache entries.
-   /// </summary>
-   public TimeSpan CacheDuration { get; set; } = TimeSpan.FromMinutes(15);
 }

@@ -32,7 +32,8 @@ keyNaming: UnderscoreToDot
 defaultLocale: en
 ```
 
-Relative `output` paths are resolved from the `.mvdmio-translations.yml` directory.
+`.mvdmio-translations.yml` must live in the project root.
+Relative `output` paths are resolved from that project root.
 
 `defaultLocale` is optional. `translations migrate` uses it as the locale for base `Name.resx` files when present. If omitted, migrate falls back to the remote project default locale.
 
@@ -79,16 +80,19 @@ translations pull
 translations pull --overwrite
 ```
 
-`translations pull` reads `.mvdmio-translations.yml`, fetches project metadata, pulls the default locale, and writes the manifest file.
+`translations pull` reads `.mvdmio-translations.yml`, fetches project metadata, pulls all project locales, writes the manifest file, and writes `.mvdmio-translations.snapshot.json` in the project root.
 
 By default, pull merges with an existing manifest file and preserves matching existing properties. Use `--overwrite` to replace them with incoming values.
 
 If multiple source keys collapse to the same property under `keyNaming`, pull keeps the key that matches the configured naming policy.
 
+Manifest generation uses the union of keys across all locales. Manifest `DefaultValue` comes from the default locale snapshot.
+
 The tool always uses `https://translations.mvdm.io`.
 
 Generated manifest uses inline partial properties compatible with `mvdmio.TranslationTools.Client` source generation.
 Generated manifests are always `public static partial class` and do not emit a `Culture` property.
+Generated manifests expose sync properties plus generated `GetAsync(...)` helpers at compile time.
 
 ## Push
 

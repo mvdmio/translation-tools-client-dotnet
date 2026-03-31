@@ -31,7 +31,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    /// Create a client using cache services registered in the container.
    /// </summary>
    public TranslationToolsClient(HttpClient client, IOptions<TranslationToolsClientOptions> options, IServiceProvider serviceProvider)
-      : this(client, options, TranslationToolsClientCacheFactory.Create(serviceProvider))
+      : this(client, options, new LocalTranslationToolsClientCache())
    {
    }
 

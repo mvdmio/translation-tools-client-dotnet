@@ -29,13 +29,31 @@ internal static class TranslationManifestEmitter
       builder.Append(model.TypeName);
       builder.AppendLine();
       builder.AppendLine("{");
+      builder.AppendLine("   private static global::System.Type ManifestType => typeof(" + model.TypeName + ");");
+      builder.AppendLine();
       builder.AppendLine("   private static string Get(string key, string? defaultValue = null)");
       builder.AppendLine("   {");
 
       if (model.UsesCultureOverride)
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translate.Get(key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue);");
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.Get(ManifestType, key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue);");
       else
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translate.Get(key, defaultValue);");
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.Get(ManifestType, key, defaultValue);");
+
+      builder.AppendLine("   }");
+      builder.AppendLine();
+      builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
+      builder.AppendLine("   {");
+
+      if (model.UsesCultureOverride)
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.GetAsync(ManifestType, key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, cancellationToken);");
+      else
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.GetAsync(ManifestType, key, defaultValue, cancellationToken);");
+
+      builder.AppendLine("   }");
+      builder.AppendLine();
+      builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, global::System.Globalization.CultureInfo locale, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
+      builder.AppendLine("   {");
+      builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.GetAsync(ManifestType, key, locale, defaultValue, cancellationToken);");
 
       builder.AppendLine("   }");
       builder.AppendLine();

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "defaultLocale": "en",
+    "locales": ["en"]
+  },
+  "translations": {
+    "en": {
+      "home.title": "Embedded home"
+    }
+  }
+}

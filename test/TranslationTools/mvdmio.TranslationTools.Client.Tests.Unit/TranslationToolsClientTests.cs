@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
@@ -6,8 +5,6 @@ using System.Reflection;
 using System.Text;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
@@ -104,20 +101,6 @@ public abstract class TranslationToolsClientTests : IDisposable
       }
 
       [Fact]
-      public async Task TranslateGetAsync_ShouldSendEncodedDefaultValue()
-      {
-         var cancellationToken = TestContext.Current.CancellationToken;
-         EnqueueJson("""{"key":"home.title","value":null}""");
-         using var client = CreateClient();
-
-         Translate.Configure(client);
-         _ = await Translate.GetAsync("home.title", new CultureInfo("en"), "Hello world & more", cancellationToken);
-
-         Handler.Requests.Should().ContainSingle();
-         Handler.Requests[0].RequestUri!.PathAndQuery.Should().Be("/api/v1/translations/en/home.title?defaultValue=Hello%20world%20%26%20more");
-      }
-
-      [Fact]
       public async Task ShouldRejectInvalidKey()
       {
          var cancellationToken = TestContext.Current.CancellationToken;
@@ -210,17 +193,17 @@ public abstract class TranslationToolsClientTests : IDisposable
       }
    }
 
-   public class TranslateStatic : TranslationToolsClientTests
+   public class ManifestRuntime : TranslationToolsClientTests
    {
       [Fact]
-      public async Task ShouldUseConfiguredClient()
+      public async Task ShouldUseRegisteredClientForAsyncReads()
       {
          var cancellationToken = TestContext.Current.CancellationToken;
          EnqueueJson("""{"key":"home.title","value":"Hello"}""");
          using var client = CreateClient();
 
-         Translate.Configure(client);
-         var value = await Translate.GetAsync("home.title", cancellationToken: cancellationToken);
+         TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
+         var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "home.title", cancellationToken: cancellationToken);
 
          value.Should().Be("Hello");
       }
@@ -232,47 +215,39 @@ public abstract class TranslationToolsClientTests : IDisposable
          EnqueueJson("""{"key":"home.title","value":null}""");
          using var client = CreateClient();
 
-         Translate.Configure(client);
-         var value = await Translate.GetAsync("home.title", "Fallback", cancellationToken);
+         TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
+         var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "home.title", defaultValue: "Fallback", cancellationToken: cancellationToken);
 
          value.Should().Be("Fallback");
       }
 
       [Fact]
-      public async Task ShouldUseCurrentUICultureForSyncGet()
+      public void ShouldReturnFallbackWithoutFetching_WhenSyncGetMissesSnapshot()
       {
-         var cancellationToken = TestContext.Current.CancellationToken;
-         EnqueueJson("""[{"key":"home.title","value":"Hallo"}]""");
-         using var client = CreateClient([new CultureInfo("nl-NL")]);
+          var value = TranslationManifestRuntime.Get(typeof(TranslationToolsClientTests), "checkout.title", "Checkout");
+
+          value.Should().Be("Checkout");
+          Handler.Requests.Should().BeEmpty();
+      }
+
+      [Fact]
+      public void ShouldReadEmbeddedSnapshot_ForSyncReads()
+      {
          var originalCulture = CultureInfo.CurrentUICulture;
 
          try
          {
-            Translate.Configure(client);
-            await client.Initialize(cancellationToken);
-            CultureInfo.CurrentUICulture = new CultureInfo("nl-NL");
+            CultureInfo.CurrentUICulture = new CultureInfo("en");
 
-            var value = Translate.Get("home.title");
+            var value = TranslationManifestRuntime.Get(typeof(TranslationToolsClientTests), "home.title", "Fallback");
 
-            value.Should().Be("Hallo");
-            Handler.Requests.Should().ContainSingle();
+            value.Should().Be("Embedded home");
+            Handler.Requests.Should().BeEmpty();
          }
          finally
          {
             CultureInfo.CurrentUICulture = originalCulture;
          }
-      }
-
-      [Fact]
-      public void ShouldReturnFallbackWithoutFetching_WhenSyncGetMissesCache()
-      {
-         using var client = CreateClient();
-
-         Translate.Configure(client);
-         var value = Translate.Get("checkout.title", "Checkout");
-
-         value.Should().Be("Checkout");
-         Handler.Requests.Should().BeEmpty();
       }
    }
 
@@ -298,45 +273,11 @@ public abstract class TranslationToolsClientTests : IDisposable
 
          options.SupportedLocales.Select(x => x.Name).Should().Equal(["en", "nl"]);
       }
-
-      [Fact]
-      public void ShouldUseMemoryCache_WhenRegistered()
-      {
-         var serviceProvider = CreateServiceProvider(services => services.AddMemoryCache());
-
-         var cache = TranslationToolsClientCacheFactory.Create(serviceProvider);
-
-         cache.Should().BeOfType<MemoryTranslationToolsClientCache>();
-      }
-
-      [Fact]
-      public void ShouldUseDistributedCache_WhenRegistered()
-      {
-         var serviceProvider = CreateServiceProvider(services => services.AddSingleton<IDistributedCache, FakeDistributedCache>());
-
-         var cache = TranslationToolsClientCacheFactory.Create(serviceProvider);
-
-         cache.Should().BeOfType<DistributedTranslationToolsClientCache>();
-      }
-
-      [Fact]
-      public void ShouldUseHybridCache_WhenRegistered()
-      {
-         var serviceProvider = CreateServiceProvider(services => {
-               services.AddSingleton<IDistributedCache, FakeDistributedCache>();
-               services.AddSingleton<HybridCache, FakeHybridCache>();
-            }
-         );
-
-         var cache = TranslationToolsClientCacheFactory.Create(serviceProvider);
-
-         cache.Should().BeOfType<HybridTranslationToolsClientCache>();
-      }
    }
 
    protected TranslationToolsClient CreateClient(CultureInfo[]? supportedLocales = null)
    {
-      return new TranslationToolsClient(HttpClient, CreateOptions(supportedLocales), new LocalTranslationToolsClientCache(TimeSpan.FromMinutes(5)));
+      return new TranslationToolsClient(HttpClient, CreateOptions(supportedLocales), new LocalTranslationToolsClientCache());
    }
 
    protected void EnqueueJson(string body)
@@ -356,8 +297,7 @@ public abstract class TranslationToolsClientTests : IDisposable
       return Options.Create(
          new TranslationToolsClientOptions {
             ApiKey = "test-api-key",
-            SupportedLocales = supportedLocales ?? [new CultureInfo("en")],
-            CacheDuration = TimeSpan.FromMinutes(5)
+            SupportedLocales = supportedLocales ?? [new CultureInfo("en")]
          }
       );
    }
@@ -368,20 +308,6 @@ public abstract class TranslationToolsClientTests : IDisposable
       var cacheField = typeof(TranslationToolsClient).GetField("_cache", BindingFlags.NonPublic | BindingFlags.Instance)!;
       var cache = (ITranslationToolsClientCache)cacheField.GetValue(client)!;
       return await cache.GetAsync<T>(key, cancellationToken);
-   }
-
-   private static ServiceProvider CreateServiceProvider(Action<IServiceCollection> configureServices)
-   {
-      var services = new ServiceCollection();
-
-      services.Configure<TranslationToolsClientOptions>(options => {
-            options.ApiKey = "test-api-key";
-            options.CacheDuration = TimeSpan.FromMinutes(5);
-         }
-      );
-
-      configureServices(services);
-      return services.BuildServiceProvider();
    }
 
    protected sealed class RecordingHandler : HttpMessageHandler
@@ -412,101 +338,6 @@ public abstract class TranslationToolsClientTests : IDisposable
             clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
 
          return clone;
-      }
-   }
-
-   private sealed class FakeDistributedCache : IDistributedCache
-   {
-      private readonly ConcurrentDictionary<string, byte[]> _entries = new();
-
-      public byte[]? Get(string key)
-      {
-         _entries.TryGetValue(key, out var value);
-         return value;
-      }
-
-      public Task<byte[]?> GetAsync(string key, CancellationToken token = default)
-      {
-         return Task.FromResult(Get(key));
-      }
-
-      public void Refresh(string key)
-      {
-      }
-
-      public Task RefreshAsync(string key, CancellationToken token = default)
-      {
-         return Task.CompletedTask;
-      }
-
-      public void Remove(string key)
-      {
-         _entries.TryRemove(key, out _);
-      }
-
-      public Task RemoveAsync(string key, CancellationToken token = default)
-      {
-         Remove(key);
-         return Task.CompletedTask;
-      }
-
-      public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
-      {
-         _entries[key] = value;
-      }
-
-      public Task SetAsync(
-         string key,
-         byte[] value,
-         DistributedCacheEntryOptions options,
-         CancellationToken token = default
-      )
-      {
-         Set(key, value, options);
-         return Task.CompletedTask;
-      }
-   }
-
-   private sealed class FakeHybridCache : HybridCache
-   {
-      private readonly ConcurrentDictionary<string, object?> _entries = new();
-
-      public override ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default)
-      {
-         _entries.TryRemove(key, out _);
-         return ValueTask.CompletedTask;
-      }
-
-      public override ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken = default)
-      {
-         return ValueTask.CompletedTask;
-      }
-
-      public override ValueTask<T> GetOrCreateAsync<TState, T>(
-         string key,
-         TState state,
-         Func<TState, CancellationToken, ValueTask<T>> underlyingDataCallback,
-         HybridCacheEntryOptions? options = null,
-         IEnumerable<string>? tags = null,
-         CancellationToken cancellationToken = default
-      )
-      {
-         if (_entries.TryGetValue(key, out var value) && value is T typed)
-            return ValueTask.FromResult(typed);
-
-         return underlyingDataCallback(state, cancellationToken);
-      }
-
-      public override ValueTask SetAsync<T>(
-         string key,
-         T value,
-         HybridCacheEntryOptions? options = null,
-         IEnumerable<string>? tags = null,
-         CancellationToken cancellationToken = default
-      )
-      {
-         _entries[key] = value;
-         return ValueTask.CompletedTask;
       }
    }
 }

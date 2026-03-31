@@ -149,32 +149,32 @@ public class PushHandlerTests
    public class ResolveProjectDirectory
    {
       [Fact]
-      public void ShouldResolveNearestCsprojFromOutputPath()
-      {
-         var rootDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-         var projectDirectory = Path.Combine(rootDirectory, "src", "Demo");
+       public void ShouldResolveNearestCsprojFromOutputPath()
+       {
+          var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
-         try
-         {
-            Directory.CreateDirectory(projectDirectory);
-            File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
-            Directory.CreateDirectory(Path.Combine(projectDirectory, "Localization"));
+          try
+          {
+             Directory.CreateDirectory(projectDirectory);
+             File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
+             Directory.CreateDirectory(Path.Combine(projectDirectory, "Localization"));
+             File.WriteAllText(Path.Combine(projectDirectory, ToolConfiguration.CONFIG_FILE_NAME), "apiKey: test\noutput: Localization/Localizations.cs\n");
 
-            var result = PushHandler.ResolveProjectDirectory(
-               new ToolConfiguration {
-                  ConfigDirectory = rootDirectory,
-                  Output = Path.Combine("src", "Demo", "Localization", "Localizations.cs")
-               }
-            );
+             var result = PushHandler.ResolveProjectDirectory(
+                new ToolConfiguration {
+                   ConfigDirectory = projectDirectory,
+                   Output = Path.Combine("Localization", "Localizations.cs")
+                }
+             );
 
             result.Should().Be(projectDirectory);
-         }
-         finally
-         {
-            if (Directory.Exists(rootDirectory))
-               Directory.Delete(rootDirectory, recursive: true);
-         }
-      }
+          }
+          finally
+          {
+             if (Directory.Exists(projectDirectory))
+                Directory.Delete(projectDirectory, recursive: true);
+          }
+       }
    }
 
    private static string CreateTempProject()
