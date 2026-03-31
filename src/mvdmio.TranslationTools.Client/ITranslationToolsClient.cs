@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,4 +47,9 @@ public interface ITranslationToolsClient
    /// Get a translation for a specific locale.
    /// </summary>
    Task<TranslationItemResponse> GetAsync(string key, CultureInfo locale, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Get all translations for a specific locale.
+   /// </summary>
+   Task<IReadOnlyDictionary<string, string?>> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default);
 }

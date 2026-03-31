@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -75,6 +76,18 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return GetAsync(key, locale, defaultValue: null, cancellationToken);
    }
 
+   /// <inheritdoc />
+   public async Task<IReadOnlyDictionary<string, string?>> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
+   {
+      var localeName = locale.Name;
+      var cached = await GetCachedLocaleAsync(localeName, cancellationToken);
+      if (cached is not null)
+         return cached.Value;
+
+      var fetched = await FetchLocaleAsync(localeName, cancellationToken);
+      return await StoreLocaleAsync(localeName, fetched, cancellationToken);
+   }
+
    /// <summary>
    /// Try to get a cached translation using <see cref="CultureInfo.CurrentUICulture"/>.
    /// </summary>
@@ -117,7 +130,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    {
       var localeName = locale.Name;
       var fetched = await FetchLocaleAsync(localeName, cancellationToken);
-      await CacheLocaleItemsAsync(localeName, fetched, cancellationToken);
+      await StoreLocaleAsync(localeName, fetched, cancellationToken);
    }
 
    private async Task<TranslationItemResponse[]> FetchLocaleAsync(string locale, CancellationToken cancellationToken)
@@ -160,6 +173,26 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return _cache.GetAsync<TranslationItemResponse>(BuildTranslationCacheKey(locale, key), cancellationToken);
    }
 
+   private ValueTask<TranslationToolsClientCacheEntry<Dictionary<string, string?>>?> GetCachedLocaleAsync(string locale, CancellationToken cancellationToken)
+   {
+      return _cache.GetAsync<Dictionary<string, string?>>(BuildLocaleCacheKey(locale), cancellationToken);
+   }
+
+   private async Task<Dictionary<string, string?>> StoreLocaleAsync(string locale, TranslationItemResponse[] fetched, CancellationToken cancellationToken)
+   {
+      var stored = ToLocaleDictionary(fetched);
+      await CacheLocaleItemsAsync(locale, fetched, cancellationToken);
+      await _cache.SetAsync(
+         BuildLocaleCacheKey(locale),
+         new TranslationToolsClientCacheEntry<Dictionary<string, string?>> {
+            Value = stored
+         },
+         cancellationToken
+      );
+
+      return stored;
+   }
+
    private async ValueTask CacheLocaleItemsAsync(string locale, TranslationItemResponse[] items, CancellationToken cancellationToken)
    {
       foreach (var item in items)
@@ -196,5 +229,20 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    private static string BuildTranslationCacheKey(string locale, string key)
    {
       return $"translationtools:item:{locale}:{key}";
+   }
+
+   private static Dictionary<string, string?> ToLocaleDictionary(IEnumerable<TranslationItemResponse> items)
+   {
+      var result = new Dictionary<string, string?>(StringComparer.Ordinal);
+
+      foreach (var item in items)
+         result[item.Key] = item.Value;
+
+      return result;
+   }
+
+   private static string BuildLocaleCacheKey(string locale)
+   {
+      return $"translationtools:locale:{locale}";
    }
 }

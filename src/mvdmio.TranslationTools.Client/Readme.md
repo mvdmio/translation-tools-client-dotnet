@@ -57,6 +57,7 @@ using mvdmio.TranslationTools.Client;
 var client = app.Services.GetRequiredService<TranslationToolsClient>();
 
 var item = await client.GetAsync("home.title", new CultureInfo("en"));
+var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 var cached = client.TryGetCached("home.title");
 var syncText = Translate.Get("home.title", "Home");
 var text = await Translate.GetAsync("home.title");
@@ -107,9 +108,11 @@ var key = Localizations.Keys.Button_Save;
 ## Caching
 
 - Client stores fetched single-item payload per locale/key cache entry.
+- Client stores fetched locale payloads per locale cache entry.
 - Repeated single-item requests reuse cached values until cache expiry.
+- Repeated locale requests reuse cached locale dictionaries until cache expiry.
 - Locale initialization fetches locale payloads and hydrates per-item cache entries.
-- Locale payload itself is not currently stored as a separate public cache object.
+- Locale fetches also hydrate per-item cache entries used by sync APIs.
 - Sync APIs (`TryGetCached`, `Translate.Get`, generated localization properties) read only from the local cache.
 
 ## Cache providers
@@ -136,11 +139,10 @@ await app.Services.InitializeTranslationToolsClientAsync();
 - `ITranslationToolsClient.TryGetCached(string, CultureInfo)`
 - `ITranslationToolsClient.GetAsync(string key, CancellationToken)`
 - `ITranslationToolsClient.GetAsync(string key, CultureInfo locale, CancellationToken)`
+- `ITranslationToolsClient.GetLocaleAsync(CultureInfo locale, CancellationToken)`
 - `Translate.Get(...)`
 - `Translate.GetAsync(...)`
 - `InitializeTranslationToolsClientAsync(CancellationToken)`
-
-Planned locale-level fetch/cache APIs from the implementation plan are not public yet.
 
 ## OpenAPI and docs
 

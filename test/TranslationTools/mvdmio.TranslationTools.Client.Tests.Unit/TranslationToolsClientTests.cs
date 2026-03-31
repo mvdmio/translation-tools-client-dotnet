@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Reflection;
@@ -169,6 +170,43 @@ public abstract class TranslationToolsClientTests : IDisposable
          fetched.Value.Should().Be("Hello");
          cached.Should().NotBeNull();
          cached!.Value.Value.Should().Be("Hello");
+      }
+   }
+
+   public class GetLocaleAsync : TranslationToolsClientTests
+   {
+      [Fact]
+      public async Task ShouldFetchWholeLocaleDictionaryAndHydrateItemCache()
+      {
+         var cancellationToken = TestContext.Current.CancellationToken;
+         EnqueueJson("""[{"key":"home.title","value":"Hello"},{"key":"home.subtitle","value":"Welcome"}]""");
+         ITranslationToolsClient client = CreateClient();
+
+         var result = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
+
+         result.Should().BeEquivalentTo(
+            new Dictionary<string, string?> {
+               ["home.title"] = "Hello",
+               ["home.subtitle"] = "Welcome"
+            }
+         );
+         Handler.Requests.Should().ContainSingle();
+         Handler.Requests[0].RequestUri!.PathAndQuery.Should().Be("/api/v1/translations/en");
+         ((TranslationToolsClient)client).TryGetCached("home.title", new CultureInfo("en"))!.Value.Should().Be("Hello");
+      }
+
+      [Fact]
+      public async Task ShouldReuseCachedLocaleDictionaryOnSubsequentRequests()
+      {
+         var cancellationToken = TestContext.Current.CancellationToken;
+         EnqueueJson("""[{"key":"home.title","value":"Hello"}]""");
+         using var client = CreateClient();
+
+         var first = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
+         var second = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
+
+         second.Should().BeEquivalentTo(first);
+         Handler.Requests.Should().ContainSingle();
       }
    }
 

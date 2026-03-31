@@ -54,6 +54,7 @@ using mvdmio.TranslationTools.Client;
 
 var title = await Translate.GetAsync("home.title", "Home");
 var cachedTitle = Translate.Get("home.title", "Home");
+var locale = await app.Services.GetRequiredService<ITranslationToolsClient>().GetLocaleAsync(new System.Globalization.CultureInfo("en"));
 ```
 
 Define manifest-backed translations with source generation:
@@ -106,6 +107,8 @@ translations migrate
 ```
 
 `translations migrate` requires `.mvdmio-translations.yml` to exist already. It scans all `.resx` files under the resolved project, imports full locale/value state through the TranslationTools import API, and then reuses the pull flow to regenerate the configured manifest file.
+
+When migrate finds a single logical resource set, imported keys keep their original `.resx` names. When multiple logical resource sets are present, migrate prefixes keys with the resource-set path and file name to keep them unique.
 
 Pull translations into a manifest file:
 

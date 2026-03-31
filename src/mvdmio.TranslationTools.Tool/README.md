@@ -52,12 +52,13 @@ translations migrate
 
 `translations migrate` requires `.mvdmio-translations.yml` to exist already. If configuration is missing, run `translations init` first.
 
-Current v1 migrate behavior:
+Current migrate behavior:
 
 - resolves the nearest `.csproj` from the configured output path
 - scans all `.resx` files under that project, excluding `bin/` and `obj/`
 - imports all logical resource sets in one run
-- prefixes API keys with the relative resource-set path and base name
+- keeps original `.resx` keys when the project has a single logical resource set
+- prefixes API keys with the relative resource-set path and base name when the project has multiple logical resource sets
 - treats base `Name.resx` files as the resolved default locale
 - imports localized-only keys even when the base file does not contain them
 - keeps empty locale files in project locale metadata and reports warnings
@@ -66,9 +67,10 @@ Current v1 migrate behavior:
 
 Examples:
 
-- `Errors.resx` key `Title` -> `Errors.Title`
-- `Shared.Validation.resx` key `Required` -> `Shared.Validation.Required`
-- `Admin/Labels.resx` key `Title` -> `Admin.Labels.Title`
+- single resource set: `Errors.resx` key `Title` -> `Title`
+- multiple resource sets: `Errors.resx` key `Title` -> `Errors.Title`
+- multiple resource sets: `Shared.Validation.resx` key `Required` -> `Shared.Validation.Required`
+- multiple resource sets: `Admin/Labels.resx` key `Title` -> `Admin.Labels.Title`
 
 ## Pull
 

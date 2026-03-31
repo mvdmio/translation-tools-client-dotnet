@@ -155,7 +155,7 @@ public class MigrateHandlerTests
             var scanResult = new ResxMigrationScanner().ScanProject(projectDirectory);
             var result = new ProjectTranslationStateBuilder().Build(scanResult, "en");
 
-            result.State.Items.Should().ContainSingle(x => x.Key == "Errors.OnlyNl" && x.Translations["en"] == null && x.Translations["nl"] == "Alleen nl");
+            result.State.Items.Should().ContainSingle(x => x.Key == "OnlyNl" && x.Translations["en"] == null && x.Translations["nl"] == "Alleen nl");
          }
          finally
          {
@@ -198,7 +198,7 @@ public class MigrateHandlerTests
             var scanResult = new ResxMigrationScanner().ScanProject(projectDirectory);
             var result = new ProjectTranslationStateBuilder().Build(scanResult, "en");
 
-            result.State.Items.Should().ContainSingle(x => x.Key == "Errors.Title" && x.Translations["en"] == null && x.Translations["nl"] == "Fout");
+            result.State.Items.Should().ContainSingle(x => x.Key == "Title" && x.Translations["en"] == null && x.Translations["nl"] == "Fout");
          }
          finally
          {
@@ -230,7 +230,7 @@ public class MigrateHandlerTests
       }
 
       [Fact]
-      public void ShouldPrefixApiKeysWithLogicalResourceSetBaseName()
+      public void ShouldUseOriginalKeysWhenProjectHasSingleLogicalResourceSet()
       {
          var projectDirectory = CreateTempProject();
 
@@ -238,11 +238,35 @@ public class MigrateHandlerTests
          {
             Directory.CreateDirectory(Path.Combine(projectDirectory, "Admin"));
             File.WriteAllText(Path.Combine(projectDirectory, "Admin", "Labels.resx"), Resx(("Title", "Admin title")));
+            File.WriteAllText(Path.Combine(projectDirectory, "Admin", "Labels.nl.resx"), Resx(("Title", "Beheer titel")));
 
             var scanResult = new ResxMigrationScanner().ScanProject(projectDirectory);
             var result = new ProjectTranslationStateBuilder().Build(scanResult, "en");
 
-            result.State.Items.Should().ContainSingle(x => x.Key == "Admin.Labels.Title");
+            result.State.Items.Should().ContainSingle(x => x.Key == "Title");
+         }
+         finally
+         {
+            Directory.Delete(projectDirectory, recursive: true);
+         }
+      }
+
+      [Fact]
+      public void ShouldPrefixApiKeysWhenProjectHasMultipleLogicalResourceSets()
+      {
+         var projectDirectory = CreateTempProject();
+
+         try
+         {
+            Directory.CreateDirectory(Path.Combine(projectDirectory, "Admin"));
+            File.WriteAllText(Path.Combine(projectDirectory, "Admin", "Labels.resx"), Resx(("Title", "Admin title")));
+            File.WriteAllText(Path.Combine(projectDirectory, "Errors.resx"), Resx(("Title", "Error title")));
+
+            var scanResult = new ResxMigrationScanner().ScanProject(projectDirectory);
+            var result = new ProjectTranslationStateBuilder().Build(scanResult, "en");
+
+            result.State.Items.Should().Contain(x => x.Key == "Admin.Labels.Title");
+            result.State.Items.Should().Contain(x => x.Key == "Errors.Title");
          }
          finally
          {
@@ -348,7 +372,7 @@ public class MigrateHandlerTests
 
             apiService.ImportRequest.Should().NotBeNull();
             apiService.ImportRequest!.DefaultLocale.Should().Be("en");
-            apiService.ImportRequest.Items.Should().ContainSingle(x => x.Key == "Errors.Title");
+            apiService.ImportRequest.Items.Should().ContainSingle(x => x.Key == "Title");
             pullRunner.Calls.Should().ContainSingle();
             pullRunner.Calls[0].overwrite.Should().BeTrue();
          }
