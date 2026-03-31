@@ -1,6 +1,6 @@
 # mvdmio.TranslationTools.Tool
 
-CLI tool for pulling TranslationTools API translations into a C# manifest file and pushing manifest keys back to the API.
+CLI tool for migrating `.resx` files into TranslationTools, pulling TranslationTools API translations into a C# manifest file, and pushing manifest keys back to the API.
 
 ## Install
 
@@ -14,6 +14,7 @@ Command name: `translations`
 
 ```bash
 translations init
+translations migrate
 translations pull
 translations push
 ```
@@ -28,9 +29,12 @@ output: Localizations.cs
 namespace: MyApp.Localization
 className: Localizations
 keyNaming: UnderscoreToDot
+defaultLocale: en
 ```
 
 Relative `output` paths are resolved from the `.mvdmio-translations.yml` directory.
+
+`defaultLocale` is optional. `translations migrate` uses it as the locale for base `Name.resx` files when present. If omitted, migrate falls back to the remote project default locale.
 
 ## Init
 
@@ -39,6 +43,32 @@ translations init
 ```
 
 Creates `.mvdmio-translations.yml` in the current directory with starter values.
+
+## Migrate
+
+```bash
+translations migrate
+```
+
+`translations migrate` requires `.mvdmio-translations.yml` to exist already. If configuration is missing, run `translations init` first.
+
+Current v1 migrate behavior:
+
+- resolves the nearest `.csproj` from the configured output path
+- scans all `.resx` files under that project, excluding `bin/` and `obj/`
+- imports all logical resource sets in one run
+- prefixes API keys with the relative resource-set path and base name
+- treats base `Name.resx` files as the resolved default locale
+- imports localized-only keys even when the base file does not contain them
+- keeps empty locale files in project locale metadata and reports warnings
+- uploads full translation state through the TranslationTools import API
+- reuses pull overwrite behavior internally to regenerate the manifest from API state
+
+Examples:
+
+- `Errors.resx` key `Title` -> `Errors.Title`
+- `Shared.Validation.resx` key `Required` -> `Shared.Validation.Required`
+- `Admin/Labels.resx` key `Title` -> `Admin.Labels.Title`
 
 ## Pull
 

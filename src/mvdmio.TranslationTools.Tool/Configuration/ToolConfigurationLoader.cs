@@ -5,13 +5,27 @@ namespace mvdmio.TranslationTools.Tool.Configuration;
 
 internal static class ToolConfigurationLoader
 {
-   public static ToolConfiguration Load()
+   public static bool TryLoad(out ToolConfiguration config)
    {
       var configFilePath = FindConfigFile();
 
       if (configFilePath is null)
-         return new ToolConfiguration();
+      {
+         config = new ToolConfiguration();
+         return false;
+      }
 
+      config = LoadFromPath(configFilePath);
+      return true;
+   }
+
+   public static ToolConfiguration Load()
+   {
+      return TryLoad(out var config) ? config : new ToolConfiguration();
+   }
+
+   private static ToolConfiguration LoadFromPath(string configFilePath)
+   {
       var yaml = File.ReadAllText(configFilePath);
       var deserializer = new DeserializerBuilder()
          .WithNamingConvention(CamelCaseNamingConvention.Instance)

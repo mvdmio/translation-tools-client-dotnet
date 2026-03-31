@@ -24,10 +24,11 @@ public class ToolConfigurationTests
          File.Exists(path).Should().BeTrue();
 
          var yaml = File.ReadAllText(path);
-         yaml.Should().Contain("apiKey: project-api-key");
-         yaml.Should().Contain("output: Localizations.cs");
-         yaml.Should().NotContain("basePath:");
-         yaml.Should().NotContain("locale:");
+          yaml.Should().Contain("apiKey: project-api-key");
+          yaml.Should().Contain("output: Localizations.cs");
+          yaml.Should().NotContain("defaultLocale:");
+          yaml.Should().NotContain("basePath:");
+          yaml.Should().NotContain("locale:");
          yaml.Should().NotContain("includeCulture:");
          yaml.Should().NotContain("staticClass:");
       }

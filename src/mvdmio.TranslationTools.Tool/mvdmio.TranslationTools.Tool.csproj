@@ -12,9 +12,9 @@
    </PropertyGroup>
 
    <PropertyGroup Label="Package configuration">
-      <Version>0.1.3</Version>
+      <Version>0.2.0</Version>
       <Title>mvdmio.TranslationTools.Tool</Title>
-      <Description>CLI tool for pulling translation manifests from TranslationTools.</Description>
+      <Description>CLI tool for initializing, migrating, pulling, and pushing TranslationTools manifests.</Description>
       <Company>mvdmio</Company>
       <Authors>Michiel van der Meer</Authors>
       <PackageReadmeFile>README.md</PackageReadmeFile>

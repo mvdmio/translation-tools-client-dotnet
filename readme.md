@@ -5,7 +5,7 @@ Public .NET packages for working with the TranslationTools API and generated loc
 ## Packages
 
 - `mvdmio.TranslationTools.Client` - API client, caching, DI helpers, static `Translate` facade, and source-generated manifest support
-- `mvdmio.TranslationTools.Tool` - .NET tool for initializing config, pulling manifests, and pushing manifest keys back to TranslationTools
+- `mvdmio.TranslationTools.Tool` - .NET tool for initializing config, migrating `.resx` files, pulling manifests, and pushing manifest keys back to TranslationTools
 - `mvdmio.TranslationTools.Client.SourceGenerator` - bundled with the client package; not shipped as a separate public package
 
 ## Install
@@ -85,6 +85,7 @@ Initialize configuration:
 
 ```bash
 translations init
+translations migrate
 ```
 
 Example `.mvdmio-translations.yml`:
@@ -95,7 +96,16 @@ output: Localizations.cs
 namespace: MyApp.Localization
 className: Localizations
 keyNaming: UnderscoreToDot
+defaultLocale: en
 ```
+
+Migrate `.resx` files into TranslationTools and regenerate the manifest:
+
+```bash
+translations migrate
+```
+
+`translations migrate` requires `.mvdmio-translations.yml` to exist already. It scans all `.resx` files under the resolved project, imports full locale/value state through the TranslationTools import API, and then reuses the pull flow to regenerate the configured manifest file.
 
 Pull translations into a manifest file:
 

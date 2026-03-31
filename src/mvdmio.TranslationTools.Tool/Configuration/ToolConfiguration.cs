@@ -12,6 +12,7 @@ internal sealed class ToolConfiguration
    [YamlIgnore]
    public string ConfigDirectory { get; set; } = Directory.GetCurrentDirectory();
    public string? ApiKey { get; set; }
+   public string? DefaultLocale { get; set; }
    public string? Output { get; set; }
    public string? Namespace { get; set; }
    public string ClassName { get; set; } = "Localizations";
