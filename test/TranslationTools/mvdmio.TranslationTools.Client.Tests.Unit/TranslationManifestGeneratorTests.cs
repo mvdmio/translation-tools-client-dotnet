@@ -172,6 +172,15 @@ public class TranslationManifestGeneratorTests
       result.GeneratedSource.Should().Contain("public const string Label_Name = \"label_name\";");
    }
 
+   [Fact]
+   public void ShouldReferenceStableRoslynAssemblies()
+   {
+      var references = typeof(TranslationManifestGenerator).Assembly.GetReferencedAssemblies();
+
+      references.Single(x => x.Name == "Microsoft.CodeAnalysis").Version!.Major.Should().Be(4);
+      references.Single(x => x.Name == "Microsoft.CodeAnalysis.CSharp").Version!.Major.Should().Be(4);
+   }
+
    private static GeneratorTestResult RunGenerator(string source)
    {
       var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);

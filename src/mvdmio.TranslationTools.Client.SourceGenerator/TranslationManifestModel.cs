@@ -10,7 +10,7 @@ internal sealed class TranslationManifestModel
    public string Accessibility { get; set; } = string.Empty;
    public bool IsStatic { get; set; }
    public bool UsesCultureOverride { get; set; }
-   public ImmutableArray<TranslationManifestPropertyModel> Properties { get; set; } = [];
+   public ImmutableArray<TranslationManifestPropertyModel> Properties { get; set; } = ImmutableArray<TranslationManifestPropertyModel>.Empty;
 }
 
 internal sealed class TranslationManifestPropertyModel
@@ -25,5 +25,5 @@ internal sealed class TranslationManifestPropertyModel
 internal sealed class TranslationManifestResult
 {
    public TranslationManifestModel? Model { get; set; }
-   public ImmutableArray<Diagnostic> Diagnostics { get; set; } = [];
+   public ImmutableArray<Diagnostic> Diagnostics { get; set; } = ImmutableArray<Diagnostic>.Empty;
 }

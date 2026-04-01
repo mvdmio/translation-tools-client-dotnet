@@ -2,6 +2,8 @@
 
 Public .NET packages for working with the TranslationTools API and generated localization manifests.
 
+Current client package version: `0.4.1`.
+
 ## Packages
 
 - `mvdmio.TranslationTools.Client` - API client, DI helpers, embedded snapshot bootstrap, and source-generated manifest support
@@ -72,6 +74,8 @@ public static partial class Localizations
    public static partial string Action_Cancel { get; }
 }
 ```
+
+NuGet consumers should receive the bundled source generator automatically. Version `0.4.1` retargets the bundled generator to stable Roslyn assemblies so generation also loads correctly in non-preview SDK and IDE hosts.
 
 After generation, consume strongly-typed properties and keys:
 
