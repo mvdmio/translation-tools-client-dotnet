@@ -13,4 +13,6 @@ internal interface ITranslationToolsClientCache
 
    ValueTask SetAsync<T>(string key, TranslationToolsClientCacheEntry<T> value, CancellationToken cancellationToken)
       where T : class;
+
+   ValueTask RemoveAsync(string key, CancellationToken cancellationToken);
 }

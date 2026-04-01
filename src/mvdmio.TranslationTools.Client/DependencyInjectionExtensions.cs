@@ -37,12 +37,13 @@ public static class DependencyInjectionExtensions
       );
 
        services.AddHttpClient(HTTP_CLIENT_NAME);
-       services.TryAddSingleton<ITranslationToolsClient>(static serviceProvider => {
-          var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-          var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
-          var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
-          return new TranslationToolsClient(httpClient, clientOptions, serviceProvider);
-       });
+        services.TryAddSingleton<ITranslationToolsClient>(static serviceProvider => {
+           var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+           var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
+           var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
+           return new TranslationToolsClient(httpClient, clientOptions, serviceProvider);
+        });
+       services.TryAddSingleton<TranslationToolsLiveUpdateService>();
 
       return services;
    }
@@ -60,6 +61,13 @@ public static class DependencyInjectionExtensions
          TranslationManifestRuntime.RegisterClient(assembly, client);
 
       await client.Initialize(cancellationToken);
+
+      var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
+      if (options.EnableLiveUpdates)
+      {
+         var liveUpdateService = app.Services.GetRequiredService<TranslationToolsLiveUpdateService>();
+         await liveUpdateService.StartAsync(app.Lifetime.ApplicationStopping);
+      }
    }
 
    private static Assembly[] GetManifestAssemblies(Assembly rootAssembly)

@@ -26,6 +26,7 @@ public abstract class TranslationToolsClientTests : IDisposable
 
    public void Dispose()
    {
+      TranslationManifestRuntime.UnregisterClient(typeof(TranslationToolsClientTests).Assembly);
       HttpClient.Dispose();
    }
 
@@ -188,10 +189,151 @@ public abstract class TranslationToolsClientTests : IDisposable
          var first = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
          var second = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
 
-         second.Should().BeEquivalentTo(first);
-         Handler.Requests.Should().ContainSingle();
-      }
-   }
+          second.Should().BeEquivalentTo(first);
+          Handler.Requests.Should().ContainSingle();
+       }
+
+       [Fact]
+       public async Task RefreshLocaleAsync_ShouldReplaceCachedLocaleValues()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          EnqueueJson("""[{"key":"home.title","value":"Hello"},{"key":"home.subtitle","value":"Welcome"}]""");
+          EnqueueJson("""[{"key":"home.title","value":"Hi"}]""");
+          using var client = CreateClient();
+
+          await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
+          await client.RefreshLocaleAsync(new CultureInfo("en"), cancellationToken);
+
+          client.TryGetCached("home.title", new CultureInfo("en"))!.Value.Should().Be("Hi");
+          client.TryGetCached("home.subtitle", new CultureInfo("en")).Should().BeNull();
+
+          var locale = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
+          locale.Should().BeEquivalentTo(
+             new Dictionary<string, string?> {
+                ["home.title"] = "Hi"
+             }
+          );
+          Handler.Requests.Should().HaveCount(2);
+       }
+
+       [Fact]
+       public async Task InvalidateLocale_ShouldRefetchOnNextRead()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          EnqueueJson("""[{"key":"home.title","value":"Hello"}]""");
+          EnqueueJson("""[{"key":"home.title","value":"Hi again"}]""");
+          using var client = CreateClient();
+
+          var first = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
+          client.InvalidateLocale(new CultureInfo("en"));
+          var second = await client.GetLocaleAsync(new CultureInfo("en"), cancellationToken);
+
+          first["home.title"].Should().Be("Hello");
+          second["home.title"].Should().Be("Hi again");
+          Handler.Requests.Should().HaveCount(2);
+       }
+    }
+
+    public class CacheUpdates : TranslationToolsClientTests
+    {
+       [Fact]
+       public async Task ApplyLocaleUpdateAsync_ShouldUpdateTryGetCached()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          using var client = CreateClient();
+
+          await client.ApplyLocaleUpdateAsync(
+             new CultureInfo("en"),
+             new Dictionary<string, string?> {
+                ["home.title"] = "Hello",
+                ["home.subtitle"] = "Welcome"
+             },
+             cancellationToken
+          );
+
+          client.TryGetCached("home.title", new CultureInfo("en"))!.Value.Should().Be("Hello");
+          client.TryGetCached("home.subtitle", new CultureInfo("en"))!.Value.Should().Be("Welcome");
+       }
+
+       [Fact]
+       public async Task ApplyUpdateAsync_ShouldUpdateTryGetCached()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          using var client = CreateClient();
+
+          await client.ApplyUpdateAsync(
+             new TranslationItemResponse {
+                Key = "home.title",
+                Value = "Live value"
+             },
+             new CultureInfo("en"),
+             cancellationToken
+          );
+
+          client.TryGetCached("home.title", new CultureInfo("en"))!.Value.Should().Be("Live value");
+       }
+
+       [Fact]
+       public async Task Invalidate_ShouldRemoveCachedItemAndRefetchOnNextRead()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          EnqueueJson("""{"key":"home.title","value":"Hello"}""");
+          EnqueueJson("""{"key":"home.title","value":"Hi again"}""");
+          using var client = CreateClient();
+
+          var first = await client.GetAsync("home.title", new CultureInfo("en"), cancellationToken);
+          client.Invalidate("home.title", new CultureInfo("en"));
+          var second = await client.GetAsync("home.title", new CultureInfo("en"), cancellationToken);
+
+          first.Value.Should().Be("Hello");
+          second.Value.Should().Be("Hi again");
+          Handler.Requests.Should().HaveCount(2);
+       }
+    }
+
+    public class LiveUpdateMessages : TranslationToolsClientTests
+    {
+       [Fact]
+       public async Task Processor_ShouldApplyTranslationUpdatedMessage()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          using var client = CreateClient();
+
+          await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+             client,
+             """{"type":"translation-updated","locale":"en","key":"home.title","value":"Live title"}""",
+             cancellationToken
+          );
+
+          client.TryGetCached("home.title", new CultureInfo("en"))!.Value.Should().Be("Live title");
+       }
+
+       [Fact]
+       public async Task Processor_ShouldIgnoreConnectedMessage()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          using var client = CreateClient();
+
+          await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+             client,
+             """{"type":"connected"}""",
+             cancellationToken
+          );
+
+          client.TryGetCached("home.title", new CultureInfo("en")).Should().BeNull();
+       }
+
+       [Fact]
+       public async Task Processor_ShouldIgnoreInvalidPayload()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          using var client = CreateClient();
+
+          await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(client, "not-json", cancellationToken);
+
+          client.TryGetCached("home.title", new CultureInfo("en")).Should().BeNull();
+       }
+    }
 
    public class ManifestRuntime : TranslationToolsClientTests
    {
@@ -262,8 +404,8 @@ public abstract class TranslationToolsClientTests : IDisposable
       }
 
       [Fact]
-      public void ShouldReadEmbeddedSnapshot_ForSyncReads()
-      {
+       public void ShouldReadEmbeddedSnapshot_ForSyncReads()
+       {
          var originalCulture = CultureInfo.CurrentUICulture;
 
          try
@@ -278,9 +420,40 @@ public abstract class TranslationToolsClientTests : IDisposable
          finally
          {
             CultureInfo.CurrentUICulture = originalCulture;
-         }
-      }
-   }
+           }
+        }
+
+       [Fact]
+       public async Task ShouldPreferRegisteredClientCache_ForSyncReads()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          using var client = CreateClient();
+          var originalCulture = CultureInfo.CurrentUICulture;
+
+          try
+          {
+             CultureInfo.CurrentUICulture = new CultureInfo("en");
+             await client.ApplyUpdateAsync(
+                new TranslationItemResponse {
+                   Key = "home.title",
+                   Value = "Live home"
+                },
+                new CultureInfo("en"),
+                cancellationToken
+             );
+
+             TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
+             var value = TranslationManifestRuntime.Get(typeof(TranslationToolsClientTests), "home.title", "Fallback");
+
+             value.Should().Be("Live home");
+             Handler.Requests.Should().BeEmpty();
+          }
+          finally
+          {
+             CultureInfo.CurrentUICulture = originalCulture;
+          }
+       }
+    }
 
    public class DependencyInjection : TranslationToolsClientTests
    {

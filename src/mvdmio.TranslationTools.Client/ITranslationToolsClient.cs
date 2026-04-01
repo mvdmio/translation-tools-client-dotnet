@@ -52,4 +52,29 @@ public interface ITranslationToolsClient
    /// Get all translations for a specific locale.
    /// </summary>
    Task<IReadOnlyDictionary<string, string?>> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Refresh the cached locale payload from the server.
+   /// </summary>
+   Task RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Remove all cached translations for a locale.
+   /// </summary>
+   void InvalidateLocale(CultureInfo locale);
+
+   /// <summary>
+   /// Remove one cached translation.
+   /// </summary>
+   void Invalidate(string key, CultureInfo locale);
+
+   /// <summary>
+   /// Replace the cached locale payload with externally supplied values.
+   /// </summary>
+   Task ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default);
+
+   /// <summary>
+   /// Apply one externally supplied translation update to the cache.
+   /// </summary>
+   Task ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken cancellationToken = default);
 }

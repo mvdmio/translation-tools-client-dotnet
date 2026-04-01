@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API and generated localization manifests.
 
-Current client package version: `0.4.1`.
+Current client package version: `0.5.0`.
 
 ## Packages
 
@@ -43,10 +43,11 @@ using mvdmio.TranslationTools.Client;
 
 builder.Services.AddTranslationToolsClient(options => {
    options.ApiKey = "project-api-key";
+   options.EnableLiveUpdates = true;
 });
 
 var app = builder.Build();
-await app.InitializeTranslationToolsClient();
+await app.InitializeTranslationToolsClientAsync();
 ```
 
 Read translations at runtime:
@@ -75,7 +76,7 @@ public static partial class Localizations
 }
 ```
 
-NuGet consumers should receive the bundled source generator automatically. Version `0.4.1` retargets the bundled generator to stable Roslyn assemblies so generation also loads correctly in non-preview SDK and IDE hosts.
+NuGet consumers should receive the bundled source generator automatically. Version `0.4.1` retargeted the bundled generator to stable Roslyn assemblies so generation also loads correctly in non-preview SDK and IDE hosts.
 
 After generation, consume strongly-typed properties and keys:
 
@@ -89,8 +90,19 @@ Offline mode details:
 
 - `translations pull` writes `.mvdmio-translations.snapshot.json` in the project root.
 - The client package auto-embeds that snapshot into the consuming assembly.
-- Sync generated properties read from the in-memory cache and embedded snapshot only.
+- Sync generated properties read from the runtime client cache first, then the embedded snapshot.
 - Async generated helpers use embedded snapshot first, then network on miss.
+
+Live update cache support:
+
+- `ITranslationToolsClient` now exposes `RefreshLocaleAsync(...)`, `InvalidateLocale(...)`, `Invalidate(...)`, `ApplyLocaleUpdateAsync(...)`, and `ApplyUpdateAsync(...)`.
+- These APIs let ASP.NET/.NET apps refresh or mutate the runtime cache from an external push transport.
+- Built-in live transport is available behind `EnableLiveUpdates = true`.
+- Current WebSocket message contract:
+  - `{ "type": "connected" }`
+  - `{ "type": "translation-updated", "locale": "en", "key": "home.title", "value": "Hello" }`
+- Current live transport applies single-item cache updates only.
+- Still missing from the server for richer transport support: locale snapshot messages, invalidation messages, ordering/versioning, reconnect/resync guarantees.
 
 ## CLI quick start
 

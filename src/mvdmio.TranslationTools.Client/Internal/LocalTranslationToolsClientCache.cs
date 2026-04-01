@@ -30,4 +30,10 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
 
       return ValueTask.CompletedTask;
    }
+
+   public ValueTask RemoveAsync(string key, CancellationToken cancellationToken)
+   {
+      _entries.TryRemove(key, out _);
+      return ValueTask.CompletedTask;
+   }
 }

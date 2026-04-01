@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 
 namespace mvdmio.TranslationTools.Client;
 
+/// <summary>
+/// Runtime access to embedded translation snapshots and registered client caches.
+/// </summary>
 public static class TranslationManifestRuntime
 {
    private const string SNAPSHOT_RESOURCE_NAME = ".mvdmio-translations.snapshot.json";
@@ -21,20 +24,37 @@ public static class TranslationManifestRuntime
    private static readonly ConcurrentDictionary<Assembly, TranslationAssemblySnapshot?> SnapshotCache = new();
    private static readonly ConcurrentDictionary<Assembly, ITranslationToolsClient> Clients = new();
 
+   /// <summary>
+   /// Register a runtime client for generated manifest lookups in the given assembly.
+   /// </summary>
    public static void RegisterClient(Assembly assembly, ITranslationToolsClient client)
    {
       Clients[assembly] = client;
    }
 
+   internal static void UnregisterClient(Assembly assembly)
+   {
+      Clients.TryRemove(assembly, out _);
+   }
+
+   /// <summary>
+   /// Get a translation for the current UI culture.
+   /// </summary>
    public static string Get(Type manifestType, string key, string? defaultValue = null)
    {
       return Get(manifestType, key, CultureInfo.CurrentUICulture, defaultValue);
    }
 
+   /// <summary>
+   /// Get a translation for a specific locale.
+   /// </summary>
    public static string Get(Type manifestType, string key, CultureInfo locale, string? defaultValue = null)
    {
       key = Internal.TranslationClientInputValidator.ValidateKey(key);
       locale = ResolveLocale(locale, GetSnapshot(manifestType.Assembly));
+
+       if (TryGetCachedClientValue(manifestType.Assembly, locale, key, out var cachedValue))
+          return cachedValue ?? defaultValue ?? key;
 
       if (TryGetSnapshotValue(manifestType.Assembly, locale, key, out var value))
          return value ?? defaultValue ?? key;
@@ -42,11 +62,17 @@ public static class TranslationManifestRuntime
       return defaultValue ?? key;
    }
 
+   /// <summary>
+   /// Get a translation asynchronously for the current UI culture.
+   /// </summary>
    public static async Task<string> GetAsync(Type manifestType, string key, string? defaultValue = null, CancellationToken cancellationToken = default)
    {
       return await GetAsync(manifestType, key, CultureInfo.CurrentUICulture, defaultValue, cancellationToken);
    }
 
+   /// <summary>
+   /// Get a translation asynchronously for a specific locale.
+   /// </summary>
    public static async Task<string> GetAsync(Type manifestType, string key, CultureInfo locale, string? defaultValue = null, CancellationToken cancellationToken = default)
    {
       key = Internal.TranslationClientInputValidator.ValidateKey(key);
@@ -83,6 +109,22 @@ public static class TranslationManifestRuntime
       var snapshot = GetSnapshot(assembly);
       if (snapshot is not null && snapshot.TryGetValue(locale.Name, key, out value))
          return true;
+
+      value = null;
+      return false;
+   }
+
+   private static bool TryGetCachedClientValue(Assembly assembly, CultureInfo locale, string key, out string? value)
+   {
+      if (Clients.TryGetValue(assembly, out var client))
+      {
+         var cached = client.TryGetCached(key, locale);
+         if (cached is not null)
+         {
+            value = cached.Value;
+            return true;
+         }
+      }
 
       value = null;
       return false;

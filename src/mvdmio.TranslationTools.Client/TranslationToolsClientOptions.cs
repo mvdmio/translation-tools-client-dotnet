@@ -20,4 +20,9 @@ public sealed class TranslationToolsClientOptions
    /// </summary>
    public CultureInfo[] SupportedLocales { get; set; } = [];
 
+   /// <summary>
+   /// Enable built-in WebSocket live updates.
+   /// </summary>
+   public bool EnableLiveUpdates { get; set; }
+
 }

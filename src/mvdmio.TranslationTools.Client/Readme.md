@@ -15,6 +15,7 @@ using mvdmio.TranslationTools.Client;
 
 builder.Services.AddTranslationToolsClient(options => {
    options.ApiKey = "project-api-key";
+   options.EnableLiveUpdates = true;
 });
 
 var app = builder.Build();
@@ -96,8 +97,10 @@ var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Button_Save);
 - Sync generated properties call `TranslationManifestRuntime` through generated code.
 - Generated manifest classes also expose `GetAsync(...)` helpers.
 - Sync reads are cache-only; they never trigger network fetches.
+- Sync reads check the registered runtime client cache before the embedded snapshot.
 - Async reads use embedded snapshot first, then network on miss.
-- Fallback order: cache -> snapshot -> network.
+- Sync fallback order: runtime client cache -> embedded snapshot -> manifest `DefaultValue` -> key.
+- Async fallback order: embedded snapshot -> network -> manifest `DefaultValue` -> key.
 - Call `InitializeTranslationToolsClientAsync()` during app startup before relying on sync generated access.
 
 ## Offline snapshot
@@ -106,6 +109,37 @@ var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Button_Save);
 - The client package auto-embeds that root snapshot through a `buildTransitive` props file.
 - Snapshot lookup is assembly-scoped, so generated manifests read their own assembly's embedded snapshot.
 - If no embedded snapshot contains the key, sync reads fall back to manifest `DefaultValue`, then key.
+
+## Live update cache support
+
+- Public cache refresh/invalidation APIs:
+  - `RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)`
+  - `InvalidateLocale(CultureInfo locale)`
+  - `Invalidate(string key, CultureInfo locale)`
+- Public externally-driven cache update APIs:
+  - `ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default)`
+  - `ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken cancellationToken = default)`
+- `RefreshLocaleAsync(...)` replaces the cached locale payload and removes stale per-key entries for that locale.
+- `InvalidateLocale(...)` removes the cached locale payload and all cached items for that locale.
+- `Invalidate(...)` removes one cached item and removes it from the cached locale dictionary if present.
+- `ApplyLocaleUpdateAsync(...)` replaces the cached locale payload without fetching from HTTP.
+- `ApplyUpdateAsync(...)` updates a single cached item and updates the cached locale dictionary if that locale payload is already cached.
+
+## Push transport status
+
+- Built-in live transport is available when `EnableLiveUpdates = true`.
+- Transport flow:
+  - fetch socket token from `GET /api/v1/translations/socket-token`
+  - connect to `/ws/translations?token=...`
+  - ignore `{ "type": "connected" }`
+  - apply `{ "type": "translation-updated", "locale": "en", "key": "home.title", "value": "Hello" }`
+- Current transport applies single-item cache updates only.
+- Current implementation reconnects best-effort and fetches a fresh socket token before reconnecting.
+- Still missing for richer live sync:
+  - full-locale snapshot messages
+  - explicit invalidation messages
+  - ordering/version metadata
+  - replay/resync contract after disconnects
 
 ## Create-on-read and `defaultValue`
 
@@ -123,7 +157,9 @@ var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Button_Save);
 - Repeated locale requests reuse cached locale dictionaries for the process lifetime.
 - Locale initialization fetches locale payloads and hydrates per-item cache entries.
 - Locale fetches also hydrate per-item cache entries used by sync APIs.
-- Sync APIs (`TryGetCached`, generated localization properties) read only from the local cache and embedded snapshot.
+- Refreshing a locale replaces both the locale payload cache and its per-item entries.
+- External pushed updates can be applied into the same cache through `ApplyLocaleUpdateAsync(...)` or `ApplyUpdateAsync(...)`.
+- Sync APIs (`TryGetCached`, generated localization properties) read only from the local runtime cache and embedded snapshot; they never fetch over HTTP.
 - Only the built-in in-memory dictionary cache remains.
 
 ## Initialize behavior
@@ -144,6 +180,12 @@ await app.Services.InitializeTranslationToolsClientAsync();
 - `ITranslationToolsClient.GetAsync(string key, CancellationToken)`
 - `ITranslationToolsClient.GetAsync(string key, CultureInfo locale, CancellationToken)`
 - `ITranslationToolsClient.GetLocaleAsync(CultureInfo locale, CancellationToken)`
+- `ITranslationToolsClient.RefreshLocaleAsync(CultureInfo locale, CancellationToken)`
+- `ITranslationToolsClient.InvalidateLocale(CultureInfo locale)`
+- `ITranslationToolsClient.Invalidate(string key, CultureInfo locale)`
+- `ITranslationToolsClient.ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?>, CancellationToken)`
+- `ITranslationToolsClient.ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken)`
+- `TranslationToolsClientOptions.EnableLiveUpdates`
 - generated manifest properties and generated manifest `GetAsync(...)` helpers
 - `InitializeTranslationToolsClientAsync(CancellationToken)`
 
