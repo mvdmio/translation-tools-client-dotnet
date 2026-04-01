@@ -30,6 +30,11 @@ public abstract class TranslationToolsClientTests : IDisposable
       HttpClient.Dispose();
    }
 
+   [Translations]
+   private static partial class TestManifestAssemblyMarker
+   {
+   }
+
    public class Initialize : TranslationToolsClientTests
    {
       [Fact]
@@ -455,11 +460,11 @@ public abstract class TranslationToolsClientTests : IDisposable
        }
     }
 
-   public class DependencyInjection : TranslationToolsClientTests
-   {
+    public class DependencyInjection : TranslationToolsClientTests
+    {
       [Fact]
-      public void AddTranslationToolsClient_ShouldPickUpRequestLocalizationSupportedLocales()
-      {
+       public void AddTranslationToolsClient_ShouldPickUpRequestLocalizationSupportedLocales()
+       {
          var services = new ServiceCollection();
 
          services.Configure<RequestLocalizationOptions>(options => {
@@ -475,9 +480,17 @@ public abstract class TranslationToolsClientTests : IDisposable
          using var serviceProvider = services.BuildServiceProvider();
          var options = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
 
-         options.SupportedLocales.Select(x => x.Name).Should().Equal(["en", "nl"]);
-      }
-   }
+          options.SupportedLocales.Select(x => x.Name).Should().Equal(["en", "nl"]);
+       }
+
+       [Fact]
+       public void GetManifestAssemblies_ShouldIncludeLoadedManifestAssemblies()
+       {
+          var assemblies = DependencyInjectionExtensions.GetManifestAssemblies();
+
+          assemblies.Should().Contain(typeof(TestManifestAssemblyMarker).Assembly);
+       }
+    }
 
    protected TranslationToolsClient CreateClient(CultureInfo[]? supportedLocales = null)
    {
