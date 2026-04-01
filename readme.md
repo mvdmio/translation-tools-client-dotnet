@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API and generated localization manifests.
 
-Current client package version: `0.5.0`.
+Current client package version: `0.6.2`.
 
 ## Packages
 

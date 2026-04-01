@@ -6,6 +6,7 @@ using System.Text;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
 using Xunit;
@@ -296,10 +297,10 @@ public abstract class TranslationToolsClientTests : IDisposable
        }
     }
 
-    public class LiveUpdateMessages : TranslationToolsClientTests
-    {
-       [Fact]
-       public async Task Processor_ShouldApplyTranslationUpdatedMessage()
+     public class LiveUpdateMessages : TranslationToolsClientTests
+     {
+        [Fact]
+        public async Task Processor_ShouldApplyTranslationUpdatedMessage()
        {
           var cancellationToken = TestContext.Current.CancellationToken;
           using var client = CreateClient();
@@ -334,17 +335,82 @@ public abstract class TranslationToolsClientTests : IDisposable
           var cancellationToken = TestContext.Current.CancellationToken;
           using var client = CreateClient();
 
-          await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(client, "not-json", cancellationToken);
+           await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(client, "not-json", cancellationToken);
 
-          client.TryGetCached("home.title", new CultureInfo("en")).Should().BeNull();
-       }
-    }
+           client.TryGetCached("home.title", new CultureInfo("en")).Should().BeNull();
+      }
 
-   public class ManifestRuntime : TranslationToolsClientTests
+      [Fact]
+      public async Task Processor_ShouldLogAppliedTranslationUpdatedMessage()
+      {
+         var cancellationToken = TestContext.Current.CancellationToken;
+         using var client = CreateClient();
+         var logger = new TestLogger<TranslationToolsLiveUpdateService>();
+
+         await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+            client,
+            """{"type":"translation-updated","locale":"en","key":"home.title","value":"Live title"}""",
+            logger,
+            cancellationToken
+         );
+
+         logger.Entries.Should().Contain(x => x.Level == LogLevel.Debug && x.Message.Contains("Applying TranslationTools live update for en home.title", StringComparison.Ordinal));
+         logger.Entries.Should().Contain(x => x.Level == LogLevel.Debug && x.Message.Contains("Applied TranslationTools live update for en home.title", StringComparison.Ordinal));
+      }
+
+      [Fact]
+      public async Task Processor_ShouldLogInvalidPayloadWarning()
+      {
+         var cancellationToken = TestContext.Current.CancellationToken;
+         using var client = CreateClient();
+         var logger = new TestLogger<TranslationToolsLiveUpdateService>();
+
+         await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(client, "not-json", logger, cancellationToken);
+
+         logger.Entries.Should().Contain(x => x.Level == LogLevel.Warning && x.Message.Contains("Ignoring invalid TranslationTools live update payload.", StringComparison.Ordinal));
+      }
+   }
+
+   public class LiveUpdateService : TranslationToolsClientTests
    {
       [Fact]
-      public async Task ShouldUseRegisteredClientForAsyncReads()
+      public async Task StartAsync_ShouldLogSocketTokenFetchFailure()
       {
+         using var client = CreateClient();
+         var logger = new TestLogger<TranslationToolsLiveUpdateService>();
+         using var service = new TranslationToolsLiveUpdateService(
+            new StaticHttpClientFactory(new StaticResponseHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError))),
+            client,
+            Options.Create(
+               new TranslationToolsClientOptions {
+                  ApiKey = "test-api-key",
+                  EnableLiveUpdates = true,
+                  SupportedLocales = [new CultureInfo("en")]
+               }
+            ),
+            logger
+         );
+
+         using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+         await service.StartAsync(cancellationTokenSource.Token);
+         await WaitForAsync(
+            () => logger.Entries.Any(x => x.Level == LogLevel.Warning && x.Message.Contains("Failed to fetch TranslationTools live update socket token", StringComparison.Ordinal)),
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken
+         );
+
+         logger.Entries.Should().Contain(x => x.Level == LogLevel.Information && x.Message.Contains("Starting TranslationTools live updates.", StringComparison.Ordinal));
+         logger.Entries.Should().Contain(x => x.Level == LogLevel.Warning && x.Message.Contains("Failed to fetch TranslationTools live update socket token", StringComparison.Ordinal));
+
+         cancellationTokenSource.Cancel();
+      }
+   }
+
+     public class ManifestRuntime : TranslationToolsClientTests
+     {
+       [Fact]
+       public async Task ShouldUseRegisteredClientForAsyncReads()
+       {
           var cancellationToken = TestContext.Current.CancellationToken;
           EnqueueJson("""{"key":"home.title","value":"Hello"}""");
           using var client = CreateClient();
@@ -519,16 +585,33 @@ public abstract class TranslationToolsClientTests : IDisposable
       );
    }
 
-   private static async Task<TranslationToolsClientCacheEntry<T>?> GetCachedAsync<T>(TranslationToolsClient client, string key, CancellationToken cancellationToken)
-      where T : class
-   {
-      var cacheField = typeof(TranslationToolsClient).GetField("_cache", BindingFlags.NonPublic | BindingFlags.Instance)!;
-      var cache = (ITranslationToolsClientCache)cacheField.GetValue(client)!;
-      return await cache.GetAsync<T>(key, cancellationToken);
-   }
+    private static async Task<TranslationToolsClientCacheEntry<T>?> GetCachedAsync<T>(TranslationToolsClient client, string key, CancellationToken cancellationToken)
+       where T : class
+    {
+       var cacheField = typeof(TranslationToolsClient).GetField("_cache", BindingFlags.NonPublic | BindingFlags.Instance)!;
+       var cache = (ITranslationToolsClientCache)cacheField.GetValue(client)!;
+       return await cache.GetAsync<T>(key, cancellationToken);
+    }
 
-   protected sealed class RecordingHandler : HttpMessageHandler
-   {
+     private static async Task WaitForAsync(Func<bool> predicate, TimeSpan timeout, CancellationToken cancellationToken)
+     {
+       var startedAt = DateTimeOffset.UtcNow;
+
+       while (DateTimeOffset.UtcNow - startedAt < timeout)
+       {
+          cancellationToken.ThrowIfCancellationRequested();
+
+          if (predicate())
+             return;
+
+          await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
+       }
+
+       throw new TimeoutException("Condition was not met within the allotted time.");
+     }
+
+    protected sealed class RecordingHandler : HttpMessageHandler
+    {
       private readonly Queue<Func<HttpRequestMessage, HttpResponseMessage>> _responses;
       public List<HttpRequestMessage> Requests { get; } = [];
 
@@ -554,7 +637,71 @@ public abstract class TranslationToolsClientTests : IDisposable
          foreach (var header in request.Headers)
             clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
 
-         return clone;
-      }
-   }
+          return clone;
+       }
+    }
+
+    protected sealed class StaticHttpClientFactory : IHttpClientFactory
+    {
+       private readonly HttpMessageHandler _handler;
+
+       public StaticHttpClientFactory(HttpMessageHandler handler)
+       {
+          _handler = handler;
+       }
+
+       public HttpClient CreateClient(string name)
+       {
+          return new HttpClient(_handler, disposeHandler: false);
+       }
+    }
+
+    protected sealed class StaticResponseHandler : HttpMessageHandler
+    {
+       private readonly Func<HttpRequestMessage, HttpResponseMessage> _responseFactory;
+
+       public StaticResponseHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory)
+       {
+          _responseFactory = responseFactory;
+       }
+
+       protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+       {
+          return Task.FromResult(_responseFactory(request));
+       }
+    }
+
+    protected sealed class TestLogger<T> : ILogger<T>
+    {
+       private readonly object _syncRoot = new();
+       public List<LogEntry> Entries { get; } = [];
+
+       public IDisposable BeginScope<TState>(TState state)
+          where TState : notnull
+       {
+          return NullScope.Instance;
+       }
+
+       public bool IsEnabled(LogLevel logLevel)
+       {
+          return true;
+       }
+
+       public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+       {
+          lock (_syncRoot)
+             Entries.Add(new LogEntry(logLevel, formatter(state, exception), exception));
+       }
+    }
+
+    protected sealed record LogEntry(LogLevel Level, string Message, Exception? Exception);
+
+    private sealed class NullScope : IDisposable
+    {
+       public static NullScope Instance { get; } = new();
+
+       public void Dispose()
+       {
+       }
+    }
 }
