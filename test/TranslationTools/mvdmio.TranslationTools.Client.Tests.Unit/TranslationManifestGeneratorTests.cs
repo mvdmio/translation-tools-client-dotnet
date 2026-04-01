@@ -47,7 +47,8 @@ public class TranslationManifestGeneratorTests
       result.GeneratedSource.Should().Contain("get => Get(Keys.Button_Save);");
        result.GeneratedSource.Should().Contain("public static partial string Button_SaveAndClose");
        result.GeneratedSource.Should().Contain("get => Get(Keys.Button_SaveAndClose, \"Save and close\");");
-       result.GeneratedSource.Should().Contain("public static global::System.Threading.Tasks.Task<string> GetAsync(string key");
+        result.GeneratedSource.Should().Contain("public static string Get(string key, string? defaultValue = null)");
+        result.GeneratedSource.Should().Contain("public static global::System.Threading.Tasks.Task<string> GetAsync(string key");
     }
 
    [Fact]

@@ -31,7 +31,7 @@ internal static class TranslationManifestEmitter
       builder.AppendLine("{");
       builder.AppendLine("   private static global::System.Type ManifestType => typeof(" + model.TypeName + ");");
       builder.AppendLine();
-      builder.AppendLine("   private static string Get(string key, string? defaultValue = null)");
+      builder.AppendLine("   public static string Get(string key, string? defaultValue = null)");
       builder.AppendLine("   {");
 
       if (model.UsesCultureOverride)
