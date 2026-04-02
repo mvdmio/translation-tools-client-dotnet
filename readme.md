@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API and `.resx`-backed generated localization APIs.
 
-Current client package version: `1.0.2`.
+Current client package version: `1.0.3`.
 
 ## Packages
 
@@ -129,6 +129,8 @@ translations pull --prune
 ```
 
 `translations pull` updates project `.resx` files in place. By default it adds and updates values without deleting local entries. Use `--prune` to remove local entries and locale files that no longer exist remotely.
+
+When existing project `.resx` files are present, `translations pull` also maps legacy normalized remote keys such as `Button_EditStreetSegments` back to their original `.resx` entry names.
 
 Push project `.resx` state back to the API:
 

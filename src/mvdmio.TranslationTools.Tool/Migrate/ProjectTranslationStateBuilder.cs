@@ -42,11 +42,14 @@ internal sealed class ProjectTranslationStateBuilder
          foreach (var entry in parsedFile.Entries)
          {
             var effectiveKey = $"{parsedFile.SourceFile.ResourceSetName}.{entry.Key}";
+
             var origin = $"{parsedFile.SourceFile.ResourceSetName}::{entry.Key}";
 
             if (keyOrigins.TryGetValue(effectiveKey, out var existingOrigin)
                 && !string.Equals(existingOrigin, origin, StringComparison.Ordinal))
+            {
                throw new InvalidOperationException($"Duplicate effective API key '{effectiveKey}' produced by '{existingOrigin}' and '{origin}'.");
+            }
 
             keyOrigins[effectiveKey] = origin;
 
@@ -63,7 +66,8 @@ internal sealed class ProjectTranslationStateBuilder
       var items = collectedKeys
          .OrderBy(static x => x.Key, StringComparer.Ordinal)
          .Select(
-            x => new ProjectTranslationStateItem {
+            x => new ProjectTranslationStateItem
+            {
                Key = x.Key,
                Translations = locales.ToDictionary(locale => locale, locale => x.Value.TryGetValue(locale, out var value) ? value : null, StringComparer.Ordinal)
             }
@@ -77,12 +81,14 @@ internal sealed class ProjectTranslationStateBuilder
       );
 
       return (
-         new ProjectTranslationState {
+         new ProjectTranslationState
+         {
             DefaultLocale = normalizedDefaultLocale,
             Locales = locales,
             Items = items
          },
-         new MigrationReport {
+         new MigrationReport
+         {
             SourceFiles = parsedFiles.Select(static x => x.SourceFile.RelativePath).ToArray(),
             Warnings = warnings,
             DefaultLocale = normalizedDefaultLocale,

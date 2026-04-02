@@ -19,7 +19,8 @@ public class PullHandlerTests
          File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project><PropertyGroup><RootNamespace>Demo.App</RootNamespace></PropertyGroup></Project>");
 
          var request = PullHandler.ResolveRequest(
-            new ToolConfiguration {
+            new ToolConfiguration
+            {
                ConfigDirectory = projectDirectory,
                ApiKey = "api-key",
                DefaultLocale = "en"
@@ -59,7 +60,8 @@ public class PullHandlerTests
          var files = handler.BuildResxFiles(
             projectDirectory,
             "en",
-            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal) {
+            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
+            {
                ["en"] = [
                   new TranslationItemResponse { Key = "Errors.title", Value = "Error" },
                   new TranslationItemResponse { Key = "Admin.Labels.save.button", Value = "Save" }
@@ -78,6 +80,48 @@ public class PullHandlerTests
          files.Should().ContainSingle(x => x.FilePath.EndsWith($"Shared.Validation.nl.resx", StringComparison.Ordinal));
          files.Single(x => x.FilePath.EndsWith("Shared.Validation.nl.resx", StringComparison.Ordinal)).Entries.Should().ContainSingle(x => x.Key == "required.message" && x.Value == "Verplicht");
          files.Single(x => x.FilePath.EndsWith("Errors.resx", StringComparison.Ordinal)).Entries.Should().ContainSingle(x => x.Key == "title" && x.Value == "Error");
+      }
+      finally
+      {
+         Directory.Delete(projectDirectory, recursive: true);
+      }
+   }
+
+   [Fact]
+   public void BuildResxFiles_ShouldMapNormalizedLegacyApiKeysBackToExistingProjectFiles()
+   {
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(projectDirectory);
+
+      try
+      {
+         File.WriteAllText(
+            Path.Combine(projectDirectory, "Button.resx"),
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root>
+              <data name="editStreetSegments" xml:space="preserve">
+                <value>Old</value>
+              </data>
+            </root>
+            """
+         );
+
+         var handler = new PullHandler();
+         var files = handler.BuildResxFiles(
+            projectDirectory,
+            "en",
+            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
+            {
+               ["en"] = [
+                  new TranslationItemResponse { Key = "Button_EditStreetSegments", Value = "Edit street segments" }
+               ]
+            },
+            prune: false
+         );
+
+         files.Should().ContainSingle(x => x.FilePath.EndsWith("Button.resx", StringComparison.Ordinal));
+         files.Single().Entries.Should().ContainSingle(x => x.Key == "editStreetSegments" && x.Value == "Edit street segments");
       }
       finally
       {

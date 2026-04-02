@@ -106,7 +106,8 @@ internal sealed class PullHandler
          return null;
 
       var projectContext = ToolProjectResolver.Resolve(config);
-      return new TranslationPullRequest {
+      return new TranslationPullRequest
+      {
          ApiKey = config.ApiKey,
          ProjectDirectory = projectContext.ProjectDirectory
       };
@@ -122,6 +123,7 @@ internal sealed class PullHandler
       var existingFiles = SafeScanProject(projectDirectory)
          .SourceFiles
          .ToDictionary(static file => (file.ResourceSetName, file.Locale), static file => file, EqualityComparer<(string, string?)>.Default);
+      var keyAliases = BuildKeyAliases(existingFiles.Values);
       var knownResourceSets = existingFiles.Keys
          .Select(static key => key.Item1)
          .Distinct(StringComparer.Ordinal)
@@ -133,7 +135,7 @@ internal sealed class PullHandler
       {
          foreach (var item in localeGroup.Value)
          {
-            var (resourceSetName, key) = SplitApiKey(item.Key, knownResourceSets);
+            var (resourceSetName, key) = SplitApiKey(item.Key, knownResourceSets, keyAliases);
             var fileLocale = string.Equals(localeGroup.Key, defaultLocale, StringComparison.Ordinal) ? null : localeGroup.Key;
             var bucketKey = (resourceSetName, fileLocale);
 
@@ -161,7 +163,8 @@ internal sealed class PullHandler
 
          var entries = mergedEntries
             .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
-            .Select(entry => new ResxDataEntryModel {
+            .Select(entry => new ResxDataEntryModel
+            {
                Key = entry.Key,
                Value = entry.Value,
                Comment = preservedComments.TryGetValue(entry.Key, out var comment) ? comment : null
@@ -171,13 +174,43 @@ internal sealed class PullHandler
          if (entries.Length == 0 && group.Key.Locale is not null)
             continue;
 
-         result.Add(new ResxFileModel {
+         result.Add(new ResxFileModel
+         {
             FilePath = filePath,
             Entries = entries
          });
       }
 
       return result;
+   }
+
+   private Dictionary<string, (string ResourceSetName, string Key)> BuildKeyAliases(IEnumerable<ResxMigrationSourceFile> files)
+   {
+      var aliases = new Dictionary<string, (string ResourceSetName, string Key)>(StringComparer.Ordinal);
+      var ambiguousAliases = new HashSet<string>(StringComparer.Ordinal);
+
+      foreach (var file in files)
+      {
+         foreach (var entry in _resxFileParser.Parse(file.FilePath).Entries)
+         {
+            var mapping = (file.ResourceSetName, entry.Key);
+            var alias = NormalizeApiKeyAlias($"{file.ResourceSetName}.{entry.Key}");
+
+            if (ambiguousAliases.Contains(alias))
+               continue;
+
+            if (aliases.TryGetValue(alias, out var existing) && existing != mapping)
+            {
+               aliases.Remove(alias);
+               ambiguousAliases.Add(alias);
+               continue;
+            }
+
+            aliases[alias] = mapping;
+         }
+      }
+
+      return aliases;
    }
 
    private ResxMigrationScanResult SafeScanProject(string projectDirectory)
@@ -188,7 +221,8 @@ internal sealed class PullHandler
       }
       catch (InvalidOperationException) when (!Directory.EnumerateFiles(projectDirectory, "*.resx", SearchOption.AllDirectories).Any())
       {
-         return new ResxMigrationScanResult {
+         return new ResxMigrationScanResult
+         {
             SourceFiles = [],
             HasBaseFiles = false
          };
@@ -219,7 +253,11 @@ internal sealed class PullHandler
       }
    }
 
-   private static (string ResourceSetName, string Key) SplitApiKey(string apiKey, IReadOnlyCollection<string> knownResourceSets)
+   private static (string ResourceSetName, string Key) SplitApiKey(
+      string apiKey,
+      IReadOnlyCollection<string> knownResourceSets,
+      IReadOnlyDictionary<string, (string ResourceSetName, string Key)> keyAliases
+   )
    {
       foreach (var resourceSetName in knownResourceSets)
       {
@@ -229,6 +267,9 @@ internal sealed class PullHandler
          return (resourceSetName, apiKey.Substring(resourceSetName.Length + 1));
       }
 
+      if (keyAliases.TryGetValue(apiKey, out var aliasMapping))
+         return aliasMapping;
+
       var segments = apiKey.Split('.');
       if (segments.Length < 2)
          throw new InvalidOperationException($"Translation key '{apiKey}' cannot be mapped back to a .resx file.");
@@ -237,6 +278,41 @@ internal sealed class PullHandler
          return (segments[0], segments[1]);
 
       return (string.Join(".", segments.Take(segments.Length - 2)), string.Join(".", segments.Skip(segments.Length - 2)));
+   }
+
+   private static string NormalizeApiKeyAlias(string key)
+   {
+      var segments = key.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+      if (segments.Length == 0)
+         return "_";
+
+      return string.Join("_", segments.Select(NormalizeAliasSegment));
+   }
+
+   private static string NormalizeAliasSegment(string segment)
+   {
+      var builder = new System.Text.StringBuilder();
+      var capitalizeNext = true;
+
+      foreach (var character in segment)
+      {
+         if (!char.IsLetterOrDigit(character))
+         {
+            capitalizeNext = true;
+            continue;
+         }
+
+         builder.Append(capitalizeNext ? char.ToUpperInvariant(character) : character);
+         capitalizeNext = false;
+      }
+
+      if (builder.Length == 0)
+         builder.Append('_');
+
+      if (char.IsDigit(builder[0]))
+         builder.Insert(0, '_');
+
+      return builder.ToString();
    }
 
    private static string BuildFilePath(string projectDirectory, string resourceSetName, string? locale)
