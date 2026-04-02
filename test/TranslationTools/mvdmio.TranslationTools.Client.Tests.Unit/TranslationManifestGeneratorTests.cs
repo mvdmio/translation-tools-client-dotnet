@@ -1,12 +1,12 @@
-using System.Collections.Immutable;
-using System.Linq;
-using System.Reflection;
 using AwesomeAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 using mvdmio.TranslationTools.Client.SourceGenerator;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
@@ -87,7 +87,8 @@ public class TranslationManifestGeneratorTests
          options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
       );
 
-      var analyzerConfig = new TestAnalyzerConfigOptionsProvider(new Dictionary<string, string>(StringComparer.Ordinal) {
+      var analyzerConfig = new TestAnalyzerConfigOptionsProvider(new Dictionary<string, string>(StringComparer.Ordinal)
+      {
          ["build_property.MSBuildProjectDirectory"] = "D:\\Project",
          ["build_property.RootNamespace"] = "GeneratorTests"
       });

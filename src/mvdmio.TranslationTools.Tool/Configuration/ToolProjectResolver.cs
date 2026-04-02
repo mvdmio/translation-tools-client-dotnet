@@ -20,7 +20,8 @@ internal static class ToolProjectResolver
       if (!string.Equals(projectDirectory, config.ConfigDirectory, StringComparison.OrdinalIgnoreCase))
          throw new InvalidOperationException($"{ToolConfiguration.CONFIG_FILE_NAME} must be placed in the project root next to the .csproj. Expected under '{projectDirectory}'.");
 
-      return new ToolProjectContext {
+      return new ToolProjectContext
+      {
          ProjectDirectory = projectDirectory,
          ProjectFilePath = projectFilePath,
          RootNamespace = ReadRootNamespace(projectFilePath)

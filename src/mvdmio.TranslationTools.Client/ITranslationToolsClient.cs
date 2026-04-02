@@ -1,9 +1,9 @@
+using JetBrains.Annotations;
+using mvdmio.TranslationTools.Client.Internal;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using JetBrains.Annotations;
-using mvdmio.TranslationTools.Client.Internal;
 
 namespace mvdmio.TranslationTools.Client;
 
@@ -22,7 +22,7 @@ public interface ITranslationToolsClient
    /// Get a translation using <see cref="CultureInfo.CurrentUICulture"/>.
    /// </summary>
    TranslationItemResponse Get(string key) => AsyncHelper.RunSync(() => GetAsync(key));
-   
+
    /// <summary>
    /// Get a translation for a specific locale.
    /// </summary>

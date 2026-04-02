@@ -10,7 +10,8 @@ internal sealed class ResxResourceSetParser
       var entries = document.Root?
          .Elements("data")
          .Select(
-            static element => new ResxParsedEntry {
+            static element => new ResxParsedEntry
+            {
                Key = (string?)element.Attribute("name") ?? string.Empty,
                Value = NormalizeValue(element.Element("value")?.Value)
             }
@@ -28,7 +29,8 @@ internal sealed class ResxResourceSetParser
       if (duplicateKeys.Length > 0)
          throw new InvalidOperationException($"Duplicate keys in '{sourceFile.RelativePath}': {string.Join(", ", duplicateKeys)}.");
 
-      return new ResxParsedFile {
+      return new ResxParsedFile
+      {
          SourceFile = sourceFile,
          Entries = entries
       };

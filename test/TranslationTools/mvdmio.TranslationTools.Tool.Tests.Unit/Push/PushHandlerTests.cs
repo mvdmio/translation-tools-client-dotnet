@@ -19,7 +19,8 @@ public class PushHandlerTests
          File.WriteAllText(Path.Combine(projectDirectory, ToolConfiguration.CONFIG_FILE_NAME), "apiKey: test\ndefaultLocale: en\n");
 
          var result = PushHandler.ResolveProjectDirectory(
-            new ToolConfiguration {
+            new ToolConfiguration
+            {
                ConfigDirectory = projectDirectory,
                DefaultLocale = "en"
             }

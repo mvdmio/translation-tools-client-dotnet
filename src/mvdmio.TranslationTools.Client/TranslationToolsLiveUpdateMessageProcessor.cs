@@ -1,15 +1,16 @@
+using Microsoft.Extensions.Logging;
 using System;
 using System.Globalization;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace mvdmio.TranslationTools.Client;
 
 internal static class TranslationToolsLiveUpdateMessageProcessor
 {
-   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) {
+   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+   {
       PropertyNameCaseInsensitive = true
    };
 
@@ -56,7 +57,8 @@ internal static class TranslationToolsLiveUpdateMessageProcessor
       {
          logger?.LogDebug("Applying TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
          await client.ApplyUpdateAsync(
-            new TranslationItemResponse {
+            new TranslationItemResponse
+            {
                Key = message.Key,
                Value = message.Value
             },

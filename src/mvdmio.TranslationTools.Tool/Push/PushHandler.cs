@@ -53,7 +53,8 @@ internal sealed class PushHandler
 
       var result = await _translationApiService.ImportProjectStateAsync(
          config.ApiKey,
-         new ProjectTranslationStateImportRequest {
+         new ProjectTranslationStateImportRequest
+         {
             DefaultLocale = state.DefaultLocale,
             Locales = [.. state.Locales],
             Items = [.. state.Items.Select(static item => new ProjectTranslationStateImportItemRequest {

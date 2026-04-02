@@ -9,7 +9,8 @@ internal sealed class ResxFileParser
       var document = XDocument.Load(filePath, LoadOptions.PreserveWhitespace);
       var entries = document.Root?
          .Elements("data")
-         .Select(element => new ResxDataEntryModel {
+         .Select(element => new ResxDataEntryModel
+         {
             Key = (string?)element.Attribute("name") ?? string.Empty,
             Value = NormalizeValue(element.Element("value")?.Value),
             Comment = element.Element("comment")?.Value
@@ -18,7 +19,8 @@ internal sealed class ResxFileParser
          .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
          .ToArray() ?? [];
 
-      return new ResxFileModel {
+      return new ResxFileModel
+      {
          FilePath = filePath,
          Entries = entries
       };

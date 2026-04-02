@@ -1,10 +1,10 @@
+using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using Microsoft.CodeAnalysis;
 
 namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
@@ -68,7 +68,8 @@ public sealed class TranslationManifestGenerator : ISourceGenerator
             types.Add(type);
       }
 
-      return new ResxGeneratorFileModel {
+      return new ResxGeneratorFileModel
+      {
          Types = types.ToImmutableArray(),
          Diagnostics = diagnostics.ToImmutable()
       };
@@ -101,7 +102,8 @@ public sealed class TranslationManifestGenerator : ISourceGenerator
 
          usedNames[propertyName] = key;
 
-         properties.Add(new ResxGeneratorPropertyModel {
+         properties.Add(new ResxGeneratorPropertyModel
+         {
             Name = propertyName,
             Key = $"{resourceBaseName}.{key}",
             ResourceKey = key,
@@ -109,7 +111,8 @@ public sealed class TranslationManifestGenerator : ISourceGenerator
          });
       }
 
-      return new ResxGeneratorTypeModel {
+      return new ResxGeneratorTypeModel
+      {
          Namespace = namespaceName,
          TypeName = typeName,
          ResourceBaseName = resourceBaseName,
@@ -160,7 +163,9 @@ public sealed class TranslationManifestGenerator : ISourceGenerator
    {
       if (path.EndsWith(Path.DirectorySeparatorChar.ToString(), System.StringComparison.Ordinal)
           || path.EndsWith(Path.AltDirectorySeparatorChar.ToString(), System.StringComparison.Ordinal))
+      {
          return path;
+      }
 
       return path + Path.DirectorySeparatorChar;
    }

@@ -54,9 +54,11 @@ internal static class ResxPropertyNameNormalizer
 
       var normalized = builder.ToString();
       if (CSharpKeywords.Contains(normalized.ToLowerInvariant()))
+      {
          return normalized.Length == 1
             ? char.ToUpperInvariant(normalized[0]).ToString()
             : char.ToUpperInvariant(normalized[0]) + normalized.Substring(1);
+      }
 
       return normalized;
    }

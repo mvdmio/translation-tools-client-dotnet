@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Buffers;
 using System.Net.Http;
@@ -6,15 +8,14 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace mvdmio.TranslationTools.Client;
 
 internal sealed class TranslationToolsLiveUpdateService : IDisposable
 {
    private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(1);
-   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) {
+   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+   {
       PropertyNameCaseInsensitive = true
    };
 
@@ -163,31 +164,31 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          messageBuffer.Clear();
          WebSocketReceiveResult result;
 
-          do
-          {
-             result = await webSocket.ReceiveAsync(buffer, cancellationToken);
+         do
+         {
+            result = await webSocket.ReceiveAsync(buffer, cancellationToken);
 
-             if (result.MessageType == WebSocketMessageType.Close)
-             {
-                _logger.LogInformation(
-                   "TranslationTools live update websocket received a close frame. Status: {CloseStatus}; Description: {CloseStatusDescription}.",
-                   webSocket.CloseStatus,
-                   webSocket.CloseStatusDescription
-                );
-                return;
-             }
+            if (result.MessageType == WebSocketMessageType.Close)
+            {
+               _logger.LogInformation(
+                  "TranslationTools live update websocket received a close frame. Status: {CloseStatus}; Description: {CloseStatusDescription}.",
+                  webSocket.CloseStatus,
+                  webSocket.CloseStatusDescription
+               );
+               return;
+            }
 
-             messageBuffer.Write(buffer.AsSpan(0, result.Count));
-          } while (!result.EndOfMessage);
+            messageBuffer.Write(buffer.AsSpan(0, result.Count));
+         } while (!result.EndOfMessage);
 
-          if (result.MessageType != WebSocketMessageType.Text)
-          {
+         if (result.MessageType != WebSocketMessageType.Text)
+         {
             _logger.LogDebug("Ignoring non-text TranslationTools live update websocket message of type {MessageType}.", result.MessageType);
-             continue;
-          }
+            continue;
+         }
 
-          var payload = Encoding.UTF8.GetString(messageBuffer.WrittenSpan);
-          await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(_client, payload, _logger, cancellationToken);
+         var payload = Encoding.UTF8.GetString(messageBuffer.WrittenSpan);
+         await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(_client, payload, _logger, cancellationToken);
       }
    }
 
@@ -206,7 +207,8 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
 
    private static Uri BuildSocketUri(string socketToken)
    {
-      var builder = new UriBuilder(TranslationToolsClientOptions.DEFAULT_BASE_URL) {
+      var builder = new UriBuilder(TranslationToolsClientOptions.DEFAULT_BASE_URL)
+      {
          Scheme = "wss",
          Path = "/ws/translations",
          Query = $"token={Uri.EscapeDataString(socketToken)}"

@@ -13,7 +13,8 @@ public class ToolConfigurationTests
 
       try
       {
-         var configuration = new ToolConfiguration {
+         var configuration = new ToolConfiguration
+         {
             ApiKey = "project-api-key",
             DefaultLocale = "en"
          };
@@ -24,9 +25,9 @@ public class ToolConfigurationTests
          File.Exists(path).Should().BeTrue();
 
          var yaml = File.ReadAllText(path);
-           yaml.Should().Contain("apiKey: project-api-key");
-           yaml.Should().Contain("defaultLocale: en");
-       }
+         yaml.Should().Contain("apiKey: project-api-key");
+         yaml.Should().Contain("defaultLocale: en");
+      }
       finally
       {
          if (Directory.Exists(directory))
@@ -52,11 +53,11 @@ public class ToolConfigurationTests
 
          Directory.SetCurrentDirectory(nestedDirectory);
 
-          var configuration = ToolConfigurationLoader.Load();
+         var configuration = ToolConfigurationLoader.Load();
 
-          configuration.ConfigDirectory.Should().Be(configDirectory);
-          configuration.DefaultLocale.Should().Be("en");
-       }
+         configuration.ConfigDirectory.Should().Be(configDirectory);
+         configuration.DefaultLocale.Should().Be("en");
+      }
       finally
       {
          Directory.SetCurrentDirectory(originalCurrentDirectory);

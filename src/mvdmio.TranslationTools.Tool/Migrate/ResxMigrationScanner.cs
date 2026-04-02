@@ -17,7 +17,8 @@ internal sealed partial class ResxMigrationScanner
 
       ValidateSourceFiles(files);
 
-      return new ResxMigrationScanResult {
+      return new ResxMigrationScanResult
+      {
          SourceFiles = files,
          HasBaseFiles = files.Any(static x => x.Locale is null)
       };
@@ -31,7 +32,8 @@ internal sealed partial class ResxMigrationScanner
       var resourceSetCollisions = files
          .GroupBy(static x => x.ResourceSetName, StringComparer.Ordinal)
          .Select(
-            static group => new {
+            static group => new
+            {
                group.Key,
                BasePaths = group.Select(static x => x.ResourceSetPath).Distinct(StringComparer.Ordinal).ToArray()
             }
@@ -86,7 +88,8 @@ internal sealed partial class ResxMigrationScanner
          ? baseName
          : Path.Combine(relativeDirectory, baseName);
 
-      return new ResxMigrationSourceFile {
+      return new ResxMigrationSourceFile
+      {
          FilePath = filePath,
          RelativePath = relativePath,
          ResourceSetPath = resourceSetPath,

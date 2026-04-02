@@ -10,7 +10,8 @@ internal static class PushCommand
       var handler = new PushHandler();
       var command = new Command("push", "Push project .resx translations to the API");
 
-      command.SetAction(async (_, cancellationToken) => {
+      command.SetAction(async (_, cancellationToken) =>
+      {
          await handler.HandleAsync(cancellationToken);
       });
 

@@ -1,6 +1,6 @@
-using System.Net.Http.Json;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Tool.Push;
+using System.Net.Http.Json;
 
 namespace mvdmio.TranslationTools.Tool.Pull;
 
@@ -50,7 +50,8 @@ internal sealed class TranslationApiService : ITranslationApiService
 
    private static HttpClient CreateClient(string apiKey)
    {
-      var client = new HttpClient {
+      var client = new HttpClient
+      {
          BaseAddress = new Uri(Configuration.ToolConfiguration.DEFAULT_BASE_URL)
       };
       client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", apiKey);

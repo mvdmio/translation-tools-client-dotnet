@@ -25,7 +25,8 @@ public class ProjectTranslationStateBuilderTests
             """);
 
          var result = new ProjectTranslationStateBuilder().Build(
-            new ResxMigrationScanResult {
+            new ResxMigrationScanResult
+            {
                HasBaseFiles = true,
                SourceFiles = [
                   new ResxMigrationSourceFile {

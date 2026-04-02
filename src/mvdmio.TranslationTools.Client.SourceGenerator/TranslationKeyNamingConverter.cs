@@ -6,7 +6,8 @@ internal static class TranslationKeyNamingConverter
 {
    public static string Convert(string propertyName, int keyNaming)
    {
-      return keyNaming switch {
+      return keyNaming switch
+      {
          0 => propertyName,
          1 => ToLowerSnakeCase(propertyName),
          2 => propertyName.Replace('_', '.'),
@@ -42,7 +43,9 @@ internal static class TranslationKeyNamingConverter
                && builder[builder.Length - 1] != '_'
                && (char.IsLower(previous) || char.IsDigit(previous) || (hasNext && char.IsLower(next)))
             )
+            {
                builder.Append('_');
+            }
 
             builder.Append(char.ToLowerInvariant(current));
             continue;
