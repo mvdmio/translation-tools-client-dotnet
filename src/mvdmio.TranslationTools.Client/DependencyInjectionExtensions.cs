@@ -55,9 +55,8 @@ public static class DependencyInjectionExtensions
    {
       using var scope = app.Services.CreateScope();
       var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
-      var rootAssembly = Assembly.GetEntryAssembly() ?? app.GetType().Assembly;
 
-      foreach (var assembly in GetManifestAssemblies(rootAssembly))
+      foreach (var assembly in GetManifestAssemblies())
          TranslationManifestRuntime.RegisterClient(assembly, client);
 
       await client.Initialize(cancellationToken);
@@ -70,19 +69,13 @@ public static class DependencyInjectionExtensions
       }
    }
 
-   private static Assembly[] GetManifestAssemblies(Assembly rootAssembly)
+   internal static Assembly[] GetManifestAssemblies()
    {
       return AppDomain.CurrentDomain.GetAssemblies()
-         .Where(static assembly => !assembly.IsDynamic)
-         .Where(assembly => assembly == rootAssembly || ReferencesAssembly(assembly, rootAssembly))
-         .Where(static assembly => GetLoadableTypes(assembly).Any(static type => type.GetCustomAttributes(typeof(TranslationsAttribute), inherit: false).Length > 0))
-         .Distinct()
-         .ToArray();
-   }
-
-   private static bool ReferencesAssembly(Assembly candidate, Assembly rootAssembly)
-   {
-      return candidate.GetReferencedAssemblies().Any(reference => string.Equals(reference.FullName, rootAssembly.FullName, StringComparison.Ordinal));
+          .Where(static assembly => !assembly.IsDynamic)
+          .Where(static assembly => GetLoadableTypes(assembly).Any(static type => type.GetCustomAttributes(typeof(TranslationsAttribute), inherit: false).Length > 0))
+          .Distinct()
+          .ToArray();
    }
 
    private static Type[] GetLoadableTypes(Assembly assembly)

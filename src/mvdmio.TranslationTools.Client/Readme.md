@@ -135,6 +135,8 @@ var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Button_Save);
   - apply `{ "type": "translation-updated", "locale": "en", "key": "home.title", "value": "Hello" }`
 - Current transport applies single-item cache updates only.
 - Current implementation reconnects best-effort and fetches a fresh socket token before reconnecting.
+- Live transport now logs start/stop, token-fetch failures, websocket connect/disconnect failures, and applied/ignored incoming messages through standard `ILogger<TranslationToolsLiveUpdateService>`.
+- Logs include base URL, locale, key, and reconnect delay, but do not log API keys or socket tokens.
 - Still missing for richer live sync:
   - full-locale snapshot messages
   - explicit invalidation messages
