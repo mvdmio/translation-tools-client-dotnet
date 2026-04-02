@@ -270,6 +270,12 @@ internal sealed class PullHandler
       if (keyAliases.TryGetValue(apiKey, out var aliasMapping))
          return aliasMapping;
 
+      if (knownResourceSets.Count == 1 && !apiKey.Contains('.', StringComparison.Ordinal))
+         return (knownResourceSets.First(), apiKey);
+
+      if (TrySplitLegacyNormalizedApiKey(apiKey, knownResourceSets, out var legacyMapping))
+         return legacyMapping;
+
       var segments = apiKey.Split('.');
       if (segments.Length < 2)
          throw new InvalidOperationException($"Translation key '{apiKey}' cannot be mapped back to a .resx file.");
@@ -278,6 +284,30 @@ internal sealed class PullHandler
          return (segments[0], segments[1]);
 
       return (string.Join(".", segments.Take(segments.Length - 2)), string.Join(".", segments.Skip(segments.Length - 2)));
+   }
+
+   private static bool TrySplitLegacyNormalizedApiKey(
+      string apiKey,
+      IReadOnlyCollection<string> knownResourceSets,
+      out (string ResourceSetName, string Key) mapping
+   )
+   {
+      foreach (var knownResourceSetName in knownResourceSets.OrderByDescending(static x => x.Length))
+      {
+         var resourceSetAlias = NormalizeApiKeyAlias(knownResourceSetName);
+         if (!apiKey.StartsWith(resourceSetAlias + "_", StringComparison.Ordinal))
+            continue;
+
+         var keyAlias = apiKey.Substring(resourceSetAlias.Length + 1);
+         if (string.IsNullOrWhiteSpace(keyAlias))
+            continue;
+
+         mapping = (knownResourceSetName, keyAlias);
+         return true;
+      }
+
+      mapping = default;
+      return false;
    }
 
    private static string NormalizeApiKeyAlias(string key)

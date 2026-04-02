@@ -128,4 +128,46 @@ public class PullHandlerTests
          Directory.Delete(projectDirectory, recursive: true);
       }
    }
+
+   [Fact]
+   public void BuildResxFiles_ShouldKeepLegacyNormalizedApiKeysInSingleExistingResourceSet()
+   {
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(projectDirectory);
+
+      try
+      {
+         File.WriteAllText(
+            Path.Combine(projectDirectory, "Translations.resx"),
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root>
+              <data name="existing" xml:space="preserve">
+                <value>Old</value>
+              </data>
+            </root>
+            """
+         );
+
+         var handler = new PullHandler();
+         var files = handler.BuildResxFiles(
+            projectDirectory,
+            "en",
+            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
+            {
+               ["en"] = [
+                  new TranslationItemResponse { Key = "Button_EditStreetSegments", Value = "Edit street segments" }
+               ]
+            },
+            prune: false
+         );
+
+         files.Should().ContainSingle(x => x.FilePath.EndsWith("Translations.resx", StringComparison.Ordinal));
+         files.Single().Entries.Should().Contain(x => x.Key == "Button_EditStreetSegments" && x.Value == "Edit street segments");
+      }
+      finally
+      {
+         Directory.Delete(projectDirectory, recursive: true);
+      }
+   }
 }
