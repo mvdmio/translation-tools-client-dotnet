@@ -31,6 +31,7 @@ Command name: `translations`
 - `src/mvdmio.TranslationTools.Client` - reusable client library for ASP.NET and other .NET applications
 - `src/mvdmio.TranslationTools.Client.SourceGenerator` - source generator used by the client package for manifest-backed properties
 - `src/mvdmio.TranslationTools.Tool` - command-line tool for manifest sync workflows
+- `agents/plans` - working design plans for upcoming client and tooling changes
 - `test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit` - unit tests for the client package
 - `test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit` - unit tests for the CLI tool
 
