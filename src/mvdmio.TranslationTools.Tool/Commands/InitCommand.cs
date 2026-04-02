@@ -21,21 +21,19 @@ internal static class InitCommand
 
          var config = new ToolConfiguration {
             ApiKey = "project-api-key",
-            Output = "Localizations.cs"
+            DefaultLocale = "en"
          };
 
          config.Save(currentDirectory);
 
          Console.WriteLine($"Created configuration file: {configPath}");
-         Console.WriteLine();
-         Console.WriteLine("Default settings:");
-         Console.WriteLine($"  output:         {config.Output}");
-         Console.WriteLine($"  className:      {config.ClassName}");
-         Console.WriteLine($"  keyNaming:      {config.KeyNaming}");
-         Console.WriteLine();
-         Console.WriteLine("Edit the file to configure your project API key and output path.");
-         Console.WriteLine("All tool configuration is read from .mvdmio-translations.yml.");
-      });
+          Console.WriteLine();
+          Console.WriteLine("Default settings:");
+          Console.WriteLine($"  defaultLocale:  {config.DefaultLocale}");
+          Console.WriteLine();
+          Console.WriteLine("Edit the file to configure your project API key and default locale.");
+          Console.WriteLine("All tool configuration is read from .mvdmio-translations.yml.");
+       });
 
       return command;
    }

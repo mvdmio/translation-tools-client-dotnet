@@ -1,0 +1,16 @@
+<Project>
+   <ItemGroup>
+      <EmbeddedResource Update="**\*.resx">
+         <Generator></Generator>
+         <LastGenOutput></LastGenOutput>
+         <TranslationToolsManaged>true</TranslationToolsManaged>
+      </EmbeddedResource>
+
+      <AdditionalFiles Include="@(EmbeddedResource)"
+                       Condition="'%(EmbeddedResource.Extension)' == '.resx' and '%(EmbeddedResource.TranslationToolsManaged)' == 'true'">
+         <TranslationToolsKind>Resx</TranslationToolsKind>
+         <Link>%(EmbeddedResource.Link)</Link>
+         <LogicalName>%(EmbeddedResource.LogicalName)</LogicalName>
+      </AdditionalFiles>
+   </ItemGroup>
+</Project>

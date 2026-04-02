@@ -2,314 +2,86 @@ using AwesomeAssertions;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
-using mvdmio.TranslationTools.Tool.Scaffolding;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Tool.Tests.Unit.Pull;
 
 public class PullHandlerTests
 {
-   public class BuildPropertyDefinitions
+   [Fact]
+   public void ResolveRequest_ShouldResolveProjectDirectoryFromConfig()
    {
-      [Fact]
-      public void ShouldGenerateExplicitKeyWhenDerivedKeyDiffers()
-      {
-          var result = PullHandler.BuildPropertyDefinitions(
-             [
-                new TranslationItemResponse { Key = "Label_Past90Days", Value = "Past 90 days" },
-                new TranslationItemResponse { Key = "Action.Save", Value = "Save" }
-             ],
-             [
-                new TranslationItemResponse { Key = "Label_Past90Days", Value = "Past 90 days" },
-                new TranslationItemResponse { Key = "Action.Save", Value = "Save" }
-             ],
-             TranslationKeyNaming.UnderscoreToDot
-          );
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(projectDirectory);
 
-         result.Should().ContainSingle(x => x.PropertyName == "Label_Past90Days" && x.EmitExplicitKey && x.Key == "Label_Past90Days");
-         result.Should().ContainSingle(x => x.PropertyName == "Action_Save" && !x.EmitExplicitKey && x.Key == "Action.Save");
+      try
+      {
+         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project><PropertyGroup><RootNamespace>Demo.App</RootNamespace></PropertyGroup></Project>");
+
+         var request = PullHandler.ResolveRequest(
+            new ToolConfiguration {
+               ConfigDirectory = projectDirectory,
+               ApiKey = "api-key",
+               DefaultLocale = "en"
+            }
+         );
+
+         request.Should().NotBeNull();
+         request!.ProjectDirectory.Should().Be(projectDirectory);
       }
-
-      [Fact]
-      public void ShouldThrowForDuplicateResolvedPropertyNames()
+      finally
       {
-          var action = () => PullHandler.BuildPropertyDefinitions(
-             [
-                new TranslationItemResponse { Key = "Action.Save", Value = "Save" },
-                new TranslationItemResponse { Key = "Action.Save", Value = "Save again" }
-            ],
-            [
-               new TranslationItemResponse { Key = "Action.Save", Value = "Save" },
-               new TranslationItemResponse { Key = "Action.Save", Value = "Save again" }
-            ],
-             TranslationKeyNaming.UnderscoreToDot
-          );
-
-          action.Should().Throw<ArgumentException>();
-       }
-
-      [Fact]
-      public void ShouldPreferKeyMatchingConfiguredNamingWhenLegacyAndCanonicalKeysCollide()
-      {
-          var result = PullHandler.BuildPropertyDefinitions(
-             [
-                new TranslationItemResponse { Key = "Link_Back", Value = "Back legacy" },
-                new TranslationItemResponse { Key = "Link.Back", Value = "Back" }
-             ],
-             [
-                new TranslationItemResponse { Key = "Link_Back", Value = "Back legacy" },
-                new TranslationItemResponse { Key = "Link.Back", Value = "Back" }
-             ],
-             TranslationKeyNaming.UnderscoreToDot
-          );
-
-         result.Should().ContainSingle();
-         result.Should().ContainSingle(x => x.PropertyName == "Link_Back" && x.Key == "Link.Back" && !x.EmitExplicitKey && x.DefaultValue == "Back");
-      }
-
-      [Fact]
-      public void ShouldTrimSharedPrefixFromPropertyNameWhenProvided()
-      {
-          var result = PullHandler.BuildPropertyDefinitions(
-             [
-                new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
-             ],
-             [
-                new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
-             ],
-             TranslationKeyNaming.UnderscoreToDot,
-             sharedKeyPrefix: "Resources.Translations"
-          );
-
-         result.Should().ContainSingle(x => x.PropertyName == "Button_Save" && x.Key == "Resources.Translations.Button.Save" && x.EmitExplicitKey);
+         Directory.Delete(projectDirectory, recursive: true);
       }
    }
 
-   public class ResolveRequest
+   [Fact]
+   public void BuildResxFiles_ShouldMapApiKeysBackToProjectFiles()
    {
-      [Fact]
-      public void ShouldResolveFromConfigAndInferNamespace()
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(projectDirectory);
+
+      try
       {
-         var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-         Directory.CreateDirectory(projectDirectory);
+         File.WriteAllText(
+            Path.Combine(projectDirectory, "Shared.Validation.nl.resx"),
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root>
+              <data name="required.message" xml:space="preserve">
+                <value>Oud</value>
+              </data>
+            </root>
+            """
+         );
 
-         try
-         {
-            File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project><PropertyGroup><RootNamespace>Demo.App</RootNamespace></PropertyGroup></Project>");
-            var outputPath = Path.Combine(projectDirectory, "Localization", "Localizations.cs");
-            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-
-            var request = PullHandler.ResolveRequest(
-               new ToolConfiguration {
-                  ConfigDirectory = projectDirectory,
-                  ApiKey = "api-key",
-                  Output = Path.Combine("Localization", "Localizations.cs")
-               }
-            );
-
-            request.Should().NotBeNull();
-            request!.Namespace.Should().Be("Demo.App.Localization");
-            request.OutputPath.Should().Be(Path.GetFullPath(outputPath));
-            request.ClassName.Should().Be("Localizations");
-         }
-          finally
-          {
-             Directory.Delete(projectDirectory, recursive: true);
-         }
-      }
-   }
-
-   public class ManifestFileBuilderTests
-   {
-      [Fact]
-      public void ShouldAlwaysGenerateStaticClassWithoutCultureProperty()
-      {
-         var result = new ManifestFileBuilder().Build(
-            new ManifestGenerationOptions {
-               Namespace = "Demo.Localization",
-               ClassName = "Localizations",
-               KeyNaming = TranslationKeyNaming.UnderscoreToDot
+         var handler = new PullHandler();
+         var files = handler.BuildResxFiles(
+            projectDirectory,
+            "en",
+            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal) {
+               ["en"] = [
+                  new TranslationItemResponse { Key = "Errors.title", Value = "Error" },
+                  new TranslationItemResponse { Key = "Admin.Labels.save.button", Value = "Save" }
+               ],
+               ["nl"] = [
+                  new TranslationItemResponse { Key = "Errors.title", Value = "Fout" },
+                  new TranslationItemResponse { Key = "Shared.Validation.required.message", Value = "Verplicht" }
+                ]
             },
-            [
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Save",
-                  Key = "Action.Save",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Save"
-               }
-            ]
+            prune: false
          );
 
-         result.Should().Contain("public static partial class Localizations");
-         result.Should().NotContain("CultureInfo");
-         result.Should().NotContain("Culture {");
+         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Errors.resx", StringComparison.Ordinal));
+         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Admin{Path.DirectorySeparatorChar}Labels.resx", StringComparison.Ordinal));
+         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Errors.nl.resx", StringComparison.Ordinal));
+         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Shared.Validation.nl.resx", StringComparison.Ordinal));
+         files.Single(x => x.FilePath.EndsWith("Shared.Validation.nl.resx", StringComparison.Ordinal)).Entries.Should().ContainSingle(x => x.Key == "required.message" && x.Value == "Verplicht");
+         files.Single(x => x.FilePath.EndsWith("Errors.resx", StringComparison.Ordinal)).Entries.Should().ContainSingle(x => x.Key == "title" && x.Value == "Error");
       }
-   }
-
-   public class MergePropertyDefinitions
-   {
-      [Fact]
-      public void ShouldPreserveExistingDefaultValueAndAppendNewProperties()
+      finally
       {
-         var result = PullHandler.MergePropertyDefinitions(
-            [
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Save",
-                  Key = "Action.Save",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Opslaan"
-               }
-            ],
-            [
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Save",
-                  Key = "Action.Save",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Save"
-               },
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Delete",
-                  Key = "Action.Delete",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Delete"
-               }
-            ]
-         );
-
-         result.Should().HaveCount(2);
-         result.Should().ContainSingle(x => x.Key == "Action.Save" && x.DefaultValue == "Opslaan");
-         result.Should().ContainSingle(x => x.Key == "Action.Delete" && x.DefaultValue == "Delete");
-      }
-   }
-
-   public class ManifestFileMergerTests
-   {
-      [Fact]
-      public void ShouldAppendMissingPropertyWithoutTouchingCommentsOrFormatting()
-      {
-         const string existing = """
-using mvdmio.TranslationTools.Client;
-
-namespace Demo.Localization;
-
-[Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-public static partial class Localizations
-{
-   // keep me
-   [Translation(DefaultValue = \"Opslaan\")]
-   public static partial string Action_Save { get; }
-}
-""";
-
-         var result = new ManifestFileMerger(new ManifestFileParser(), new ManifestFileBuilder()).Merge(
-            existing,
-            "Localizations",
-            TranslationKeyNaming.UnderscoreToDot,
-            [
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Save",
-                  Key = "Action.Save",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Save"
-               },
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Delete",
-                  Key = "Action.Delete",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Delete"
-               }
-            ]
-         );
-
-         result.AddedPropertyCount.Should().Be(1);
-         result.Content.Should().Contain("// keep me");
-         result.Content.Should().Contain("Opslaan");
-         result.Content.Should().Contain("public static partial string Action_Save { get; }");
-         result.Content.Should().Contain("public static partial string Action_Delete { get; }");
-         result.Content.Should().Contain("[Translation(DefaultValue = \"Delete\")]");
-      }
-
-      [Fact]
-      public void ShouldPreserveExistingSingleBlankLineGroupingStyle()
-      {
-         const string existing = """
-using mvdmio.TranslationTools.Client;
-
-namespace Demo.Localization;
-
-[Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-public static partial class Localizations
-{
-   [Translation(DefaultValue = "Save")]
-   public static partial string Action_Save { get; }
-
-
-   [Translation(DefaultValue = "Delete")]
-   public static partial string Action_Delete { get; }
-}
-""";
-
-         var result = new ManifestFileMerger(new ManifestFileParser(), new ManifestFileBuilder()).Merge(
-            existing,
-            "Localizations",
-            TranslationKeyNaming.UnderscoreToDot,
-            [
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Save",
-                  Key = "Action.Save",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Save"
-               },
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_Delete",
-                  Key = "Action.Delete",
-                  EmitExplicitKey = false,
-                  DefaultValue = "Delete"
-               },
-               new ManifestPropertyDefinition {
-                  PropertyName = "Action_New",
-                  Key = "Action.New",
-                  EmitExplicitKey = false,
-                  DefaultValue = "New"
-               }
-            ]
-         );
-
-         result.Content.ReplaceLineEndings("\n").Should().Contain("public static partial string Action_Delete { get; }\n\n   [Translation(DefaultValue = \"New\")]");
-      }
-
-      [Fact]
-      public void ShouldNotAppendPropertyWhenExistingManifestAlreadyUsesSamePropertyNameForDifferentKey()
-      {
-         const string existing = """
-using mvdmio.TranslationTools.Client;
-
-namespace Demo.Localization;
-
-[Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-public partial class Localizations
-{
-   [Translation(DefaultValue = "Translated only")]
-   public static partial string Label_TranslatedOnly { get; }
-}
-""";
-
-         var result = new ManifestFileMerger(new ManifestFileParser(), new ManifestFileBuilder()).Merge(
-            existing,
-            "Localizations",
-            TranslationKeyNaming.UnderscoreToDot,
-            [
-               new ManifestPropertyDefinition {
-                  PropertyName = "Label_TranslatedOnly",
-                  Key = "Label_TranslatedOnly",
-                  EmitExplicitKey = true,
-                  DefaultValue = "Translated only"
-               }
-            ]
-         );
-
-         result.AddedPropertyCount.Should().Be(0);
-         result.Content.Split("public static partial string Label_TranslatedOnly { get; }").Should().HaveCount(2);
+         Directory.Delete(projectDirectory, recursive: true);
       }
    }
 }

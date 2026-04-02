@@ -4,37 +4,37 @@ namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
 internal static class TranslationGeneratorDiagnostics
 {
-   public static readonly DiagnosticDescriptor InvalidTargetType = new(
+   public static readonly DiagnosticDescriptor ConflictingResourceSet = new(
       id: "TTCLIENTGEN001",
-      title: "Invalid translations target type",
-      messageFormat: "Type '{0}' must be a top-level partial class to use [Translations]",
+      title: "Conflicting resource set",
+      messageFormat: "Resource set '{0}' is produced by both '{1}' and '{2}' after path normalization.",
       category: "mvdmio.TranslationTools.Client",
       defaultSeverity: DiagnosticSeverity.Error,
       isEnabledByDefault: true
    );
 
-   public static readonly DiagnosticDescriptor MissingManifest = new(
+   public static readonly DiagnosticDescriptor ConflictingPropertyName = new(
       id: "TTCLIENTGEN002",
-      title: "Missing translation properties",
-      messageFormat: "Type '{0}' must contain at least one static partial string property",
+      title: "Conflicting generated property",
+      messageFormat: "Keys '{1}' and '{2}' in '{3}' both normalize to generated property '{0}'.",
       category: "mvdmio.TranslationTools.Client",
       defaultSeverity: DiagnosticSeverity.Error,
       isEnabledByDefault: true
    );
 
-   public static readonly DiagnosticDescriptor InvalidManifestProperty = new(
+   public static readonly DiagnosticDescriptor StaleDesignerFile = new(
       id: "TTCLIENTGEN003",
-      title: "Invalid translation property",
-      messageFormat: "Property '{0}' on type '{1}' must be a static partial get-only string property",
+      title: "Stale designer file detected",
+      messageFormat: "Remove stale generated designer file '{0}'. TranslationTools generates resource classes from `.resx` directly.",
       category: "mvdmio.TranslationTools.Client",
       defaultSeverity: DiagnosticSeverity.Error,
       isEnabledByDefault: true
    );
 
-   public static readonly DiagnosticDescriptor ConflictingMemberName = new(
+   public static readonly DiagnosticDescriptor BuiltInGeneratorEnabled = new(
       id: "TTCLIENTGEN004",
-      title: "Conflicting generated member",
-      messageFormat: "Type '{0}' already contains a member named '{1}', which is required by the translations generator",
+      title: "Built-in resx generator still enabled",
+      messageFormat: "Project resource '{0}' still has built-in designer generation enabled. TranslationTools owns all project `.resx` files.",
       category: "mvdmio.TranslationTools.Client",
       defaultSeverity: DiagnosticSeverity.Error,
       isEnabledByDefault: true

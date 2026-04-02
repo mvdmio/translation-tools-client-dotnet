@@ -1,13 +1,13 @@
 # TranslationTools .NET Packages
 
-Public .NET packages for working with the TranslationTools API and generated localization manifests.
+Public .NET packages for working with the TranslationTools API and `.resx`-backed generated localization APIs.
 
-Current client package version: `0.6.2`.
+Current client package version: `1.0.0`.
 
 ## Packages
 
-- `mvdmio.TranslationTools.Client` - API client, DI helpers, embedded snapshot bootstrap, and source-generated manifest support
-- `mvdmio.TranslationTools.Tool` - .NET tool for initializing config, migrating `.resx` files, pulling manifests, and pushing manifest keys back to TranslationTools
+- `mvdmio.TranslationTools.Client` - API client, DI helpers, `.resx` runtime fallback, and source-generated resource APIs
+- `mvdmio.TranslationTools.Tool` - .NET tool for initializing config and syncing project `.resx` files with TranslationTools
 - `mvdmio.TranslationTools.Client.SourceGenerator` - bundled with the client package; not shipped as a separate public package
 
 ## Install
@@ -29,8 +29,8 @@ Command name: `translations`
 ## What this repo contains
 
 - `src/mvdmio.TranslationTools.Client` - reusable client library for ASP.NET and other .NET applications
-- `src/mvdmio.TranslationTools.Client.SourceGenerator` - source generator used by the client package for manifest-backed properties
-- `src/mvdmio.TranslationTools.Tool` - command-line tool for manifest sync workflows
+- `src/mvdmio.TranslationTools.Client.SourceGenerator` - source generator used by the client package for `.resx`-backed resource APIs
+- `src/mvdmio.TranslationTools.Tool` - command-line tool for `.resx` sync workflows
 - `agents/plans` - working design plans for upcoming client and tooling changes
 - `test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit` - unit tests for the client package
 - `test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit` - unit tests for the CLI tool
@@ -56,43 +56,44 @@ Read translations at runtime:
 ```csharp
 using mvdmio.TranslationTools.Client;
 
-var title = Localizations.Action_Save;
-var fetchedTitle = await Localizations.GetAsync(Localizations.Keys.Action_Save);
+var title = Errors.Title;
+var fetchedTitle = await Errors.GetAsync(Errors.Keys.Title);
 var locale = await app.Services.GetRequiredService<ITranslationToolsClient>().GetLocaleAsync(new System.Globalization.CultureInfo("en"));
 ```
 
-Define manifest-backed translations with source generation:
+Define translations in `.resx` files:
 
-```csharp
-using mvdmio.TranslationTools.Client;
-
-[Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-public static partial class Localizations
-{
-   [Translation(DefaultValue = "Save")]
-   public static partial string Action_Save { get; }
-
-   [Translation(Key = "button.cancel", DefaultValue = "Cancel")]
-   public static partial string Action_Cancel { get; }
-}
+```text
+Errors.resx
+Admin/Labels.resx
 ```
 
-NuGet consumers should receive the bundled source generator automatically. Version `0.4.1` retargeted the bundled generator to stable Roslyn assemblies so generation also loads correctly in non-preview SDK and IDE hosts.
+Example `Errors.resx`:
+
+```xml
+<data name="title" xml:space="preserve">
+  <value>Error</value>
+</data>
+<data name="save.button" xml:space="preserve">
+  <value>Save</value>
+</data>
+```
+
+NuGet consumers receive the bundled source generator automatically.
 
 After generation, consume strongly-typed properties and keys:
 
 ```csharp
-var label = Localizations.Action_Save;
-var key = Localizations.Keys.Action_Save;
-var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Action_Save);
+var label = Errors.Title;
+var key = Errors.Keys.Title;
+var asyncLabel = await Errors.GetAsync(Errors.Keys.Title);
+var adminLabel = Admin.Labels.Save_Button;
 ```
 
 Offline mode details:
 
-- `translations pull` writes `.mvdmio-translations.snapshot.json` in the project root.
-- The client package auto-embeds that snapshot into the consuming assembly.
-- Sync generated properties read from the runtime client cache first, then the embedded snapshot.
-- Async generated helpers use embedded snapshot first, then network on miss.
+- Sync generated properties read from the runtime client cache first, then compiled `.resx` resources.
+- Async generated helpers read runtime cache first, then compiled `.resx` resources, then network on miss.
 
 Live update cache support:
 
@@ -111,40 +112,25 @@ Initialize configuration:
 
 ```bash
 translations init
-translations migrate
 ```
 
 Example `.mvdmio-translations.yml`:
 
 ```yaml
 apiKey: project-api-key
-output: Localizations.cs
-namespace: MyApp.Localization
-className: Localizations
-keyNaming: UnderscoreToDot
 defaultLocale: en
 ```
 
-Migrate `.resx` files into TranslationTools and regenerate the manifest:
-
-```bash
-translations migrate
-```
-
-`translations migrate` requires `.mvdmio-translations.yml` to exist already. It scans all `.resx` files under the resolved project, imports full locale/value state through the TranslationTools import API, and then reuses the pull flow to regenerate the configured manifest file.
-
-When migrate finds a single logical resource set, imported keys keep their original `.resx` names. When multiple logical resource sets are present, migrate prefixes keys with the resource-set path and file name to keep them unique.
-
-Pull translations into a manifest file:
+Pull translations into `.resx` files:
 
 ```bash
 translations pull
-translations pull --overwrite
+translations pull --prune
 ```
 
-`translations pull` also refreshes the root `.mvdmio-translations.snapshot.json` file used for startup bootstrap.
+`translations pull` updates project `.resx` files in place. By default it adds and updates values without deleting local entries. Use `--prune` to remove local entries and locale files that no longer exist remotely.
 
-Push manifest keys and default values back to the API:
+Push project `.resx` state back to the API:
 
 ```bash
 translations push

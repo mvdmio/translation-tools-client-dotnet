@@ -60,55 +60,54 @@ var item = await client.GetAsync("home.title", new CultureInfo("en"));
 var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 var cached = client.TryGetCached("home.title");
 
-var syncText = Localizations.Button_Save;
-var text = await Localizations.GetAsync(Localizations.Keys.Button_Save);
-var fallback = await Localizations.GetAsync("checkout.title", "Checkout");
-var dutch = await Localizations.GetAsync("home.title", new CultureInfo("nl-NL"));
+var syncText = Errors.Save_Button;
+var text = await Errors.GetAsync(Errors.Keys.Save_Button);
+var fallback = await Errors.GetAsync("Errors.checkout.title", "Checkout");
+var dutch = await Errors.GetAsync(Errors.Keys.Title, new CultureInfo("nl-NL"));
 ```
 
 ## Generated localizations
 
-Declare partial properties in a partial class. The package source generator emits implementations plus a nested `Keys` class.
+Author translations in `.resx` files. The package source generator emits designer-shaped resource classes plus a nested `Keys` class.
 
-```csharp
-using mvdmio.TranslationTools.Client;
+```text
+Errors.resx
+Admin/Labels.resx
+```
 
-[Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-public static partial class Localizations
-{
-   [Translation(DefaultValue = "Hello")]
-   public static partial string Button_Hello { get; }
+Example `Errors.resx`:
 
-   public static partial string Button_Save { get; }
-
-   [Translation(Key = "button.save_and_close", DefaultValue = "Save and close")]
-   public static partial string Button_SaveAndClose { get; }
-}
+```xml
+<data name="title" xml:space="preserve">
+  <value>Error</value>
+</data>
+<data name="save.button" xml:space="preserve">
+  <value>Save</value>
+</data>
 ```
 
 Usage after generation:
 
 ```csharp
-var label = Localizations.Button_Save;
-var key = Localizations.Keys.Button_Save;
-var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Button_Save);
+var label = Errors.Save_Button;
+var key = Errors.Keys.Save_Button;
+var asyncLabel = await Errors.GetAsync(Errors.Keys.Save_Button);
+var adminLabel = Admin.Labels.Title;
 ```
 
 - Sync generated properties call `TranslationManifestRuntime` through generated code.
-- Generated manifest classes also expose `GetAsync(...)` helpers.
+- Generated resource classes also expose `GetAsync(...)` helpers.
 - Sync reads are cache-only; they never trigger network fetches.
-- Sync reads check the registered runtime client cache before the embedded snapshot.
-- Async reads use embedded snapshot first, then network on miss.
-- Sync fallback order: runtime client cache -> embedded snapshot -> manifest `DefaultValue` -> key.
-- Async fallback order: embedded snapshot -> network -> manifest `DefaultValue` -> key.
+- Sync reads check the registered runtime client cache before compiled `.resx` resources.
+- Async reads use runtime cache first, then compiled `.resx` resources, then network on miss.
+- Sync fallback order: runtime client cache -> compiled `.resx` resource -> generated default value -> key.
+- Async fallback order: runtime client cache -> compiled `.resx` resource -> network -> generated default value -> key.
 - Call `InitializeTranslationToolsClientAsync()` during app startup before relying on sync generated access.
 
-## Offline snapshot
+## Offline fallback
 
-- `translations pull` writes `.mvdmio-translations.snapshot.json` in the project root.
-- The client package auto-embeds that root snapshot through a `buildTransitive` props file.
-- Snapshot lookup is assembly-scoped, so generated manifests read their own assembly's embedded snapshot.
-- If no embedded snapshot contains the key, sync reads fall back to manifest `DefaultValue`, then key.
+- Generated resource classes read compiled `.resx` resources from their own assembly.
+- If no local `.resx` entry contains the key, sync reads fall back to the generated default value, then key.
 
 ## Live update cache support
 
@@ -161,7 +160,7 @@ var asyncLabel = await Localizations.GetAsync(Localizations.Keys.Button_Save);
 - Locale fetches also hydrate per-item cache entries used by sync APIs.
 - Refreshing a locale replaces both the locale payload cache and its per-item entries.
 - External pushed updates can be applied into the same cache through `ApplyLocaleUpdateAsync(...)` or `ApplyUpdateAsync(...)`.
-- Sync APIs (`TryGetCached`, generated localization properties) read only from the local runtime cache and embedded snapshot; they never fetch over HTTP.
+- Sync APIs (`TryGetCached`, generated localization properties) read only from the local runtime cache and compiled `.resx` resources; they never fetch over HTTP.
 - Only the built-in in-memory dictionary cache remains.
 
 ## Initialize behavior
@@ -188,7 +187,7 @@ await app.Services.InitializeTranslationToolsClientAsync();
 - `ITranslationToolsClient.ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?>, CancellationToken)`
 - `ITranslationToolsClient.ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken)`
 - `TranslationToolsClientOptions.EnableLiveUpdates`
-- generated manifest properties and generated manifest `GetAsync(...)` helpers
+- generated resource properties and generated resource `GetAsync(...)` helpers
 - `InitializeTranslationToolsClientAsync(CancellationToken)`
 
 ## OpenAPI and docs

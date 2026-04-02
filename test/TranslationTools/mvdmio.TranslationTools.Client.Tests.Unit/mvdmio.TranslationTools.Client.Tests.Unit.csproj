@@ -31,10 +31,4 @@
       <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-       <EmbeddedResource Include="Resources\embedded-snapshot.json">
-          <LogicalName>mvdmio.TranslationTools.Client.Tests.Unit.mvdmio-translations.snapshot.json</LogicalName>
-       </EmbeddedResource>
-    </ItemGroup>
-
 </Project>

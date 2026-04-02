@@ -7,181 +7,30 @@ namespace mvdmio.TranslationTools.Tool.Tests.Unit.Push;
 
 public class PushHandlerTests
 {
-   public class ProjectManifestScannerTests
-   {
-      [Fact]
-      public void ScanProject_ShouldCollectKeysAndDefaultValuesFromTranslationManifests()
-      {
-         var projectDirectory = CreateTempProject();
-
-         try
-         {
-            File.WriteAllText(
-               Path.Combine(projectDirectory, "Localizations.cs"),
-               """
-               using mvdmio.TranslationTools.Client;
-
-               namespace Demo;
-
-               [Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-               public static partial class Localizations
-               {
-                  [Translation(DefaultValue = "Save")]
-                  public static partial string Action_Save { get; }
-
-                  [Translation(Key = "legacy.button.cancel", DefaultValue = "Cancel")]
-                  public static partial string Action_Cancel { get; }
-               }
-               """
-            );
-
-            var result = new ProjectManifestScanner().ScanProject(projectDirectory);
-
-            result.FoundManifest.Should().BeTrue();
-            result.Items.Should().HaveCount(2);
-            result.Items.Should().ContainSingle(x => x.Key == "Action.Save" && x.DefaultValue == "Save");
-            result.Items.Should().ContainSingle(x => x.Key == "legacy.button.cancel" && x.DefaultValue == "Cancel");
-         }
-         finally
-         {
-            Directory.Delete(projectDirectory, recursive: true);
-         }
-      }
-
-      [Fact]
-      public void ScanProject_ShouldPreferNonEmptyDefaultValueForDuplicateKeys()
-      {
-         var projectDirectory = CreateTempProject();
-
-         try
-         {
-            File.WriteAllText(
-               Path.Combine(projectDirectory, "A.cs"),
-               """
-               using mvdmio.TranslationTools.Client;
-
-               namespace Demo;
-
-               [Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-               public static partial class One
-               {
-                  public static partial string Action_Save { get; }
-               }
-               """
-            );
-
-            File.WriteAllText(
-               Path.Combine(projectDirectory, "B.cs"),
-               """
-               using mvdmio.TranslationTools.Client;
-
-               namespace Demo;
-
-               [Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-               public static partial class Two
-               {
-                  [Translation(DefaultValue = "Save")]
-                  public static partial string Action_Save { get; }
-               }
-               """
-            );
-
-            var result = new ProjectManifestScanner().ScanProject(projectDirectory);
-
-            result.Items.Should().ContainSingle(x => x.Key == "Action.Save" && x.DefaultValue == "Save");
-         }
-         finally
-         {
-            Directory.Delete(projectDirectory, recursive: true);
-         }
-      }
-
-      [Fact]
-      public void ScanProject_ShouldThrowForConflictingDefaultValues()
-      {
-         var projectDirectory = CreateTempProject();
-
-         try
-         {
-            File.WriteAllText(
-               Path.Combine(projectDirectory, "A.cs"),
-               """
-               using mvdmio.TranslationTools.Client;
-
-               namespace Demo;
-
-               [Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-               public static partial class One
-               {
-                  [Translation(DefaultValue = "Save")]
-                  public static partial string Action_Save { get; }
-               }
-               """
-            );
-
-            File.WriteAllText(
-               Path.Combine(projectDirectory, "B.cs"),
-               """
-               using mvdmio.TranslationTools.Client;
-
-               namespace Demo;
-
-               [Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-               public static partial class Two
-               {
-                  [Translation(DefaultValue = "Opslaan")]
-                  public static partial string Action_Save { get; }
-               }
-               """
-            );
-
-            var action = () => new ProjectManifestScanner().ScanProject(projectDirectory);
-
-            action.Should().Throw<InvalidOperationException>().WithMessage("*Action.Save*");
-         }
-         finally
-         {
-            Directory.Delete(projectDirectory, recursive: true);
-         }
-      }
-   }
-
-   public class ResolveProjectDirectory
-   {
-      [Fact]
-       public void ShouldResolveNearestCsprojFromOutputPath()
-       {
-          var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-
-          try
-          {
-             Directory.CreateDirectory(projectDirectory);
-             File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
-             Directory.CreateDirectory(Path.Combine(projectDirectory, "Localization"));
-             File.WriteAllText(Path.Combine(projectDirectory, ToolConfiguration.CONFIG_FILE_NAME), "apiKey: test\noutput: Localization/Localizations.cs\n");
-
-             var result = PushHandler.ResolveProjectDirectory(
-                new ToolConfiguration {
-                   ConfigDirectory = projectDirectory,
-                   Output = Path.Combine("Localization", "Localizations.cs")
-                }
-             );
-
-            result.Should().Be(projectDirectory);
-          }
-          finally
-          {
-             if (Directory.Exists(projectDirectory))
-                Directory.Delete(projectDirectory, recursive: true);
-          }
-       }
-   }
-
-   private static string CreateTempProject()
+   [Fact]
+   public void ResolveProjectDirectory_ShouldResolveNearestCsprojFromConfigDirectory()
    {
       var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(projectDirectory);
-      File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
-      return projectDirectory;
+
+      try
+      {
+         Directory.CreateDirectory(projectDirectory);
+         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
+         File.WriteAllText(Path.Combine(projectDirectory, ToolConfiguration.CONFIG_FILE_NAME), "apiKey: test\ndefaultLocale: en\n");
+
+         var result = PushHandler.ResolveProjectDirectory(
+            new ToolConfiguration {
+               ConfigDirectory = projectDirectory,
+               DefaultLocale = "en"
+            }
+         );
+
+         result.Should().Be(projectDirectory);
+      }
+      finally
+      {
+         if (Directory.Exists(projectDirectory))
+            Directory.Delete(projectDirectory, recursive: true);
+      }
    }
 }

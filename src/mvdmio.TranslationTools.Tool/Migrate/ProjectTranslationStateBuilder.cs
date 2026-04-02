@@ -21,11 +21,6 @@ internal sealed class ProjectTranslationStateBuilder
 
       var normalizedDefaultLocale = ResxMigrationScanner.NormalizeLocale(defaultLocale);
       var parsedFiles = scanResult.SourceFiles.Select(_parser.Parse).ToArray();
-      var shouldPrefixKeys = parsedFiles
-         .Select(static x => x.SourceFile.ResourceSetName)
-         .Distinct(StringComparer.Ordinal)
-         .Skip(1)
-         .Any();
       var locales = parsedFiles
          .Select(x => x.SourceFile.Locale ?? normalizedDefaultLocale)
          .Distinct(StringComparer.Ordinal)
@@ -46,9 +41,7 @@ internal sealed class ProjectTranslationStateBuilder
 
          foreach (var entry in parsedFile.Entries)
          {
-            var effectiveKey = shouldPrefixKeys
-               ? $"{parsedFile.SourceFile.ResourceSetName}.{entry.Key}"
-               : entry.Key;
+            var effectiveKey = $"{parsedFile.SourceFile.ResourceSetName}.{entry.Key}";
             var origin = $"{parsedFile.SourceFile.ResourceSetName}::{entry.Key}";
 
             if (keyOrigins.TryGetValue(effectiveKey, out var existingOrigin)

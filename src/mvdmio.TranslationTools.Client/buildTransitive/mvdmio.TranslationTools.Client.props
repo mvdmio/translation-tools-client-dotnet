@@ -1,7 +1,10 @@
 <Project>
    <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\.mvdmio-translations.snapshot.json')">
-      <EmbeddedResource Include="$(MSBuildProjectDirectory)\.mvdmio-translations.snapshot.json">
-         <LogicalName>$(AssemblyName).mvdmio-translations.snapshot.json</LogicalName>
-      </EmbeddedResource>
+      <EmbeddedResource Remove="$(MSBuildProjectDirectory)\.mvdmio-translations.snapshot.json" />
+   </ItemGroup>
+
+   <ItemGroup>
+      <CompilerVisibleProperty Include="MSBuildProjectDirectory" />
+      <CompilerVisibleProperty Include="RootNamespace" />
    </ItemGroup>
 </Project>

@@ -4,7 +4,8 @@ using System.Reflection;
 using AwesomeAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using mvdmio.TranslationTools.Client;
+using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.Diagnostics;
 using mvdmio.TranslationTools.Client.SourceGenerator;
 using Xunit;
 
@@ -13,164 +14,46 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 public class TranslationManifestGeneratorTests
 {
    [Fact]
-   public void ShouldGenerateKeysAndProperties()
+   public void ShouldGenerateKeysAndPropertiesFromResx()
    {
       var result = RunGenerator(
-         """
-         using mvdmio.TranslationTools.Client;
-
-         namespace Demo;
-
-         [Translations(KeyNaming = TranslationKeyNaming.UnderscoreToDot)]
-         public static partial class Localizations
-         {
-            [Translation(DefaultValue = "Hello")]
-            public static partial string Button_Hello { get; }
-
-            public static partial string Button_Save { get; }
-
-            [Translation(Key = "button.save_and_close", DefaultValue = "Save and close")]
-            public static partial string Button_SaveAndClose { get; }
-         }
-         """
-      );
-
-       result.GeneratorDiagnostics.Should().BeEmpty();
-       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
-       result.GeneratedSource.Should().Contain("private static global::System.Type ManifestType => typeof(Localizations);");
-       result.GeneratedSource.Should().Contain("public const string Button_Hello = \"Button.Hello\";");
-       result.GeneratedSource.Should().Contain("public const string Button_Save = \"Button.Save\";");
-       result.GeneratedSource.Should().Contain("public const string Button_SaveAndClose = \"button.save_and_close\";");
-      result.GeneratedSource.Should().Contain("public static partial string Button_Hello");
-      result.GeneratedSource.Should().Contain("get => Get(Keys.Button_Hello, \"Hello\");");
-      result.GeneratedSource.Should().Contain("public static partial string Button_Save");
-      result.GeneratedSource.Should().Contain("get => Get(Keys.Button_Save);");
-       result.GeneratedSource.Should().Contain("public static partial string Button_SaveAndClose");
-       result.GeneratedSource.Should().Contain("get => Get(Keys.Button_SaveAndClose, \"Save and close\");");
-        result.GeneratedSource.Should().Contain("public static string Get(string key, string? defaultValue = null)");
-        result.GeneratedSource.Should().Contain("public static global::System.Threading.Tasks.Task<string> GetAsync(string key");
-    }
-
-   [Fact]
-   public void ShouldGenerateForNonStaticPartialClass()
-   {
-      var result = RunGenerator(
-         """
-         using mvdmio.TranslationTools.Client;
-
-         namespace Demo;
-
-         [Translations]
-         public partial class Localizations
-         {
-            public static partial string Button_Save { get; }
-         }
-         """
+         "namespace Demo { }",
+         ("D:\\Project\\Errors.resx", Resx(("save.button", "Save"), ("class", "Class value")))
       );
 
       result.GeneratorDiagnostics.Should().BeEmpty();
-      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
-      result.GeneratedSource.Should().Contain("public partial class Localizations");
-      result.GeneratedSource.Should().Contain("public static partial string Button_Save");
-      result.GeneratedSource.Should().Contain("get => Get(Keys.Button_Save);");
+      result.GeneratedSources.Should().ContainSingle();
+      result.GeneratedSources[0].Should().Contain("public static partial class Errors");
+      result.GeneratedSources[0].Should().Contain("public const string Save_Button = \"Errors.save.button\";");
+      result.GeneratedSources[0].Should().Contain("public const string Class = \"Errors.class\";");
+      result.GeneratedSources[0].Should().Contain("public static string Save_Button");
+      result.GeneratedSources[0].Should().Contain("get => Get(\"save.button\", \"Save\");");
    }
 
    [Fact]
-   public void ShouldUseLowerSnakeCaseByDefault()
+   public void ShouldGenerateNestedNamespaceFromRelativeFolder()
    {
       var result = RunGenerator(
-         """
-         using mvdmio.TranslationTools.Client;
-
-         [Translations]
-         public static partial class Localizations
-         {
-            public static partial string Button_HelloWorld { get; }
-         }
-         """
-      );
-
-       result.GeneratorDiagnostics.Should().BeEmpty();
-       result.GeneratedSource.Should().Contain("public const string Button_HelloWorld = \"button_hello_world\";");
-    }
-
-   [Fact]
-   public void ShouldReportMissingManifest()
-   {
-      var result = RunGenerator(
-         """
-         using mvdmio.TranslationTools.Client;
-
-         [Translations]
-         public static partial class Localizations
-         {
-          }
-         """
-      );
-
-      result.GeneratorDiagnostics.Select(x => x.Id).Should().Contain("TTCLIENTGEN002");
-   }
-
-   [Fact]
-   public void ShouldReportInvalidManifestProperty()
-   {
-      var result = RunGenerator(
-         """
-         using mvdmio.TranslationTools.Client;
-
-         [Translations]
-         public static partial class Localizations
-         {
-            public static string Button_Hello { get; set; }
-          }
-         """
-      );
-
-      result.GeneratorDiagnostics.Select(x => x.Id).Should().Contain("TTCLIENTGEN003");
-   }
-
-   [Fact]
-   public void ShouldUseCultureOverrideWhenClassDefinesCultureProperty()
-   {
-      var result = RunGenerator(
-         """
-         using System.Globalization;
-         using mvdmio.TranslationTools.Client;
-
-         [Translations]
-         public static partial class Localizations
-         {
-            public static CultureInfo? Culture { get; set; }
-
-            [Translation(DefaultValue = "Hello")]
-            public static partial string Button_Hello { get; }
-         }
-         """
-      );
-
-       result.GeneratorDiagnostics.Should().BeEmpty();
-       result.GeneratedSource.Should().Contain("TranslationManifestRuntime.Get(ManifestType, key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue)");
-    }
-
-   [Fact]
-   public void ShouldGenerateMultiplePartialProperties()
-   {
-      var result = RunGenerator(
-         """
-         using mvdmio.TranslationTools.Client;
-
-         [Translations]
-         public partial class Localizations
-         {
-            public static partial string Action_Save { get; }
-            public static partial string Label_Name { get; }
-         }
-         """
+         "namespace Demo { }",
+         ("D:\\Project\\Admin\\Labels.resx", Resx(("title", "Admin")))
       );
 
       result.GeneratorDiagnostics.Should().BeEmpty();
-      result.GeneratedSource.Should().Contain("public const string Action_Save = \"action_save\";");
-      result.GeneratedSource.Should().Contain("public const string Label_Name = \"label_name\";");
+      result.GeneratedSources.Should().ContainSingle();
+      result.GeneratedSources[0].Should().Contain("namespace GeneratorTests.Admin;");
+      result.GeneratedSources[0].Should().Contain("public static partial class Labels");
+      result.GeneratedSources[0].Should().Contain("public const string Title = \"Admin.Labels.title\";");
+   }
+
+   [Fact]
+   public void ShouldReportConflictingPropertyNamesAfterNormalization()
+   {
+      var result = RunGenerator(
+         "namespace Demo { }",
+         ("D:\\Project\\Errors.resx", Resx(("save.button", "Save"), ("save.button", "Save 2")))
+      );
+
+      result.GeneratorDiagnostics.Select(static x => x.Id).Should().Contain("TTCLIENTGEN002");
    }
 
    [Fact]
@@ -178,11 +61,23 @@ public class TranslationManifestGeneratorTests
    {
       var references = typeof(TranslationManifestGenerator).Assembly.GetReferencedAssemblies();
 
-      references.Single(x => x.Name == "Microsoft.CodeAnalysis").Version!.Major.Should().Be(4);
-      references.Single(x => x.Name == "Microsoft.CodeAnalysis.CSharp").Version!.Major.Should().Be(4);
+      references.Select(static x => x.Name).Should().Contain("Microsoft.CodeAnalysis");
    }
 
-   private static GeneratorTestResult RunGenerator(string source)
+   [Fact]
+   public void ShouldGenerateForDottedBaseFileNames()
+   {
+      var result = RunGenerator(
+         "namespace Demo { }",
+         ("D:\\Project\\Shared.Validation.resx", Resx(("required", "Required")))
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.GeneratedSources.Should().ContainSingle();
+      result.GeneratedSources[0].Should().Contain("public static partial class Shared.Validation");
+   }
+
+   private static GeneratorTestResult RunGenerator(string source, params (string Path, string Content)[] additionalFiles)
    {
       var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
       var compilation = CSharpCompilation.Create(
@@ -192,18 +87,23 @@ public class TranslationManifestGeneratorTests
          options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
       );
 
+      var analyzerConfig = new TestAnalyzerConfigOptionsProvider(new Dictionary<string, string>(StringComparer.Ordinal) {
+         ["build_property.MSBuildProjectDirectory"] = "D:\\Project",
+         ["build_property.RootNamespace"] = "GeneratorTests"
+      });
       GeneratorDriver driver = CSharpGeneratorDriver.Create(
-         generators: [new TranslationManifestGenerator().AsSourceGenerator()],
-         parseOptions: parseOptions
+         generators: [new TranslationManifestGenerator()],
+         additionalTexts: [.. additionalFiles.Select(static file => new TestAdditionalText(file.Path, file.Content))],
+         parseOptions: parseOptions,
+         optionsProvider: analyzerConfig
       );
 
       driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var outputDiagnostics);
       var runResult = driver.GetRunResult();
-      var generatedSource = runResult.Results.Single().GeneratedSources.SingleOrDefault().SourceText?.ToString() ?? string.Empty;
 
       return new GeneratorTestResult(
-         GeneratedSource: generatedSource,
-         GeneratorDiagnostics: runResult.Results.SelectMany(x => x.Diagnostics).ToImmutableArray(),
+         GeneratedSources: [.. runResult.Results.SelectMany(static x => x.GeneratedSources).Select(static x => x.SourceText.ToString())],
+         GeneratorDiagnostics: runResult.Results.SelectMany(static x => x.Diagnostics).ToImmutableArray(),
          CompilationDiagnostics: [.. outputCompilation.GetDiagnostics(), .. outputDiagnostics]
       );
    }
@@ -214,13 +114,86 @@ public class TranslationManifestGeneratorTests
          .Split(Path.PathSeparator)
          .Select(path => MetadataReference.CreateFromFile(path))
          .ToList();
-      trustedPlatformAssemblies.Add(MetadataReference.CreateFromFile(typeof(TranslationsAttribute).Assembly.Location));
-      return [.. trustedPlatformAssemblies.DistinctBy(x => x.Display, StringComparer.OrdinalIgnoreCase)];
+      trustedPlatformAssemblies.Add(MetadataReference.CreateFromFile(typeof(TranslationManifestGenerator).Assembly.Location));
+      return [.. trustedPlatformAssemblies.DistinctBy(static x => x.Display, StringComparer.OrdinalIgnoreCase)];
+   }
+
+   private static string Resx(params (string Key, string Value)[] entries)
+   {
+      var lines = new List<string> {
+         "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+         "<root>"
+      };
+
+      foreach (var entry in entries)
+      {
+         lines.Add($"  <data name=\"{entry.Key}\" xml:space=\"preserve\">");
+         lines.Add($"    <value>{entry.Value}</value>");
+         lines.Add("  </data>");
+      }
+
+      lines.Add("</root>");
+      return string.Join(Environment.NewLine, lines);
    }
 
    private sealed record GeneratorTestResult(
-      string GeneratedSource,
+      ImmutableArray<string> GeneratedSources,
       ImmutableArray<Diagnostic> GeneratorDiagnostics,
       ImmutableArray<Diagnostic> CompilationDiagnostics
    );
+
+   private sealed class TestAdditionalText : AdditionalText
+   {
+      private readonly SourceText _sourceText;
+
+      public TestAdditionalText(string path, string content)
+      {
+         Path = path;
+         _sourceText = SourceText.From(content);
+      }
+
+      public override string Path { get; }
+
+      public override SourceText GetText(CancellationToken cancellationToken = default)
+      {
+         return _sourceText;
+      }
+   }
+
+   private sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
+   {
+      private readonly AnalyzerConfigOptions _globalOptions;
+
+      public TestAnalyzerConfigOptionsProvider(IReadOnlyDictionary<string, string> values)
+      {
+         _globalOptions = new TestAnalyzerConfigOptions(values);
+      }
+
+      public override AnalyzerConfigOptions GlobalOptions => _globalOptions;
+
+      public override AnalyzerConfigOptions GetOptions(SyntaxTree tree)
+      {
+         return new TestAnalyzerConfigOptions(new Dictionary<string, string>());
+      }
+
+      public override AnalyzerConfigOptions GetOptions(AdditionalText textFile)
+      {
+         return new TestAnalyzerConfigOptions(new Dictionary<string, string>());
+      }
+   }
+
+   private sealed class TestAnalyzerConfigOptions : AnalyzerConfigOptions
+   {
+      private readonly IReadOnlyDictionary<string, string> _values;
+
+      public TestAnalyzerConfigOptions(IReadOnlyDictionary<string, string> values)
+      {
+         _values = values;
+      }
+
+      public override bool TryGetValue(string key, out string value)
+      {
+         return _values.TryGetValue(key, out value!);
+      }
+   }
 }

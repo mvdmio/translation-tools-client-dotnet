@@ -27,11 +27,6 @@ internal static class ToolProjectResolver
       };
    }
 
-   public static string GetSnapshotPath(ToolConfiguration config)
-   {
-      return Path.Combine(config.ConfigDirectory, ToolConfiguration.SNAPSHOT_FILE_NAME);
-   }
-
    private static string? FindProjectFile(string projectDirectory)
    {
       return Directory.GetFiles(projectDirectory, "*.csproj", SearchOption.TopDirectoryOnly)

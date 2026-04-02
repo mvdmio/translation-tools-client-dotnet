@@ -1,24 +1,26 @@
 using mvdmio.TranslationTools.Tool.Configuration;
+using mvdmio.TranslationTools.Tool.Migrate;
 using mvdmio.TranslationTools.Tool.Pull;
-using mvdmio.TranslationTools.Tool.Scaffolding;
 
 namespace mvdmio.TranslationTools.Tool.Push;
 
 internal sealed class PushHandler
 {
-   private readonly TranslationApiService _translationApiService;
-   private readonly ProjectManifestScanner _projectManifestScanner;
+   private readonly ITranslationApiService _translationApiService;
+   private readonly ResxMigrationScanner _scanner;
+   private readonly ProjectTranslationStateBuilder _stateBuilder;
    private readonly IPushReporter _reporter;
 
    public PushHandler()
-      : this(new TranslationApiService(), new ProjectManifestScanner(), new ConsolePushReporter())
+      : this(new TranslationApiService(), new ResxMigrationScanner(), new ProjectTranslationStateBuilder(), new ConsolePushReporter())
    {
    }
 
-   internal PushHandler(TranslationApiService translationApiService, ProjectManifestScanner projectManifestScanner, IPushReporter reporter)
+   internal PushHandler(ITranslationApiService translationApiService, ResxMigrationScanner scanner, ProjectTranslationStateBuilder stateBuilder, IPushReporter reporter)
    {
       _translationApiService = translationApiService;
-      _projectManifestScanner = projectManifestScanner;
+      _scanner = scanner;
+      _stateBuilder = stateBuilder;
       _reporter = reporter;
    }
 
@@ -36,29 +38,34 @@ internal sealed class PushHandler
          return;
       }
 
+      if (string.IsNullOrWhiteSpace(config.DefaultLocale))
+      {
+         _reporter.WriteError("Error: No default locale provided. Add defaultLocale to .mvdmio-translations.yml.");
+         return;
+      }
+
       var projectDirectory = ResolveProjectDirectory(config);
-      var scanResult = _projectManifestScanner.ScanProject(projectDirectory);
-      if (!scanResult.FoundManifest)
-         throw new InvalidOperationException($"No translation manifests found in project '{projectDirectory}'.");
+      var scanResult = _scanner.ScanProject(projectDirectory);
+      var (state, report) = _stateBuilder.Build(scanResult, config.DefaultLocale);
 
-      _reporter.WriteInfo($"Scanning translation manifests in {projectDirectory}...");
-      _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation keys to {ToolConfiguration.DEFAULT_BASE_URL}...");
+      _reporter.WriteInfo($"Scanning .resx files in {projectDirectory}...");
+      _reporter.WriteInfo($"Pushing {report.KeyCount} translation keys across {report.Locales.Count} locales to {ToolConfiguration.DEFAULT_BASE_URL}...");
 
-      var result = await _translationApiService.PushProjectTranslationsAsync(
+      var result = await _translationApiService.ImportProjectStateAsync(
          config.ApiKey,
-         new TranslationPushRequest {
-            Items = scanResult.Items.Select(
-               static x => new TranslationPushItemRequest {
-                  Key = x.Key,
-                  DefaultValue = x.DefaultValue
-               }
-            ).ToArray()
+         new ProjectTranslationStateImportRequest {
+            DefaultLocale = state.DefaultLocale,
+            Locales = [.. state.Locales],
+            Items = [.. state.Items.Select(static item => new ProjectTranslationStateImportItemRequest {
+               Key = item.Key,
+               Translations = new Dictionary<string, string?>(item.Translations, StringComparer.Ordinal)
+            })]
          },
          cancellationToken
       );
 
-      _reporter.WriteInfo($"Push complete. Synced {result.ReceivedKeyCount} keys.");
-      _reporter.WriteInfo($"Created: {result.CreatedKeyCount}. Updated default values: {result.UpdatedKeyCount}. Removed: {result.RemovedKeyCount}.");
+      _reporter.WriteInfo($"Push complete. Received {result.ReceivedKeyCount} keys across {result.ReceivedLocaleCount} locales.");
+      _reporter.WriteInfo($"Created translations: {result.CreatedTranslationCount}. Updated translations: {result.UpdatedTranslationCount}.");
    }
 
    internal static string ResolveProjectDirectory(ToolConfiguration config)

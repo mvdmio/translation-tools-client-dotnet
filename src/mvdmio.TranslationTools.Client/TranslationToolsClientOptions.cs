@@ -11,6 +11,11 @@ public sealed class TranslationToolsClientOptions
    internal const string DEFAULT_BASE_URL = "https://translations.mvdm.io";
 
    /// <summary>
+   /// Default locale used when no specific locale can be resolved.
+   /// </summary>
+   public string DefaultLocale { get; set; } = "en";
+
+   /// <summary>
    /// Project API key sent via the Authorization header.
    /// </summary>
    public required string ApiKey { get; set; }

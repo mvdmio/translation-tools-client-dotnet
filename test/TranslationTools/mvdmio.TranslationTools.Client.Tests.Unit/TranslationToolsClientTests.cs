@@ -31,9 +31,11 @@ public abstract class TranslationToolsClientTests : IDisposable
       HttpClient.Dispose();
    }
 
-   [Translations]
-   private static partial class TestManifestAssemblyMarker
+   private static class TestManifestAssemblyMarker
    {
+      public static class Keys
+      {
+      }
    }
 
    public class Initialize : TranslationToolsClientTests
@@ -452,10 +454,35 @@ public abstract class TranslationToolsClientTests : IDisposable
           {
              CultureInfo.CurrentUICulture = originalCulture;
           }
-      }
+       }
 
-      [Fact]
-      public void ShouldReturnFallbackWithoutFetching_WhenSyncGetMissesSnapshot()
+       [Fact]
+       public async Task ShouldUseRegisteredDefaultLocale_WhenCurrentCultureIsInvariant()
+       {
+          var cancellationToken = TestContext.Current.CancellationToken;
+          EnqueueJson("""{"key":"checkout.title","value":"Hallo"}""");
+          using var client = CreateClient();
+          var originalCulture = CultureInfo.CurrentUICulture;
+
+          try
+          {
+             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+             TranslationManifestRuntime.RegisterDefaultLocale(typeof(TranslationToolsClientTests).Assembly, "nl");
+             TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
+             var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "checkout.title", cancellationToken: cancellationToken);
+
+             value.Should().Be("Hallo");
+             Handler.Requests.Single().RequestUri!.ToString().Should().Contain("/nl/");
+          }
+          finally
+          {
+             CultureInfo.CurrentUICulture = originalCulture;
+          }
+       }
+
+       [Fact]
+       public void ShouldReturnFallbackWithoutFetching_WhenSyncGetMissesSnapshot()
       {
           var originalCulture = CultureInfo.CurrentUICulture;
 

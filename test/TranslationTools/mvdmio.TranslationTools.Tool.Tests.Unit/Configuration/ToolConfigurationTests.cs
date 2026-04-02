@@ -15,7 +15,7 @@ public class ToolConfigurationTests
       {
          var configuration = new ToolConfiguration {
             ApiKey = "project-api-key",
-            Output = "Localizations.cs"
+            DefaultLocale = "en"
          };
 
          configuration.Save(directory);
@@ -24,14 +24,9 @@ public class ToolConfigurationTests
          File.Exists(path).Should().BeTrue();
 
          var yaml = File.ReadAllText(path);
-          yaml.Should().Contain("apiKey: project-api-key");
-          yaml.Should().Contain("output: Localizations.cs");
-          yaml.Should().NotContain("defaultLocale:");
-          yaml.Should().NotContain("basePath:");
-          yaml.Should().NotContain("locale:");
-         yaml.Should().NotContain("includeCulture:");
-         yaml.Should().NotContain("staticClass:");
-      }
+           yaml.Should().Contain("apiKey: project-api-key");
+           yaml.Should().Contain("defaultLocale: en");
+       }
       finally
       {
          if (Directory.Exists(directory))
@@ -40,7 +35,7 @@ public class ToolConfigurationTests
    }
 
    [Fact]
-   public void Load_ShouldResolveOutputRelativeToConfigFileDirectory()
+   public void Load_ShouldResolveConfigDirectoryFromNearestConfigFile()
    {
       var rootDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
       var configDirectory = Path.Combine(rootDirectory, "config-root");
@@ -52,17 +47,16 @@ public class ToolConfigurationTests
          Directory.CreateDirectory(nestedDirectory);
          File.WriteAllText(
             Path.Combine(configDirectory, ToolConfiguration.CONFIG_FILE_NAME),
-            "apiKey: project-api-key\noutput: Localization/Localizations.cs\n"
+            "apiKey: project-api-key\ndefaultLocale: en\n"
          );
 
          Directory.SetCurrentDirectory(nestedDirectory);
 
-         var configuration = ToolConfigurationLoader.Load();
-         var outputPath = ToolPathResolver.GetOutputPath(configuration);
+          var configuration = ToolConfigurationLoader.Load();
 
-         configuration.ConfigDirectory.Should().Be(configDirectory);
-         outputPath.Should().Be(Path.GetFullPath(Path.Combine(configDirectory, "Localization", "Localizations.cs")));
-      }
+          configuration.ConfigDirectory.Should().Be(configDirectory);
+          configuration.DefaultLocale.Should().Be("en");
+       }
       finally
       {
          Directory.SetCurrentDirectory(originalCurrentDirectory);

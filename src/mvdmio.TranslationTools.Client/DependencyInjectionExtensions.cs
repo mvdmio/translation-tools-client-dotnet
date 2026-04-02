@@ -55,13 +55,16 @@ public static class DependencyInjectionExtensions
    {
       using var scope = app.Services.CreateScope();
       var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
+      var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
 
       foreach (var assembly in GetManifestAssemblies())
+      {
+         TranslationManifestRuntime.RegisterDefaultLocale(assembly, options.DefaultLocale);
          TranslationManifestRuntime.RegisterClient(assembly, client);
+      }
 
       await client.Initialize(cancellationToken);
 
-      var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
       if (options.EnableLiveUpdates)
       {
          var liveUpdateService = app.Services.GetRequiredService<TranslationToolsLiveUpdateService>();
@@ -69,14 +72,14 @@ public static class DependencyInjectionExtensions
       }
    }
 
-   internal static Assembly[] GetManifestAssemblies()
-   {
-      return AppDomain.CurrentDomain.GetAssemblies()
-          .Where(static assembly => !assembly.IsDynamic)
-          .Where(static assembly => GetLoadableTypes(assembly).Any(static type => type.GetCustomAttributes(typeof(TranslationsAttribute), inherit: false).Length > 0))
-          .Distinct()
-          .ToArray();
-   }
+    internal static Assembly[] GetManifestAssemblies()
+    {
+     return AppDomain.CurrentDomain.GetAssemblies()
+         .Where(static assembly => !assembly.IsDynamic)
+         .Where(static assembly => GetLoadableTypes(assembly).Any(static type => type.GetNestedType("Keys", BindingFlags.Public | BindingFlags.NonPublic) is not null))
+         .Distinct()
+         .ToArray();
+    }
 
    private static Type[] GetLoadableTypes(Assembly assembly)
    {
