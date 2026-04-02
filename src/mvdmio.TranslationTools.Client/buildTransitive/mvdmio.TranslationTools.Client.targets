@@ -1,7 +1,6 @@
 <Project>
    <ItemGroup>
-      <EmbeddedResource Update="**\*.resx"
-                        Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)">
+      <EmbeddedResource Update="**\*.resx">
          <Generator></Generator>
          <LastGenOutput></LastGenOutput>
          <TranslationToolsManaged>true</TranslationToolsManaged>
