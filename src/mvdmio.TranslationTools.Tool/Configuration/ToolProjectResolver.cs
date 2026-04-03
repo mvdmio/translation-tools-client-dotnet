@@ -11,6 +11,11 @@ internal sealed class ToolProjectContext
 
 internal static class ToolProjectResolver
 {
+   public static string GetSnapshotPath(ToolConfiguration config)
+   {
+      return Path.GetFullPath(Path.Combine(config.ConfigDirectory, ToolConfiguration.SNAPSHOT_FILE_NAME));
+   }
+
    public static ToolProjectContext Resolve(ToolConfiguration config)
    {
       var projectFilePath = FindProjectFile(config.ConfigDirectory)

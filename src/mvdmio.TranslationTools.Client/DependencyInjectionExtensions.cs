@@ -1,14 +1,14 @@
 using JetBrains.Annotations;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
 using System;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace mvdmio.TranslationTools.Client;
 
@@ -28,8 +28,7 @@ public static class DependencyInjectionExtensions
       services.Configure(options);
 
       services.AddOptions<TranslationToolsClientOptions>().PostConfigure<IOptions<RequestLocalizationOptions>>(
-         static (clientOptions, localizationOptions) =>
-         {
+         static (clientOptions, localizationOptions) => {
             if (clientOptions.SupportedLocales.Length > 0)
                return;
 
@@ -37,15 +36,14 @@ public static class DependencyInjectionExtensions
          }
       );
 
-      services.AddHttpClient(HTTP_CLIENT_NAME);
-      services.TryAddSingleton<ITranslationToolsClient>(static serviceProvider =>
-      {
-         var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-         var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
-         var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
-         return new TranslationToolsClient(httpClient, clientOptions, serviceProvider);
-      });
-      services.TryAddSingleton<TranslationToolsLiveUpdateService>();
+       services.AddHttpClient(HTTP_CLIENT_NAME);
+        services.TryAddSingleton<ITranslationToolsClient>(static serviceProvider => {
+           var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+           var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
+           var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
+           return new TranslationToolsClient(httpClient, clientOptions, serviceProvider);
+        });
+       services.TryAddSingleton<TranslationToolsLiveUpdateService>();
 
       return services;
    }
@@ -57,16 +55,13 @@ public static class DependencyInjectionExtensions
    {
       using var scope = app.Services.CreateScope();
       var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
-      var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
 
       foreach (var assembly in GetManifestAssemblies())
-      {
-         TranslationManifestRuntime.RegisterDefaultLocale(assembly, options.DefaultLocale);
          TranslationManifestRuntime.RegisterClient(assembly, client);
-      }
 
       await client.Initialize(cancellationToken);
 
+      var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
       if (options.EnableLiveUpdates)
       {
          var liveUpdateService = app.Services.GetRequiredService<TranslationToolsLiveUpdateService>();

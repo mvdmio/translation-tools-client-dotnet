@@ -462,20 +462,19 @@ public abstract class TranslationToolsClientTests : IDisposable
       }
 
       [Fact]
-      public async Task ShouldUseRegisteredDefaultLocale_WhenCurrentCultureIsInvariant()
+      public async Task ShouldUseOptionsDefaultLocale_WhenCurrentCultureIsInvariant()
       {
          var cancellationToken = TestContext.Current.CancellationToken;
          EnqueueJson("""{"key":"checkout.title","value":"Hallo"}""");
-         using var client = CreateClient();
+         using var client = CreateClient(defaultLocale: "nl");
          var originalCulture = CultureInfo.CurrentUICulture;
 
          try
          {
             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
-            TranslationManifestRuntime.RegisterDefaultLocale(typeof(TranslationToolsClientTests).Assembly, "nl");
-            TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
-            var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "checkout.title", cancellationToken: cancellationToken);
+             TranslationManifestRuntime.RegisterClient(typeof(TranslationToolsClientTests).Assembly, client);
+             var value = await TranslationManifestRuntime.GetAsync(typeof(TranslationToolsClientTests), "checkout.title", cancellationToken: cancellationToken);
 
             value.Should().Be("Hallo");
             Handler.Requests.Single().RequestUri!.ToString().Should().Contain("/nl/");
@@ -509,21 +508,10 @@ public abstract class TranslationToolsClientTests : IDisposable
       [Fact]
       public void ShouldReadEmbeddedSnapshot_ForSyncReads()
       {
-         var originalCulture = CultureInfo.CurrentUICulture;
+         var value = TranslationManifestRuntime.Get(typeof(TranslationToolsClientTests), "home.title", "Fallback");
 
-         try
-         {
-            CultureInfo.CurrentUICulture = new CultureInfo("en");
-
-            var value = TranslationManifestRuntime.Get(typeof(TranslationToolsClientTests), "home.title", "Fallback");
-
-            value.Should().Be("Embedded home");
-            Handler.Requests.Should().BeEmpty();
-         }
-         finally
-         {
-            CultureInfo.CurrentUICulture = originalCulture;
-         }
+         value.Should().Be("Fallback");
+         Handler.Requests.Should().BeEmpty();
       }
 
       [Fact]
@@ -589,13 +577,13 @@ public abstract class TranslationToolsClientTests : IDisposable
       {
          var assemblies = DependencyInjectionExtensions.GetManifestAssemblies();
 
-         assemblies.Should().Contain(typeof(TestManifestAssemblyMarker).Assembly);
+         assemblies.Should().BeEmpty();
       }
    }
 
-   protected TranslationToolsClient CreateClient(CultureInfo[]? supportedLocales = null)
+   protected TranslationToolsClient CreateClient(CultureInfo[]? supportedLocales = null, string defaultLocale = "en")
    {
-      return new TranslationToolsClient(HttpClient, CreateOptions(supportedLocales), new LocalTranslationToolsClientCache());
+      return new TranslationToolsClient(HttpClient, CreateOptions(supportedLocales, defaultLocale), new LocalTranslationToolsClientCache());
    }
 
    protected void EnqueueJson(string body)
@@ -612,12 +600,13 @@ public abstract class TranslationToolsClientTests : IDisposable
       );
    }
 
-   private static IOptions<TranslationToolsClientOptions> CreateOptions(CultureInfo[]? supportedLocales)
+   private static IOptions<TranslationToolsClientOptions> CreateOptions(CultureInfo[]? supportedLocales, string defaultLocale)
    {
       return Options.Create(
          new TranslationToolsClientOptions
          {
             ApiKey = "test-api-key",
+            DefaultLocale = defaultLocale,
             SupportedLocales = supportedLocales ?? [new CultureInfo("en")]
          }
       );

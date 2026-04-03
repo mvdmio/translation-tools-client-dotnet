@@ -30,6 +30,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    private TranslationToolsClientOptions Options => _options.Value;
 
+   internal string DefaultLocale => Options.DefaultLocale;
+
    /// <summary>
    /// Create a client using cache services registered in the container.
    /// </summary>

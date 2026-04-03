@@ -7,7 +7,7 @@ namespace mvdmio.TranslationTools.Tool.Tests.Unit.Migrate;
 public class ProjectTranslationStateBuilderTests
 {
    [Fact]
-   public void Build_ShouldPrefixKeysForSingleResourceSetProjects()
+   public void Build_ShouldKeepUnprefixedKeysForSingleResourceSetProjects()
    {
       var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
       Directory.CreateDirectory(projectDirectory);
@@ -41,7 +41,7 @@ public class ProjectTranslationStateBuilderTests
             "en"
          );
 
-         result.State.Items.Should().ContainSingle(x => x.Key == "Errors.title");
+         result.State.Items.Should().ContainSingle(x => x.Key == "title");
       }
       finally
       {

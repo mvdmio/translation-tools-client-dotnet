@@ -1,11 +1,11 @@
 using System.Collections.Immutable;
 using System.Linq;
+using Microsoft.CodeAnalysis.Diagnostics;
 using AwesomeAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
 using mvdmio.TranslationTools.Client.SourceGenerator;
-using System.Collections.Immutable;
-using System.Linq;
 using System.Reflection;
 using Xunit;
 
@@ -143,22 +143,6 @@ public class TranslationManifestGeneratorTests
                """;
    }
 
-   private sealed class TestAdditionalText(string path, string content) : AdditionalText
-   {
-      public override string Path { get; } = path;
-
-      public override Microsoft.CodeAnalysis.Text.SourceText GetText(CancellationToken cancellationToken = default)
-      {
-         return Microsoft.CodeAnalysis.Text.SourceText.From(content);
-      }
-   }
-
-   private sealed record GeneratorTestResult(
-      ImmutableArray<string> GeneratedSources,
-      ImmutableArray<Diagnostic> GeneratorDiagnostics,
-      ImmutableArray<Diagnostic> CompilationDiagnostics
-   );
-
    private sealed class TestAdditionalText : AdditionalText
    {
       private readonly SourceText _sourceText;
@@ -212,5 +196,14 @@ public class TranslationManifestGeneratorTests
       {
          return _values.TryGetValue(key, out value!);
       }
+   }
+
+   private sealed record GeneratorTestResult(
+      ImmutableArray<string> GeneratedSources,
+      ImmutableArray<Diagnostic> GeneratorDiagnostics,
+      ImmutableArray<Diagnostic> CompilationDiagnostics
+   )
+   {
+      public string GeneratedSource => string.Join(Environment.NewLine, GeneratedSources);
    }
 }

@@ -2,13 +2,14 @@ using System.Text;
 using System.Xml.Linq;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Tool.Configuration;
+using mvdmio.TranslationTools.Tool.Scaffolding;
 using mvdmio.TranslationTools.Tool.Migrate;
 
 namespace mvdmio.TranslationTools.Tool.Pull;
 
 internal sealed class PullHandler
 {
-   private readonly TranslationApiService _translationApiService;
+   private readonly ITranslationApiService _translationApiService;
    private readonly TranslationSnapshotFileWriter _snapshotFileWriter;
    private readonly IPullFileSystem _fileSystem;
    private readonly IPullReporter _reporter;
@@ -19,7 +20,7 @@ internal sealed class PullHandler
    }
 
    internal PullHandler(
-      TranslationApiService translationApiService,
+      ITranslationApiService translationApiService,
       TranslationSnapshotFileWriter snapshotFileWriter,
       IPullFileSystem fileSystem,
       IPullReporter reporter
@@ -89,8 +90,8 @@ internal sealed class PullHandler
          await _fileSystem.WriteAllTextAsync(filePath, content, cancellationToken);
       }
 
-         _reporter.WriteInfo($"Wrote {Path.GetRelativePath(request.ProjectDirectory, file.FilePath)}");
-      }
+      var snapshot = BuildSnapshot(defaultLocale, locales, localeItems);
+      await _fileSystem.WriteAllTextAsync(request.SnapshotPath, _snapshotFileWriter.Write(snapshot), cancellationToken);
 
       _reporter.WriteInfo($"Wrote snapshot to {request.SnapshotPath}");
       _reporter.WriteInfo($"Updated {allItems.Length} .resx files from {locales.Length} locales.");
@@ -118,7 +119,13 @@ internal sealed class PullHandler
 
       return new TranslationPullRequest {
          ApiKey = config.ApiKey,
-         ProjectDirectory = projectContext.ProjectDirectory
+         ProjectDirectory = projectContext.ProjectDirectory,
+         OutputPath = outputPath,
+         SnapshotPath = ToolProjectResolver.GetSnapshotPath(config),
+         Namespace = resolvedNamespace,
+         ClassName = config.ClassName,
+         KeyNaming = config.KeyNaming,
+         SharedKeyPrefix = config.SharedKeyPrefix
       };
    }
 
@@ -259,91 +266,12 @@ internal sealed class PullHandler
 
       foreach (var incomingDefinition in incomingDefinitions)
       {
-         existingFiles.TryGetValue((group.Key.ResourceSetName, group.Key.Locale), out var existingFile);
-         var preservedComments = existingFile is null
-            ? new Dictionary<string, string?>(StringComparer.Ordinal)
-            : _resxFileParser.Parse(existingFile.FilePath).Entries.ToDictionary(static entry => entry.Key, static entry => entry.Comment, StringComparer.Ordinal);
-         var mergedEntries = prune
-            ? group.Value
-            : MergeExistingEntries(existingFile, group.Value);
-         var filePath = existingFile?.FilePath ?? BuildFilePath(projectDirectory, group.Key.ResourceSetName, group.Key.Locale);
-
-         var entries = mergedEntries
-            .OrderBy(static entry => entry.Key, StringComparer.Ordinal)
-            .Select(entry => new ResxDataEntryModel
-            {
-               Key = entry.Key,
-               Value = entry.Value,
-               Comment = preservedComments.TryGetValue(entry.Key, out var comment) ? comment : null
-            })
-            .ToArray();
-
-         if (entries.Length == 0 && group.Key.Locale is not null)
+         if (knownKeys.ContainsKey(incomingDefinition.Key))
             continue;
 
-         result.Add(new ResxFileModel
-         {
-            FilePath = filePath,
-            Entries = entries
-         });
+         merged.Add(incomingDefinition);
+         knownKeys[incomingDefinition.Key] = incomingDefinition;
       }
-
-      return result;
-   }
-
-   private Dictionary<string, (string ResourceSetName, string Key)> BuildKeyAliases(IEnumerable<ResxMigrationSourceFile> files)
-   {
-      var aliases = new Dictionary<string, (string ResourceSetName, string Key)>(StringComparer.Ordinal);
-      var ambiguousAliases = new HashSet<string>(StringComparer.Ordinal);
-
-      foreach (var file in files)
-      {
-         foreach (var entry in _resxFileParser.Parse(file.FilePath).Entries)
-         {
-            var mapping = (file.ResourceSetName, entry.Key);
-            var alias = NormalizeApiKeyAlias($"{file.ResourceSetName}.{entry.Key}");
-
-            if (ambiguousAliases.Contains(alias))
-               continue;
-
-            if (aliases.TryGetValue(alias, out var existing) && existing != mapping)
-            {
-               aliases.Remove(alias);
-               ambiguousAliases.Add(alias);
-               continue;
-            }
-
-            aliases[alias] = mapping;
-         }
-      }
-
-      return aliases;
-   }
-
-   private ResxMigrationScanResult SafeScanProject(string projectDirectory)
-   {
-      try
-      {
-         return _scanner.ScanProject(projectDirectory);
-      }
-      catch (InvalidOperationException) when (!Directory.EnumerateFiles(projectDirectory, "*.resx", SearchOption.AllDirectories).Any())
-      {
-         return new ResxMigrationScanResult
-         {
-            SourceFiles = [],
-            HasBaseFiles = false
-         };
-      }
-   }
-
-   private static Dictionary<string, string?> MergeExistingEntries(ResxMigrationSourceFile? existingFile, IReadOnlyDictionary<string, string?> incomingValues)
-   {
-      var merged = existingFile is null
-         ? new Dictionary<string, string?>(StringComparer.Ordinal)
-         : new ResxFileParser().Parse(existingFile.FilePath).Entries.ToDictionary(static entry => entry.Key, static entry => entry.Value, StringComparer.Ordinal);
-
-      foreach (var item in incomingValues)
-         merged[item.Key] = item.Value;
 
       return merged;
    }
@@ -377,7 +305,6 @@ internal interface IPullFileSystem
 {
    void CreateDirectory(string path);
    Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken);
-   void DeleteFile(string path);
 }
 
 internal sealed class PullFileSystem : IPullFileSystem
@@ -390,11 +317,5 @@ internal sealed class PullFileSystem : IPullFileSystem
    public Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken)
    {
       return File.WriteAllTextAsync(path, contents, cancellationToken);
-   }
-
-   public void DeleteFile(string path)
-   {
-      if (File.Exists(path))
-         File.Delete(path);
    }
 }

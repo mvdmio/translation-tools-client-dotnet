@@ -2,221 +2,157 @@ using AwesomeAssertions;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
+using mvdmio.TranslationTools.Tool.Scaffolding;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Tool.Tests.Unit.Pull;
 
 public class PullHandlerTests
 {
-   [Fact]
-   public void ResolveRequest_ShouldResolveProjectDirectoryFromConfig()
+   public class BuildPropertyDefinitions
    {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(projectDirectory);
-
-      try
+      [Fact]
+      public void ShouldGenerateExplicitKeyWhenDerivedKeyDiffers()
       {
-         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project><PropertyGroup><RootNamespace>Demo.App</RootNamespace></PropertyGroup></Project>");
-
-         var request = PullHandler.ResolveRequest(
-            new ToolConfiguration
-            {
-               ConfigDirectory = projectDirectory,
-               ApiKey = "api-key",
-               DefaultLocale = "en"
-            }
-         );
-
-         request.Should().NotBeNull();
-         request!.ProjectDirectory.Should().Be(projectDirectory);
-      }
-      finally
-      {
-         Directory.Delete(projectDirectory, recursive: true);
-      }
-   }
-
-   [Fact]
-   public void BuildResxFiles_ShouldMapApiKeysBackToProjectFiles()
-   {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(projectDirectory);
-
-      try
-      {
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Shared.Validation.nl.resx"),
-            """
-            <?xml version="1.0" encoding="utf-8"?>
-            <root>
-              <data name="required.message" xml:space="preserve">
-                <value>Oud</value>
-              </data>
-            </root>
-            """
-         );
-
-         var handler = new PullHandler();
-         var files = handler.BuildResxFiles(
-            projectDirectory,
-            "en",
-            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
-            {
-               ["en"] = [
-                  new TranslationItemResponse { Key = "Errors.title", Value = "Error" },
-                  new TranslationItemResponse { Key = "Admin.Labels.save.button", Value = "Save" }
-               ],
-               ["nl"] = [
-                  new TranslationItemResponse { Key = "Errors.title", Value = "Fout" },
-                  new TranslationItemResponse { Key = "Shared.Validation.required.message", Value = "Verplicht" }
-                ]
-            },
-            prune: false
-         );
-
-         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Errors.resx", StringComparison.Ordinal));
-         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Admin{Path.DirectorySeparatorChar}Labels.resx", StringComparison.Ordinal));
-         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Errors.nl.resx", StringComparison.Ordinal));
-         files.Should().ContainSingle(x => x.FilePath.EndsWith($"Shared.Validation.nl.resx", StringComparison.Ordinal));
-         files.Single(x => x.FilePath.EndsWith("Shared.Validation.nl.resx", StringComparison.Ordinal)).Entries.Should().ContainSingle(x => x.Key == "required.message" && x.Value == "Verplicht");
-         files.Single(x => x.FilePath.EndsWith("Errors.resx", StringComparison.Ordinal)).Entries.Should().ContainSingle(x => x.Key == "title" && x.Value == "Error");
-      }
-      finally
-      {
-         Directory.Delete(projectDirectory, recursive: true);
-      }
-   }
-
-   [Fact]
-   public void BuildResxFiles_ShouldMapNormalizedLegacyApiKeysBackToExistingProjectFiles()
-   {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(projectDirectory);
-
-      try
-      {
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Button.resx"),
-            """
-            <?xml version="1.0" encoding="utf-8"?>
-            <root>
-              <data name="editStreetSegments" xml:space="preserve">
-                <value>Old</value>
-              </data>
-            </root>
-            """
-         );
-
-         var handler = new PullHandler();
-         var files = handler.BuildResxFiles(
-            projectDirectory,
-            "en",
-            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
-            {
-               ["en"] = [
-                  new TranslationItemResponse { Key = "Button_EditStreetSegments", Value = "Edit street segments" }
-               ]
-            },
-            prune: false
-         );
-
-         files.Should().ContainSingle(x => x.FilePath.EndsWith("Button.resx", StringComparison.Ordinal));
-         files.Single().Entries.Should().ContainSingle(x => x.Key == "editStreetSegments" && x.Value == "Edit street segments");
-      }
-      finally
-      {
-         Directory.Delete(projectDirectory, recursive: true);
-      }
-   }
-
-   [Fact]
-   public void BuildResxFiles_ShouldWriteSingleLocalizationsFile_WhenProjectHasNoExistingResxFiles()
-   {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(projectDirectory);
-
-      try
-      {
-         var handler = new PullHandler();
-         var files = handler.BuildResxFiles(
-            projectDirectory,
-            "en",
-            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
-            {
-               ["en"] = [
-                  new TranslationItemResponse { Key = "Action.save", Value = "Save" },
-                  new TranslationItemResponse { Key = "Label.Street.name", Value = "Street" }
-               ],
-               ["nl"] = [
-                  new TranslationItemResponse { Key = "Action.save", Value = "Opslaan" },
-                  new TranslationItemResponse { Key = "Label.Street.name", Value = "Straat" }
-               ]
-            },
-            prune: false
-         );
-
-         files.Should().ContainSingle(x => x.FilePath.EndsWith("Localizations.resx", StringComparison.Ordinal));
-         files.Should().ContainSingle(x => x.FilePath.EndsWith("Localizations.nl.resx", StringComparison.Ordinal));
-         files.Single(x => x.FilePath.EndsWith("Localizations.resx", StringComparison.Ordinal)).Entries.Should().BeEquivalentTo(
+         var result = PullHandler.BuildPropertyDefinitions(
             [
-               new { Key = "Action.save", Value = "Save" },
-               new { Key = "Label.Street.name", Value = "Street" }
+               new TranslationItemResponse { Key = "Label_Past90Days", Value = "Past 90 days" },
+               new TranslationItemResponse { Key = "Action.Save", Value = "Save" }
             ],
-            options => options.ExcludingMissingMembers()
-         );
-         files.Single(x => x.FilePath.EndsWith("Localizations.nl.resx", StringComparison.Ordinal)).Entries.Should().BeEquivalentTo(
             [
-               new { Key = "Action.save", Value = "Opslaan" },
-               new { Key = "Label.Street.name", Value = "Straat" }
+               new TranslationItemResponse { Key = "Label_Past90Days", Value = "Past 90 days" },
+               new TranslationItemResponse { Key = "Action.Save", Value = "Save" }
             ],
-            options => options.ExcludingMissingMembers()
+            TranslationKeyNaming.UnderscoreToDot
          );
+
+         result.Should().ContainSingle(x => x.PropertyName == "Label_Past90Days" && x.EmitExplicitKey && x.Key == "Label_Past90Days");
+         result.Should().ContainSingle(x => x.PropertyName == "Action_Save" && !x.EmitExplicitKey && x.Key == "Action.Save");
       }
-      finally
+
+      [Fact]
+      public void ShouldThrowForDuplicateResolvedPropertyNames()
       {
-         Directory.Delete(projectDirectory, recursive: true);
+         var action = () => PullHandler.BuildPropertyDefinitions(
+            [
+               new TranslationItemResponse { Key = "Action.Save", Value = "Save" },
+               new TranslationItemResponse { Key = "Action.Save", Value = "Save again" }
+            ],
+            [
+               new TranslationItemResponse { Key = "Action.Save", Value = "Save" },
+               new TranslationItemResponse { Key = "Action.Save", Value = "Save again" }
+            ],
+            TranslationKeyNaming.UnderscoreToDot
+         );
+
+         action.Should().Throw<ArgumentException>();
+      }
+
+      [Fact]
+      public void ShouldPreferKeyMatchingConfiguredNamingWhenLegacyAndCanonicalKeysCollide()
+      {
+         var result = PullHandler.BuildPropertyDefinitions(
+            [
+               new TranslationItemResponse { Key = "Link_Back", Value = "Back legacy" },
+               new TranslationItemResponse { Key = "Link.Back", Value = "Back" }
+            ],
+            [
+               new TranslationItemResponse { Key = "Link_Back", Value = "Back legacy" },
+               new TranslationItemResponse { Key = "Link.Back", Value = "Back" }
+            ],
+            TranslationKeyNaming.UnderscoreToDot
+         );
+
+         result.Should().ContainSingle();
+         result.Should().ContainSingle(x => x.PropertyName == "Link_Back" && x.Key == "Link.Back" && !x.EmitExplicitKey && x.DefaultValue == "Back");
+      }
+
+      [Fact]
+      public void ShouldTrimSharedPrefixFromPropertyNameWhenProvided()
+      {
+         var result = PullHandler.BuildPropertyDefinitions(
+            [
+               new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
+            ],
+            [
+               new TranslationItemResponse { Key = "Resources.Translations.Button.Save", Value = "Save" }
+            ],
+            TranslationKeyNaming.UnderscoreToDot,
+            sharedKeyPrefix: "Resources.Translations"
+         );
+
+         result.Should().ContainSingle(x => x.PropertyName == "Button_Save" && x.Key == "Resources.Translations.Button.Save" && x.EmitExplicitKey);
       }
    }
 
-   [Fact]
-   public void BuildResxFiles_ShouldKeepLegacyNormalizedApiKeysInSingleExistingResourceSet()
+   public class ResolveRequest
    {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(projectDirectory);
-
-      try
+      [Fact]
+      public void ShouldResolveFromConfigAndInferNamespace()
       {
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Translations.resx"),
-            """
-            <?xml version="1.0" encoding="utf-8"?>
-            <root>
-              <data name="existing" xml:space="preserve">
-                <value>Old</value>
-              </data>
-            </root>
-            """
-         );
+         var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+         Directory.CreateDirectory(projectDirectory);
 
-         var handler = new PullHandler();
-         var files = handler.BuildResxFiles(
-            projectDirectory,
-            "en",
-            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
-            {
-               ["en"] = [
-                  new TranslationItemResponse { Key = "Button_EditStreetSegments", Value = "Edit street segments" }
-               ]
-            },
-            prune: false
-         );
+         try
+         {
+            File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project><PropertyGroup><RootNamespace>Demo.App</RootNamespace></PropertyGroup></Project>");
+            var outputPath = Path.Combine(projectDirectory, "Localization", "Localizations.cs");
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-         files.Should().ContainSingle(x => x.FilePath.EndsWith("Translations.resx", StringComparison.Ordinal));
-         files.Single().Entries.Should().Contain(x => x.Key == "Button_EditStreetSegments" && x.Value == "Edit street segments");
-      }
-      finally
-      {
-         Directory.Delete(projectDirectory, recursive: true);
+            var request = PullHandler.ResolveRequest(
+               new ToolConfiguration {
+                  ConfigDirectory = projectDirectory,
+                  ApiKey = "api-key",
+                  Output = Path.Combine("Localization", "Localizations.cs")
+               }
+            );
+
+            request.Should().NotBeNull();
+            request!.Namespace.Should().Be("Demo.App.Localization");
+            request.OutputPath.Should().Be(Path.GetFullPath(outputPath));
+            request.ClassName.Should().Be("Localizations");
+         }
+         finally
+         {
+            Directory.Delete(projectDirectory, recursive: true);
+         }
       }
    }
+
+   public class MergePropertyDefinitions
+   {
+      [Fact]
+      public void ShouldPreserveExistingDefaultValueAndAppendNewProperties()
+      {
+         var result = PullHandler.MergePropertyDefinitions(
+            [
+               new ManifestPropertyDefinition {
+                  PropertyName = "Action_Save",
+                  Key = "Action.Save",
+                  EmitExplicitKey = false,
+                  DefaultValue = "Opslaan"
+               }
+            ],
+            [
+               new ManifestPropertyDefinition {
+                  PropertyName = "Action_Save",
+                  Key = "Action.Save",
+                  EmitExplicitKey = false,
+                  DefaultValue = "Save"
+               },
+               new ManifestPropertyDefinition {
+                  PropertyName = "Action_Delete",
+                  Key = "Action.Delete",
+                  EmitExplicitKey = false,
+                  DefaultValue = "Delete"
+               }
+            ]
+         );
+
+         result.Should().HaveCount(2);
+         result.Should().ContainSingle(x => x.Key == "Action.Save" && x.DefaultValue == "Opslaan");
+         result.Should().ContainSingle(x => x.Key == "Action.Delete" && x.DefaultValue == "Delete");
+      }
+   }
+
 }

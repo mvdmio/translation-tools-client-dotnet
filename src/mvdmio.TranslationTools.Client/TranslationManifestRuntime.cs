@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,34 +12,30 @@ using System.Threading.Tasks;
 namespace mvdmio.TranslationTools.Client;
 
 /// <summary>
-/// Runtime access to compiled `.resx` resources and registered client caches.
+/// Runtime access to embedded translation snapshots and registered client caches.
 /// </summary>
 public static class TranslationManifestRuntime
 {
+   private const string SNAPSHOT_RESOURCE_NAME = ".mvdmio-translations.snapshot.json";
+
+   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) {
+      PropertyNameCaseInsensitive = true
+   };
+
+   private static readonly ConcurrentDictionary<Assembly, TranslationAssemblySnapshot?> SnapshotCache = new();
    private static readonly ConcurrentDictionary<Assembly, ITranslationToolsClient> Clients = new();
-   private static readonly ConcurrentDictionary<Assembly, CultureInfo> DefaultLocales = new();
-   private static readonly ConcurrentDictionary<Type, ResourceManager?> ResourceManagers = new();
 
    /// <summary>
-   /// Register a runtime client for generated resource lookups in the given assembly.
+   /// Register a runtime client for generated manifest lookups in the given assembly.
    /// </summary>
    public static void RegisterClient(Assembly assembly, ITranslationToolsClient client)
    {
       Clients[assembly] = client;
    }
 
-   internal static void RegisterDefaultLocale(Assembly assembly, string defaultLocale)
-   {
-      if (string.IsNullOrWhiteSpace(defaultLocale))
-         return;
-
-      DefaultLocales[assembly] = CultureInfo.GetCultureInfo(defaultLocale);
-   }
-
    internal static void UnregisterClient(Assembly assembly)
    {
       Clients.TryRemove(assembly, out _);
-      DefaultLocales.TryRemove(assembly, out _);
    }
 
    /// <summary>
@@ -68,9 +66,9 @@ public static class TranslationManifestRuntime
    /// <summary>
    /// Get a translation asynchronously for the current UI culture.
    /// </summary>
-   public static Task<string> GetAsync(Type manifestType, string key, string? defaultValue = null, CancellationToken cancellationToken = default)
+   public static async Task<string> GetAsync(Type manifestType, string key, string? defaultValue = null, CancellationToken cancellationToken = default)
    {
-      return GetAsync(manifestType, key, CultureInfo.CurrentUICulture, defaultValue, cancellationToken);
+      return await GetAsync(manifestType, key, CultureInfo.CurrentUICulture, defaultValue, cancellationToken);
    }
 
    /// <summary>
@@ -85,54 +83,51 @@ public static class TranslationManifestRuntime
          return value ?? defaultValue ?? key;
 
       if (!Clients.TryGetValue(manifestType.Assembly, out var client))
-         throw new InvalidOperationException($"Translation client is not configured for assembly '{manifestType.Assembly.GetName().Name}'. Register AddTranslationToolsClient(...) and initialize the app before using generated async translation APIs.");
+         throw new InvalidOperationException($"Translation client is not configured for assembly '{manifestType.Assembly.GetName().Name}'. Register AddTranslationToolsClient(...) and initialize the app before using generated async manifest APIs.");
 
       var result = await client.GetAsync(translation, locale, cancellationToken);
       return result.Value ?? defaultValue ?? key;
    }
 
-   private static bool TryGetResourceValue(Type manifestType, CultureInfo locale, string key, out string? value)
+   internal static TranslationAssemblySnapshot? GetSnapshot(Assembly assembly)
    {
-      var resourceManager = ResourceManagers.GetOrAdd(manifestType, static type => CreateResourceManager(type));
-      if (resourceManager is null)
-      {
-         value = null;
-         return false;
-      }
-
-      try
-      {
-         value = resourceManager.GetString(key, locale);
-         return value is not null;
-      }
-      catch (MissingManifestResourceException)
-      {
-         value = null;
-         return false;
-      }
+      return SnapshotCache.GetOrAdd(assembly, LoadSnapshot);
    }
 
-   private static ResourceManager? CreateResourceManager(Type manifestType)
-   {
-      try
-      {
-         return new ResourceManager(manifestType.FullName ?? manifestType.Name, manifestType.Assembly);
-      }
-      catch (MissingManifestResourceException)
-      {
-         return null;
-      }
-   }
-
-   private static CultureInfo ResolveLocale(Assembly assembly, CultureInfo locale)
+   private static CultureInfo ResolveLocale(CultureInfo locale, TranslationAssemblySnapshot? snapshot)
    {
       if (!string.IsNullOrWhiteSpace(locale.Name))
          return locale;
 
-      if (DefaultLocales.TryGetValue(assembly, out var defaultLocale))
-         return defaultLocale;
+      if (!string.IsNullOrWhiteSpace(snapshot?.DefaultLocale))
+         return CultureInfo.GetCultureInfo(snapshot.DefaultLocale);
+
+      if (TryGetRegisteredClientDefaultLocale(locale, out var clientDefaultLocale))
+         return clientDefaultLocale;
 
       return CultureInfo.GetCultureInfo("en");
+   }
+
+   private static bool TryGetRegisteredClientDefaultLocale(CultureInfo locale, out CultureInfo resolvedLocale)
+   {
+      resolvedLocale = locale;
+
+      if (!string.IsNullOrWhiteSpace(locale.Name))
+         return false;
+
+      foreach (var client in Clients.Values)
+      {
+         if (client is not TranslationToolsClient translationClient)
+            continue;
+
+         if (string.IsNullOrWhiteSpace(translationClient.DefaultLocale))
+            continue;
+
+         resolvedLocale = CultureInfo.GetCultureInfo(translationClient.DefaultLocale);
+         return true;
+      }
+
+      return false;
    }
 
    private static bool TryGetSnapshotValue(Assembly assembly, CultureInfo locale, TranslationRef translation, out string? value)

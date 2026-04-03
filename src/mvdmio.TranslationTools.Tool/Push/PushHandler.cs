@@ -1,26 +1,24 @@
 using mvdmio.TranslationTools.Tool.Configuration;
-using mvdmio.TranslationTools.Tool.Migrate;
 using mvdmio.TranslationTools.Tool.Pull;
+using mvdmio.TranslationTools.Tool.Scaffolding;
 
 namespace mvdmio.TranslationTools.Tool.Push;
 
 internal sealed class PushHandler
 {
-   private readonly ITranslationApiService _translationApiService;
-   private readonly ResxMigrationScanner _scanner;
-   private readonly ProjectTranslationStateBuilder _stateBuilder;
+   private readonly TranslationApiService _translationApiService;
+   private readonly ProjectManifestScanner _projectManifestScanner;
    private readonly IPushReporter _reporter;
 
    public PushHandler()
-      : this(new TranslationApiService(), new ResxMigrationScanner(), new ProjectTranslationStateBuilder(), new ConsolePushReporter())
+      : this(new TranslationApiService(), new ProjectManifestScanner(), new ConsolePushReporter())
    {
    }
 
-   internal PushHandler(ITranslationApiService translationApiService, ResxMigrationScanner scanner, ProjectTranslationStateBuilder stateBuilder, IPushReporter reporter)
+   internal PushHandler(TranslationApiService translationApiService, ProjectManifestScanner projectManifestScanner, IPushReporter reporter)
    {
       _translationApiService = translationApiService;
-      _scanner = scanner;
-      _stateBuilder = stateBuilder;
+      _projectManifestScanner = projectManifestScanner;
       _reporter = reporter;
    }
 
@@ -38,24 +36,18 @@ internal sealed class PushHandler
          return;
       }
 
-      if (string.IsNullOrWhiteSpace(config.DefaultLocale))
-      {
-         _reporter.WriteError("Error: No default locale provided. Add defaultLocale to .mvdmio-translations.yml.");
-         return;
-      }
-
       var projectDirectory = ResolveProjectDirectory(config);
-       if (string.IsNullOrWhiteSpace(config.DefaultLocale))
-          throw new InvalidOperationException("defaultLocale is required in .mvdmio-translations.yml.");
+      if (string.IsNullOrWhiteSpace(config.DefaultLocale))
+         throw new InvalidOperationException("defaultLocale is required in .mvdmio-translations.yml.");
 
-       var scanResult = _projectManifestScanner.ScanProject(projectDirectory, config.DefaultLocale);
-       if (!scanResult.FoundManifest)
-          throw new InvalidOperationException($"No .resx translation files found in project '{projectDirectory}'.");
+      var scanResult = _projectManifestScanner.ScanProject(projectDirectory, config.DefaultLocale);
+      if (!scanResult.FoundManifest)
+         throw new InvalidOperationException($"No .resx translation files found in project '{projectDirectory}'.");
 
-       _reporter.WriteInfo($"Scanning .resx translations in {projectDirectory}...");
-       _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation values to {ToolConfiguration.DEFAULT_BASE_URL}...");
+      _reporter.WriteInfo($"Scanning .resx translations in {projectDirectory}...");
+      _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation values to {ToolConfiguration.DEFAULT_BASE_URL}...");
 
-      var result = await _translationApiService.ImportProjectStateAsync(
+      var result = await _translationApiService.PushProjectTranslationsAsync(
          config.ApiKey,
          new TranslationPushRequest {
             Items = scanResult.Items.Select(
@@ -70,9 +62,9 @@ internal sealed class PushHandler
          cancellationToken
       );
 
-       _reporter.WriteInfo($"Push complete. Synced {result.ReceivedKeyCount} translation values.");
-       _reporter.WriteInfo($"Created: {result.CreatedKeyCount}. Updated values: {result.UpdatedKeyCount}. Removed: {result.RemovedKeyCount}.");
-    }
+      _reporter.WriteInfo($"Push complete. Synced {result.ReceivedKeyCount} translation values.");
+      _reporter.WriteInfo($"Created: {result.CreatedKeyCount}. Updated values: {result.UpdatedKeyCount}. Removed: {result.RemovedKeyCount}.");
+   }
 
    internal static string ResolveProjectDirectory(ToolConfiguration config)
    {
