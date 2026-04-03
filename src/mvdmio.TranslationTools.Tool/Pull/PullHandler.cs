@@ -78,7 +78,20 @@ internal sealed class PullHandler
          localeItems[locale] = await _translationApiService.FetchLocaleAsync(request.ApiKey, locale, cancellationToken);
       }
 
-      var files = BuildResxFiles(request.ProjectDirectory, defaultLocale, localeItems, prune);
+      IReadOnlyCollection<ResxFileModel> files;
+      try
+      {
+         files = BuildResxFiles(request.ProjectDirectory, defaultLocale, localeItems, prune);
+      }
+      catch (OperationCanceledException)
+      {
+         throw;
+      }
+      catch (Exception exception)
+      {
+         _reporter.WriteError(exception.Message);
+         throw;
+      }
 
       foreach (var file in files)
       {
@@ -86,7 +99,20 @@ internal sealed class PullHandler
          if (!string.IsNullOrWhiteSpace(directory))
             _fileSystem.CreateDirectory(directory);
 
-         await _fileSystem.WriteAllTextAsync(file.FilePath, _resxFileWriter.Write(file), cancellationToken);
+         try
+         {
+            await _fileSystem.WriteAllTextAsync(file.FilePath, _resxFileWriter.Write(file), cancellationToken);
+         }
+         catch (OperationCanceledException)
+         {
+            throw;
+         }
+         catch (Exception exception)
+         {
+            _reporter.WriteError($"Failed to write {Path.GetRelativePath(request.ProjectDirectory, file.FilePath)}. {FormatEntryDetails(file.Entries)} Error: {exception.Message}");
+            throw;
+         }
+
          _reporter.WriteInfo($"Wrote {Path.GetRelativePath(request.ProjectDirectory, file.FilePath)}");
       }
 
@@ -135,7 +161,21 @@ internal sealed class PullHandler
       {
          foreach (var item in localeGroup.Value)
          {
-            var (resourceSetName, key) = SplitApiKey(item.Key, knownResourceSets, keyAliases);
+            string resourceSetName;
+            string key;
+
+            try
+            {
+               (resourceSetName, key) = SplitApiKey(item.Key, knownResourceSets, keyAliases);
+            }
+            catch (Exception exception)
+            {
+               throw new InvalidOperationException(
+                  $"Failed to map translation item. Locale: '{localeGroup.Key}'. Key: '{item.Key}'. Value: '{item.Value ?? string.Empty}'.",
+                  exception
+               );
+            }
+
             var fileLocale = string.Equals(localeGroup.Key, defaultLocale, StringComparison.Ordinal) ? null : localeGroup.Key;
             var bucketKey = (resourceSetName, fileLocale);
 
@@ -352,6 +392,14 @@ internal sealed class PullHandler
          return Path.Combine(projectDirectory, relativePath + ".resx");
 
       return Path.Combine(projectDirectory, relativePath + "." + locale + ".resx");
+   }
+
+   private static string FormatEntryDetails(IEnumerable<ResxDataEntryModel> entries)
+   {
+      return string.Join(
+         " ",
+         entries.Select(static entry => $"Key: '{entry.Key}'. Value: '{entry.Value ?? string.Empty}'.")
+      );
    }
 }
 

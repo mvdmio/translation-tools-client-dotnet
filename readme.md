@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API and `.resx`-backed generated localization APIs.
 
-Current client package version: `1.0.4`.
+Current client package version: `1.0.5`.
 
 ## Packages
 

@@ -34,7 +34,7 @@ internal sealed class ResxFileWriter
    {
       var element = new XElement("data",
          new XAttribute("name", entry.Key),
-         new XAttribute("xml:space", "preserve"),
+         new XAttribute(XNamespace.Xml + "space", "preserve"),
          new XElement("value", entry.Value ?? string.Empty)
       );
 
