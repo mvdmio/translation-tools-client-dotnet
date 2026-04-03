@@ -6,6 +6,8 @@ namespace mvdmio.TranslationTools.Tool.Pull;
 
 internal sealed class PullHandler
 {
+   private const string DEFAULT_RESOURCE_SET_NAME = "Localizations";
+
    private readonly ITranslationApiService _translationApiService;
    private readonly ResxMigrationScanner _scanner;
    private readonly ResxFileParser _resxFileParser;
@@ -299,6 +301,9 @@ internal sealed class PullHandler
       IReadOnlyDictionary<string, (string ResourceSetName, string Key)> keyAliases
    )
    {
+      if (knownResourceSets.Count == 0)
+         return (DEFAULT_RESOURCE_SET_NAME, apiKey);
+
       foreach (var resourceSetName in knownResourceSets)
       {
          if (!apiKey.StartsWith(resourceSetName + ".", StringComparison.Ordinal))

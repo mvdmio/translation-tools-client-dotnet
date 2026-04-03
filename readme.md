@@ -128,9 +128,9 @@ translations pull
 translations pull --prune
 ```
 
-`translations pull` updates project `.resx` files in place. By default it adds and updates values without deleting local entries. Use `--prune` to remove local entries and locale files that no longer exist remotely.
+`translations pull` updates project `.resx` files in place. In a project without existing `.resx` files, the default output is a single `Localizations.resx` base file plus locale-specific variants such as `Localizations.nl.resx`. By default it adds and updates values without deleting local entries. Use `--prune` to remove local entries and locale files that no longer exist remotely.
 
-When existing project `.resx` files are present, `translations pull` also maps legacy normalized remote keys such as `Button_EditStreetSegments` back to their original `.resx` entry names.
+When existing project `.resx` files are present, `translations pull` keeps writing into those files and also maps legacy normalized remote keys such as `Button_EditStreetSegments` back to their original `.resx` entry names.
 
 Push project `.resx` state back to the API:
 

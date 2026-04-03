@@ -48,11 +48,15 @@ translations pull --prune
 
 `translations pull` reads `.mvdmio-translations.yml`, fetches project metadata, pulls all project locales, and writes `.resx` files into the project tree.
 
+In a project without existing `.resx` files, pull writes a single `Localizations.resx` base file plus locale-specific variants such as `Localizations.nl.resx`.
+
 By default, pull adds and updates local `.resx` entries but does not delete local content.
 
 Use `--prune` to remove local entries and locale files that no longer exist remotely.
 
 Pull preserves valid `.resx` structure and existing entry comments for entries that remain.
+
+When project `.resx` files already exist, pull keeps writing into those files.
 
 The tool always uses `https://translations.mvdm.io`.
 

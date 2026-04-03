@@ -130,6 +130,55 @@ public class PullHandlerTests
    }
 
    [Fact]
+   public void BuildResxFiles_ShouldWriteSingleLocalizationsFile_WhenProjectHasNoExistingResxFiles()
+   {
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(projectDirectory);
+
+      try
+      {
+         var handler = new PullHandler();
+         var files = handler.BuildResxFiles(
+            projectDirectory,
+            "en",
+            new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal)
+            {
+               ["en"] = [
+                  new TranslationItemResponse { Key = "Action.save", Value = "Save" },
+                  new TranslationItemResponse { Key = "Label.Street.name", Value = "Street" }
+               ],
+               ["nl"] = [
+                  new TranslationItemResponse { Key = "Action.save", Value = "Opslaan" },
+                  new TranslationItemResponse { Key = "Label.Street.name", Value = "Straat" }
+               ]
+            },
+            prune: false
+         );
+
+         files.Should().ContainSingle(x => x.FilePath.EndsWith("Localizations.resx", StringComparison.Ordinal));
+         files.Should().ContainSingle(x => x.FilePath.EndsWith("Localizations.nl.resx", StringComparison.Ordinal));
+         files.Single(x => x.FilePath.EndsWith("Localizations.resx", StringComparison.Ordinal)).Entries.Should().BeEquivalentTo(
+            [
+               new { Key = "Action.save", Value = "Save" },
+               new { Key = "Label.Street.name", Value = "Street" }
+            ],
+            options => options.ExcludingMissingMembers()
+         );
+         files.Single(x => x.FilePath.EndsWith("Localizations.nl.resx", StringComparison.Ordinal)).Entries.Should().BeEquivalentTo(
+            [
+               new { Key = "Action.save", Value = "Opslaan" },
+               new { Key = "Label.Street.name", Value = "Straat" }
+            ],
+            options => options.ExcludingMissingMembers()
+         );
+      }
+      finally
+      {
+         Directory.Delete(projectDirectory, recursive: true);
+      }
+   }
+
+   [Fact]
    public void BuildResxFiles_ShouldKeepLegacyNormalizedApiKeysInSingleExistingResourceSet()
    {
       var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
