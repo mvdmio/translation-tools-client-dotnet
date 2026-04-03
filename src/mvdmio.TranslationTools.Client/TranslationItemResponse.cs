@@ -6,6 +6,11 @@ namespace mvdmio.TranslationTools.Client;
 public sealed class TranslationItemResponse
 {
    /// <summary>
+   /// Resource-set origin.
+   /// </summary>
+   public string Origin { get; init; } = "/Localizations.resx";
+
+   /// <summary>
    /// Translation key.
    /// </summary>
    public required string Key { get; init; }

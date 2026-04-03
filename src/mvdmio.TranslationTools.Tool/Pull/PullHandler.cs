@@ -1,3 +1,5 @@
+using System.Text;
+using System.Xml.Linq;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Migrate;
@@ -6,33 +8,25 @@ namespace mvdmio.TranslationTools.Tool.Pull;
 
 internal sealed class PullHandler
 {
-   private const string DEFAULT_RESOURCE_SET_NAME = "Localizations";
-
-   private readonly ITranslationApiService _translationApiService;
-   private readonly ResxMigrationScanner _scanner;
-   private readonly ResxFileParser _resxFileParser;
-   private readonly ResxFileWriter _resxFileWriter;
+   private readonly TranslationApiService _translationApiService;
+   private readonly TranslationSnapshotFileWriter _snapshotFileWriter;
    private readonly IPullFileSystem _fileSystem;
    private readonly IPullReporter _reporter;
 
    public PullHandler()
-      : this(new TranslationApiService(), new ResxMigrationScanner(), new ResxFileParser(), new ResxFileWriter(), new PullFileSystem(), new ConsolePullReporter())
+      : this(new TranslationApiService(), new TranslationSnapshotFileWriter(), new PullFileSystem(), new ConsolePullReporter())
    {
    }
 
    internal PullHandler(
-      ITranslationApiService translationApiService,
-      ResxMigrationScanner scanner,
-      ResxFileParser resxFileParser,
-      ResxFileWriter resxFileWriter,
+      TranslationApiService translationApiService,
+      TranslationSnapshotFileWriter snapshotFileWriter,
       IPullFileSystem fileSystem,
       IPullReporter reporter
    )
    {
       _translationApiService = translationApiService;
-      _scanner = scanner;
-      _resxFileParser = resxFileParser;
-      _resxFileWriter = resxFileWriter;
+      _snapshotFileWriter = snapshotFileWriter;
       _fileSystem = fileSystem;
       _reporter = reporter;
    }
@@ -73,59 +67,36 @@ internal sealed class PullHandler
          ? metadata.DefaultLocale!
          : config.DefaultLocale!;
       var localeItems = new Dictionary<string, TranslationItemResponse[]>(StringComparer.Ordinal);
-
       foreach (var locale in locales)
       {
          _reporter.WriteInfo($"Pulling locale '{locale}' from {ToolConfiguration.DEFAULT_BASE_URL}...");
          localeItems[locale] = await _translationApiService.FetchLocaleAsync(request.ApiKey, locale, cancellationToken);
       }
 
-      IReadOnlyCollection<ResxFileModel> files;
-      try
-      {
-         files = BuildResxFiles(request.ProjectDirectory, defaultLocale, localeItems, prune);
-      }
-      catch (OperationCanceledException)
-      {
-         throw;
-      }
-      catch (Exception exception)
-      {
-         _reporter.WriteError(exception.Message);
-         throw;
-      }
+      var allItems = localeItems
+         .SelectMany(static pair => pair.Value.Select(item => (Locale: pair.Key, Item: item)))
+         .GroupBy(static x => (Origin: NormalizeOrigin(x.Item.Origin), Locale: x.Locale), static x => x.Item)
+         .ToArray();
 
-      foreach (var file in files)
+      foreach (var group in allItems)
       {
-         var directory = Path.GetDirectoryName(file.FilePath);
-         if (!string.IsNullOrWhiteSpace(directory))
-            _fileSystem.CreateDirectory(directory);
+         var filePath = BuildFilePath(request.ProjectDirectory, group.Key.Origin, group.Key.Locale, defaultLocale);
+         var fileDirectory = Path.GetDirectoryName(filePath);
+         if (!string.IsNullOrWhiteSpace(fileDirectory))
+            _fileSystem.CreateDirectory(fileDirectory);
 
-         try
-         {
-            await _fileSystem.WriteAllTextAsync(file.FilePath, _resxFileWriter.Write(file), cancellationToken);
-         }
-         catch (OperationCanceledException)
-         {
-            throw;
-         }
-         catch (Exception exception)
-         {
-            _reporter.WriteError($"Failed to write {Path.GetRelativePath(request.ProjectDirectory, file.FilePath)}. {FormatEntryDetails(file.Entries)} Error: {exception.Message}");
-            throw;
-         }
+         var content = BuildResx(group.OrderBy(static item => item.Key, StringComparer.Ordinal));
+         await _fileSystem.WriteAllTextAsync(filePath, content, cancellationToken);
+      }
 
          _reporter.WriteInfo($"Wrote {Path.GetRelativePath(request.ProjectDirectory, file.FilePath)}");
       }
 
+      _reporter.WriteInfo($"Wrote snapshot to {request.SnapshotPath}");
+      _reporter.WriteInfo($"Updated {allItems.Length} .resx files from {locales.Length} locales.");
+
       if (prune)
-      {
-         foreach (var staleFile in FindStaleFiles(request.ProjectDirectory, files.Select(static x => x.FilePath)))
-         {
-            _fileSystem.DeleteFile(staleFile);
-            _reporter.WriteInfo($"Removed {Path.GetRelativePath(request.ProjectDirectory, staleFile)}");
-         }
-      }
+         _reporter.WriteInfo("Prune requested. Remote-aligned file deletion not fully implemented yet.");
    }
 
    internal static TranslationPullRequest? ResolveRequest(ToolConfiguration config)
@@ -134,65 +105,159 @@ internal sealed class PullHandler
          return null;
 
       var projectContext = ToolProjectResolver.Resolve(config);
-      return new TranslationPullRequest
-      {
+      var outputPath = ToolPathResolver.GetOutputPath(config, projectContext);
+      var outputDirectory = Path.GetDirectoryName(outputPath);
+      var relativeOutputDirectory = string.IsNullOrWhiteSpace(outputDirectory)
+         ? string.Empty
+         : Path.GetRelativePath(projectContext.ProjectDirectory, outputDirectory);
+      var resolvedNamespace = !string.IsNullOrWhiteSpace(config.Namespace)
+         ? config.Namespace
+         : string.IsNullOrWhiteSpace(relativeOutputDirectory) || relativeOutputDirectory == "."
+            ? projectContext.RootNamespace
+            : projectContext.RootNamespace + "." + relativeOutputDirectory.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
+
+      return new TranslationPullRequest {
          ApiKey = config.ApiKey,
          ProjectDirectory = projectContext.ProjectDirectory
       };
    }
 
-   internal IReadOnlyCollection<ResxFileModel> BuildResxFiles(
-      string projectDirectory,
+   private static string BuildFilePath(string projectDirectory, string origin, string locale, string defaultLocale)
+   {
+      var normalizedOrigin = NormalizeOrigin(origin).TrimStart('/');
+      var basePath = Path.Combine(projectDirectory, normalizedOrigin.Replace('/', Path.DirectorySeparatorChar));
+
+      if (string.Equals(locale, defaultLocale, StringComparison.Ordinal))
+         return basePath;
+
+      var directory = Path.GetDirectoryName(basePath) ?? projectDirectory;
+      var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(basePath);
+      return Path.Combine(directory, fileNameWithoutExtension + "." + locale + ".resx");
+   }
+
+   private static string BuildResx(IEnumerable<TranslationItemResponse> items)
+   {
+      var root = new XElement("root",
+         items.Select(item => new XElement("data",
+            new XAttribute("name", item.Key),
+            new XAttribute(XNamespace.Xml + "space", "preserve"),
+            new XElement("value", item.Value ?? string.Empty)
+         ))
+      );
+
+      var builder = new StringBuilder();
+      builder.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+      builder.Append(root.ToString(SaveOptions.None));
+      builder.AppendLine();
+      return builder.ToString();
+   }
+
+   private static TranslationSnapshotFile BuildSnapshot(
       string defaultLocale,
-      IReadOnlyDictionary<string, TranslationItemResponse[]> localeItems,
-      bool prune
+      IEnumerable<string> locales,
+      IReadOnlyDictionary<string, TranslationItemResponse[]> localeItems
    )
    {
-      var existingFiles = SafeScanProject(projectDirectory)
-         .SourceFiles
-         .ToDictionary(static file => (file.ResourceSetName, file.Locale), static file => file, EqualityComparer<(string, string?)>.Default);
-      var keyAliases = BuildKeyAliases(existingFiles.Values);
-      var knownResourceSets = existingFiles.Keys
-         .Select(static key => key.Item1)
-         .Distinct(StringComparer.Ordinal)
-         .OrderByDescending(static name => name.Length)
-         .ToArray();
-      var grouped = new Dictionary<(string ResourceSetName, string? Locale), Dictionary<string, string?>>(EqualityComparer<(string, string?)>.Default);
+      return new TranslationSnapshotFile {
+         SchemaVersion = 1,
+         Project = new TranslationSnapshotProject {
+            DefaultLocale = defaultLocale,
+            Locales = locales.OrderBy(static x => x, StringComparer.Ordinal).ToArray()
+         },
+         Translations = localeItems
+            .OrderBy(static x => x.Key, StringComparer.Ordinal)
+            .ToDictionary(
+               static x => x.Key,
+               static x => (IReadOnlyCollection<TranslationSnapshotItemFile>)x.Value
+                  .OrderBy(static item => item.Origin, StringComparer.OrdinalIgnoreCase)
+                  .ThenBy(static item => item.Key, StringComparer.Ordinal)
+                  .Select(static item => new TranslationSnapshotItemFile {
+                     Origin = item.Origin,
+                     Key = item.Key,
+                     Value = item.Value
+                  })
+                  .ToArray(),
+               StringComparer.Ordinal
+            )
+      };
+   }
 
-      foreach (var localeGroup in localeItems)
+   internal static IReadOnlyCollection<ManifestPropertyDefinition> BuildPropertyDefinitions(
+      IEnumerable<TranslationItemResponse> items,
+      IEnumerable<TranslationItemResponse> defaultLocaleItems,
+      TranslationKeyNaming keyNaming,
+      string? sharedKeyPrefix = null
+   )
+   {
+      var defaultValues = defaultLocaleItems
+         .GroupBy(static x => x.Key, StringComparer.Ordinal)
+         .ToDictionary(static x => x.Key, static x => x.Last().Value, StringComparer.Ordinal);
+      var duplicateKeys = items.GroupBy(static x => x.Key, StringComparer.Ordinal).Where(static x => x.Count() > 1).Select(static x => x.Key).ToArray();
+      if (duplicateKeys.Length > 0)
+         throw new ArgumentException($"Duplicate translation keys: {string.Join(", ", duplicateKeys)}", nameof(items));
+
+      var definitions = new Dictionary<string, ManifestPropertyDefinition>(StringComparer.Ordinal);
+      var canonicalByProperty = new Dictionary<string, TranslationItemResponse>(StringComparer.Ordinal);
+
+      foreach (var item in items.OrderBy(static x => x.Key, StringComparer.Ordinal))
       {
-         foreach (var item in localeGroup.Value)
+         var effectiveKey = TrimSharedKeyPrefix(item.Key, sharedKeyPrefix);
+         var propertyName = ManifestPropertyNameResolver.Resolve(effectiveKey);
+         var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
+         var emitExplicitKey = !string.Equals(derivedKey, effectiveKey, StringComparison.Ordinal);
+
+         if (canonicalByProperty.TryGetValue(propertyName, out var existing))
          {
-            string resourceSetName;
-            string key;
+            var existingMatchesNaming = string.Equals(TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming), TrimSharedKeyPrefix(existing.Key, sharedKeyPrefix), StringComparison.Ordinal);
+            var currentMatchesNaming = string.Equals(derivedKey, effectiveKey, StringComparison.Ordinal);
 
-            try
-            {
-               (resourceSetName, key) = SplitApiKey(item.Key, knownResourceSets, keyAliases);
-            }
-            catch (Exception exception)
-            {
-               throw new InvalidOperationException(
-                  $"Failed to map translation item. Locale: '{localeGroup.Key}'. Key: '{item.Key}'. Value: '{item.Value ?? string.Empty}'.",
-                  exception
-               );
-            }
+            if (!existingMatchesNaming && currentMatchesNaming)
+               canonicalByProperty[propertyName] = item;
 
-            var fileLocale = string.Equals(localeGroup.Key, defaultLocale, StringComparison.Ordinal) ? null : localeGroup.Key;
-            var bucketKey = (resourceSetName, fileLocale);
-
-            if (!grouped.TryGetValue(bucketKey, out var values))
-            {
-               values = new Dictionary<string, string?>(StringComparer.Ordinal);
-               grouped[bucketKey] = values;
-            }
-
-            values[key] = item.Value;
+            continue;
          }
+
+         canonicalByProperty[propertyName] = item;
       }
 
-      var result = new List<ResxFileModel>();
-      foreach (var group in grouped.OrderBy(static x => x.Key.ResourceSetName, StringComparer.Ordinal).ThenBy(static x => x.Key.Locale, StringComparer.Ordinal))
+      foreach (var pair in canonicalByProperty.OrderBy(static x => x.Key, StringComparer.Ordinal))
+      {
+         var item = pair.Value;
+         var effectiveKey = TrimSharedKeyPrefix(item.Key, sharedKeyPrefix);
+         var propertyName = pair.Key;
+         var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
+         definitions[propertyName] = new ManifestPropertyDefinition {
+             PropertyName = propertyName,
+             Key = item.Key,
+             EmitExplicitKey = !string.IsNullOrWhiteSpace(sharedKeyPrefix) || !string.Equals(derivedKey, effectiveKey, StringComparison.Ordinal),
+             DefaultValue = defaultValues.GetValueOrDefault(item.Key)
+          };
+       }
+
+      return definitions.Values.ToArray();
+    }
+
+   private static string TrimSharedKeyPrefix(string key, string? sharedKeyPrefix)
+   {
+      if (string.IsNullOrWhiteSpace(sharedKeyPrefix))
+         return key;
+
+      var prefix = sharedKeyPrefix.Trim();
+      if (!key.StartsWith(prefix + ".", StringComparison.Ordinal))
+         return key;
+
+      return key[(prefix.Length + 1)..];
+   }
+
+   internal static IReadOnlyCollection<ManifestPropertyDefinition> MergePropertyDefinitions(
+      IReadOnlyCollection<ManifestPropertyDefinition> existingDefinitions,
+      IReadOnlyCollection<ManifestPropertyDefinition> incomingDefinitions
+   )
+   {
+      var merged = new List<ManifestPropertyDefinition>(existingDefinitions);
+      var knownKeys = existingDefinitions.ToDictionary(static x => x.Key, static x => x, StringComparer.Ordinal);
+
+      foreach (var incomingDefinition in incomingDefinitions)
       {
          existingFiles.TryGetValue((group.Key.ResourceSetName, group.Key.Locale), out var existingFile);
          var preservedComments = existingFile is null
@@ -283,128 +348,9 @@ internal sealed class PullHandler
       return merged;
    }
 
-   private IEnumerable<string> FindStaleFiles(string projectDirectory, IEnumerable<string> nextFiles)
+   private static string NormalizeOrigin(string origin)
    {
-      var next = new HashSet<string>(nextFiles.Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase);
-      var existing = SafeScanProject(projectDirectory).SourceFiles.Select(static file => file.FilePath);
-
-      foreach (var file in existing)
-      {
-         if (!next.Contains(Path.GetFullPath(file)))
-            yield return file;
-      }
-   }
-
-   private static (string ResourceSetName, string Key) SplitApiKey(
-      string apiKey,
-      IReadOnlyCollection<string> knownResourceSets,
-      IReadOnlyDictionary<string, (string ResourceSetName, string Key)> keyAliases
-   )
-   {
-      if (knownResourceSets.Count == 0)
-         return (DEFAULT_RESOURCE_SET_NAME, apiKey);
-
-      foreach (var resourceSetName in knownResourceSets)
-      {
-         if (!apiKey.StartsWith(resourceSetName + ".", StringComparison.Ordinal))
-            continue;
-
-         return (resourceSetName, apiKey.Substring(resourceSetName.Length + 1));
-      }
-
-      if (keyAliases.TryGetValue(apiKey, out var aliasMapping))
-         return aliasMapping;
-
-      if (knownResourceSets.Count == 1 && !apiKey.Contains('.', StringComparison.Ordinal))
-         return (knownResourceSets.First(), apiKey);
-
-      if (TrySplitLegacyNormalizedApiKey(apiKey, knownResourceSets, out var legacyMapping))
-         return legacyMapping;
-
-      var segments = apiKey.Split('.');
-      if (segments.Length < 2)
-         throw new InvalidOperationException($"Translation key '{apiKey}' cannot be mapped back to a .resx file.");
-
-      if (segments.Length == 2)
-         return (segments[0], segments[1]);
-
-      return (string.Join(".", segments.Take(segments.Length - 2)), string.Join(".", segments.Skip(segments.Length - 2)));
-   }
-
-   private static bool TrySplitLegacyNormalizedApiKey(
-      string apiKey,
-      IReadOnlyCollection<string> knownResourceSets,
-      out (string ResourceSetName, string Key) mapping
-   )
-   {
-      foreach (var knownResourceSetName in knownResourceSets.OrderByDescending(static x => x.Length))
-      {
-         var resourceSetAlias = NormalizeApiKeyAlias(knownResourceSetName);
-         if (!apiKey.StartsWith(resourceSetAlias + "_", StringComparison.Ordinal))
-            continue;
-
-         var keyAlias = apiKey.Substring(resourceSetAlias.Length + 1);
-         if (string.IsNullOrWhiteSpace(keyAlias))
-            continue;
-
-         mapping = (knownResourceSetName, keyAlias);
-         return true;
-      }
-
-      mapping = default;
-      return false;
-   }
-
-   private static string NormalizeApiKeyAlias(string key)
-   {
-      var segments = key.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-      if (segments.Length == 0)
-         return "_";
-
-      return string.Join("_", segments.Select(NormalizeAliasSegment));
-   }
-
-   private static string NormalizeAliasSegment(string segment)
-   {
-      var builder = new System.Text.StringBuilder();
-      var capitalizeNext = true;
-
-      foreach (var character in segment)
-      {
-         if (!char.IsLetterOrDigit(character))
-         {
-            capitalizeNext = true;
-            continue;
-         }
-
-         builder.Append(capitalizeNext ? char.ToUpperInvariant(character) : character);
-         capitalizeNext = false;
-      }
-
-      if (builder.Length == 0)
-         builder.Append('_');
-
-      if (char.IsDigit(builder[0]))
-         builder.Insert(0, '_');
-
-      return builder.ToString();
-   }
-
-   private static string BuildFilePath(string projectDirectory, string resourceSetName, string? locale)
-   {
-      var relativePath = resourceSetName.Replace('.', Path.DirectorySeparatorChar);
-      if (string.IsNullOrWhiteSpace(locale))
-         return Path.Combine(projectDirectory, relativePath + ".resx");
-
-      return Path.Combine(projectDirectory, relativePath + "." + locale + ".resx");
-   }
-
-   private static string FormatEntryDetails(IEnumerable<ResxDataEntryModel> entries)
-   {
-      return string.Join(
-         " ",
-         entries.Select(static entry => $"Key: '{entry.Key}'. Value: '{entry.Value ?? string.Empty}'.")
-      );
+      return origin.Trim().Replace('\\', '/');
    }
 }
 

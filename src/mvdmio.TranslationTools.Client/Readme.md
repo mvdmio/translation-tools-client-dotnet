@@ -30,23 +30,24 @@ await app.InitializeTranslationToolsClientAsync();
 
 ## API routes used by client
 
+- `GET /api/v1/translations/project`
 - `GET /api/v1/translations/{locale}`
-- `GET /api/v1/translations/{locale}/{key}`
+- `GET /api/v1/translations/{origin}/{locale}/{key}`
 
-Single-item requests may include `defaultValue` as query parameter.
+- Current client also keeps legacy compatibility with `GET /api/v1/translations/{locale}/{key}` through `/Localizations.resx` defaults.
 
-## Translation key rules
+## Identity model
 
-- Regex: `^[A-Za-z0-9._-]+$`
-- Allowed: letters, numbers, `.`, `_`, `-`
-- Invalid keys are rejected client-side before request.
+- Public identity type: `TranslationRef`.
+- `TranslationRef` contains `Origin` and `Key`.
+- `Origin` comparison is case-insensitive.
+- `Key` comparison is case-sensitive.
 
 ## Locale behavior
 
 - API normalizes locale values to lowercase.
 - Current client uses `CultureInfo.CurrentUICulture` for UI-oriented default overloads.
 - Explicit locale overloads still send `CultureInfo.Name` as provided by the caller.
-- Server-side normalization still makes `en`, `EN`, and `en-US` style inputs deterministic for lookup rules used by the API.
 
 ## Usage
 
@@ -56,69 +57,67 @@ using mvdmio.TranslationTools.Client;
 
 var client = app.Services.GetRequiredService<TranslationToolsClient>();
 
-var item = await client.GetAsync("home.title", new CultureInfo("en"));
+var item = await client.GetAsync(Localizations.Keys.Button_Save, new CultureInfo("en"));
 var locale = await client.GetLocaleAsync(new CultureInfo("en"));
-var cached = client.TryGetCached("home.title");
+var cached = client.TryGetCached(Localizations.Keys.Button_Save, new CultureInfo("en"));
 
-var syncText = Errors.Save_Button;
-var text = await Errors.GetAsync(Errors.Keys.Save_Button);
-var fallback = await Errors.GetAsync("Errors.checkout.title", "Checkout");
-var dutch = await Errors.GetAsync(Errors.Keys.Title, new CultureInfo("nl-NL"));
+var syncText = Localizations.Button_Save;
+var text = await Localizations.GetAsync("Button.Save");
+var dutch = await Localizations.GetAsync("Button.Save", new CultureInfo("nl-NL"));
 ```
 
 ## Generated localizations
 
-Author translations in `.resx` files. The package source generator emits designer-shaped resource classes plus a nested `Keys` class.
+Source generation now starts from local neutral `.resx` files. Localized `.resx` variants are ignored for generation.
 
-```text
-Errors.resx
-Admin/Labels.resx
-```
-
-Example `Errors.resx`:
+Example `Localizations.resx`:
 
 ```xml
-<data name="title" xml:space="preserve">
-  <value>Error</value>
-</data>
-<data name="save.button" xml:space="preserve">
-  <value>Save</value>
-</data>
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Button.Hello">
+    <value>Hello</value>
+  </data>
+  <data name="Button.Save">
+    <value>Save</value>
+  </data>
+</root>
 ```
 
 Usage after generation:
 
 ```csharp
-var label = Errors.Save_Button;
-var key = Errors.Keys.Save_Button;
-var asyncLabel = await Errors.GetAsync(Errors.Keys.Save_Button);
-var adminLabel = Admin.Labels.Title;
+var label = Localizations.Button_Save;
+var key = Localizations.Keys.Button_Save;
+var asyncLabel = await Localizations.GetAsync("Button.Save");
 ```
 
+- Generated `Keys` are `TranslationRef` values.
 - Sync generated properties call `TranslationManifestRuntime` through generated code.
 - Generated resource classes also expose `GetAsync(...)` helpers.
 - Sync reads are cache-only; they never trigger network fetches.
-- Sync reads check the registered runtime client cache before compiled `.resx` resources.
-- Async reads use runtime cache first, then compiled `.resx` resources, then network on miss.
-- Sync fallback order: runtime client cache -> compiled `.resx` resource -> generated default value -> key.
-- Async fallback order: runtime client cache -> compiled `.resx` resource -> network -> generated default value -> key.
+- Sync reads check the registered runtime client cache before the embedded snapshot.
+- Async reads use embedded snapshot first, then network on miss.
+- Sync fallback order: runtime client cache -> embedded snapshot -> generated default value -> key.
+- Async fallback order: embedded snapshot -> network -> generated default value -> key.
 - Call `InitializeTranslationToolsClientAsync()` during app startup before relying on sync generated access.
 
 ## Offline fallback
 
-- Generated resource classes read compiled `.resx` resources from their own assembly.
-- If no local `.resx` entry contains the key, sync reads fall back to the generated default value, then key.
+- `translations pull` writes `.mvdmio-translations.snapshot.json` in the project root.
+- The client package auto-embeds that root snapshot through a `buildTransitive` props file.
+- Snapshot lookup is assembly-scoped, so generated manifests read their own assembly's embedded snapshot.
 
 ## Live update cache support
 
 - Public cache refresh/invalidation APIs:
   - `RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)`
   - `InvalidateLocale(CultureInfo locale)`
-  - `Invalidate(string key, CultureInfo locale)`
+  - `Invalidate(TranslationRef translation, CultureInfo locale)`
 - Public externally-driven cache update APIs:
-  - `ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default)`
+  - `ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<TranslationRef, string?> values, CancellationToken cancellationToken = default)`
   - `ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken cancellationToken = default)`
-- `RefreshLocaleAsync(...)` replaces the cached locale payload and removes stale per-key entries for that locale.
+- `RefreshLocaleAsync(...)` replaces the cached locale payload and removes stale per-item entries for that locale.
 - `InvalidateLocale(...)` removes the cached locale payload and all cached items for that locale.
 - `Invalidate(...)` removes one cached item and removes it from the cached locale dictionary if present.
 - `ApplyLocaleUpdateAsync(...)` replaces the cached locale payload without fetching from HTTP.
@@ -131,16 +130,10 @@ var adminLabel = Admin.Labels.Title;
   - fetch socket token from `GET /api/v1/translations/socket-token`
   - connect to `/ws/translations?token=...`
   - ignore `{ "type": "connected" }`
-  - apply `{ "type": "translation-updated", "locale": "en", "key": "home.title", "value": "Hello" }`
+  - apply `{ "type": "translation-updated", "origin": "/Localizations.resx", "locale": "en", "key": "home.title", "value": "Hello" }`
 - Current transport applies single-item cache updates only.
 - Current implementation reconnects best-effort and fetches a fresh socket token before reconnecting.
-- Live transport now logs start/stop, token-fetch failures, websocket connect/disconnect failures, and applied/ignored incoming messages through standard `ILogger<TranslationToolsLiveUpdateService>`.
-- Logs include base URL, locale, key, and reconnect delay, but do not log API keys or socket tokens.
-- Still missing for richer live sync:
-  - full-locale snapshot messages
-  - explicit invalidation messages
-  - ordering/version metadata
-  - replay/resync contract after disconnects
+- Current runtime still accepts missing `origin` as legacy `/Localizations.resx` compatibility.
 
 ## Create-on-read and `defaultValue`
 
@@ -152,10 +145,8 @@ var adminLabel = Admin.Labels.Title;
 
 ## Caching
 
-- Client stores fetched single-item payload per locale/key cache entry.
+- Client stores fetched single-item payload per locale/origin/key cache entry.
 - Client stores fetched locale payloads per locale cache entry.
-- Repeated single-item requests reuse cached values for the process lifetime.
-- Repeated locale requests reuse cached locale dictionaries for the process lifetime.
 - Locale initialization fetches locale payloads and hydrates per-item cache entries.
 - Locale fetches also hydrate per-item cache entries used by sync APIs.
 - Refreshing a locale replaces both the locale payload cache and its per-item entries.
@@ -176,27 +167,26 @@ await app.Services.InitializeTranslationToolsClientAsync();
 ## Current public API
 
 - `ITranslationToolsClient.Initialize(CancellationToken)`
-- `ITranslationToolsClient.TryGetCached(string)`
-- `ITranslationToolsClient.TryGetCached(string, CultureInfo)`
-- `ITranslationToolsClient.GetAsync(string key, CancellationToken)`
-- `ITranslationToolsClient.GetAsync(string key, CultureInfo locale, CancellationToken)`
-- `ITranslationToolsClient.GetLocaleAsync(CultureInfo locale, CancellationToken)`
-- `ITranslationToolsClient.RefreshLocaleAsync(CultureInfo locale, CancellationToken)`
-- `ITranslationToolsClient.InvalidateLocale(CultureInfo locale)`
-- `ITranslationToolsClient.Invalidate(string key, CultureInfo locale)`
-- `ITranslationToolsClient.ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?>, CancellationToken)`
-- `ITranslationToolsClient.ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken)`
+- `ITranslationToolsClient.TryGetCached(TranslationRef, CultureInfo)`
+- `ITranslationToolsClient.GetAsync(TranslationRef, CultureInfo, CancellationToken)`
+- `ITranslationToolsClient.GetLocaleAsync(CultureInfo, CancellationToken)`
+- `ITranslationToolsClient.RefreshLocaleAsync(CultureInfo, CancellationToken)`
+- `ITranslationToolsClient.InvalidateLocale(CultureInfo)`
+- `ITranslationToolsClient.Invalidate(TranslationRef, CultureInfo)`
+- `ITranslationToolsClient.ApplyLocaleUpdateAsync(CultureInfo, IReadOnlyDictionary<TranslationRef, string?>, CancellationToken)`
+- `ITranslationToolsClient.ApplyUpdateAsync(TranslationItemResponse item, CultureInfo, CancellationToken)`
 - `TranslationToolsClientOptions.EnableLiveUpdates`
 - generated resource properties and generated resource `GetAsync(...)` helpers
 - `InitializeTranslationToolsClientAsync(CancellationToken)`
+
+## Current compatibility surface
+
+- legacy string-only overloads still exist for `/Localizations.resx`
+- legacy embedded snapshot JSON shape still supported
+- legacy live update payloads without `origin` still supported
 
 ## OpenAPI and docs
 
 - OpenAPI JSON: `/openapi/v1.json`
 - Scalar UI: `/scalar/`
 - Versioned Scalar route: `/scalar/v1`
-
-## Non-.NET clients
-
-- Send `Accept-Encoding: gzip` for locale fetches.
-- Cache responses according to local application needs.

@@ -24,14 +24,14 @@ internal sealed class PushHandler
       _reporter = reporter;
    }
 
-   public Task HandleAsync(CancellationToken cancellationToken = default)
-   {
-      var config = ToolConfigurationLoader.Load();
-      return HandleAsync(config, cancellationToken);
-   }
+    public Task HandleAsync(bool prune, CancellationToken cancellationToken = default)
+    {
+       var config = ToolConfigurationLoader.Load();
+       return HandleAsync(config, prune, cancellationToken);
+    }
 
-   internal async Task HandleAsync(ToolConfiguration config, CancellationToken cancellationToken = default)
-   {
+    internal async Task HandleAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken = default)
+    {
       if (string.IsNullOrWhiteSpace(config.ApiKey))
       {
          _reporter.WriteError("Error: No API key provided. Add apiKey to .mvdmio-translations.yml.");
@@ -45,29 +45,34 @@ internal sealed class PushHandler
       }
 
       var projectDirectory = ResolveProjectDirectory(config);
-      var scanResult = _scanner.ScanProject(projectDirectory);
-      var (state, report) = _stateBuilder.Build(scanResult, config.DefaultLocale);
+       if (string.IsNullOrWhiteSpace(config.DefaultLocale))
+          throw new InvalidOperationException("defaultLocale is required in .mvdmio-translations.yml.");
 
-      _reporter.WriteInfo($"Scanning .resx files in {projectDirectory}...");
-      _reporter.WriteInfo($"Pushing {report.KeyCount} translation keys across {report.Locales.Count} locales to {ToolConfiguration.DEFAULT_BASE_URL}...");
+       var scanResult = _projectManifestScanner.ScanProject(projectDirectory, config.DefaultLocale);
+       if (!scanResult.FoundManifest)
+          throw new InvalidOperationException($"No .resx translation files found in project '{projectDirectory}'.");
+
+       _reporter.WriteInfo($"Scanning .resx translations in {projectDirectory}...");
+       _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation values to {ToolConfiguration.DEFAULT_BASE_URL}...");
 
       var result = await _translationApiService.ImportProjectStateAsync(
          config.ApiKey,
-         new ProjectTranslationStateImportRequest
-         {
-            DefaultLocale = state.DefaultLocale,
-            Locales = [.. state.Locales],
-            Items = [.. state.Items.Select(static item => new ProjectTranslationStateImportItemRequest {
-               Key = item.Key,
-               Translations = new Dictionary<string, string?>(item.Translations, StringComparer.Ordinal)
-            })]
+         new TranslationPushRequest {
+            Items = scanResult.Items.Select(
+               static x => new TranslationPushItemRequest {
+                  Origin = x.Origin,
+                  Locale = x.Locale,
+                  Key = x.Key,
+                  Value = x.Value
+               }
+            ).ToArray()
          },
          cancellationToken
       );
 
-      _reporter.WriteInfo($"Push complete. Received {result.ReceivedKeyCount} keys across {result.ReceivedLocaleCount} locales.");
-      _reporter.WriteInfo($"Created translations: {result.CreatedTranslationCount}. Updated translations: {result.UpdatedTranslationCount}.");
-   }
+       _reporter.WriteInfo($"Push complete. Synced {result.ReceivedKeyCount} translation values.");
+       _reporter.WriteInfo($"Created: {result.CreatedKeyCount}. Updated values: {result.UpdatedKeyCount}. Removed: {result.RemovedKeyCount}.");
+    }
 
    internal static string ResolveProjectDirectory(ToolConfiguration config)
    {

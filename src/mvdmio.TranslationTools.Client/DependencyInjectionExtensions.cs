@@ -78,9 +78,9 @@ public static class DependencyInjectionExtensions
    {
       return AppDomain.CurrentDomain.GetAssemblies()
           .Where(static assembly => !assembly.IsDynamic)
-          .Where(static assembly => GetLoadableTypes(assembly).Any(static type => type.GetNestedType("Keys", BindingFlags.Public | BindingFlags.NonPublic) is not null))
-          .Distinct()
-          .ToArray();
+          .Where(static assembly => assembly.GetManifestResourceNames().Any(static resourceName => resourceName.EndsWith(".mvdmio-translations.snapshot.json", StringComparison.Ordinal)))
+           .Distinct()
+           .ToArray();
    }
 
    private static Type[] GetLoadableTypes(Assembly assembly)

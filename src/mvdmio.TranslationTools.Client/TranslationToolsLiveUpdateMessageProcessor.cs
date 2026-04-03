@@ -47,34 +47,33 @@ internal static class TranslationToolsLiveUpdateMessageProcessor
          return;
       }
 
-      if (string.IsNullOrWhiteSpace(message.Locale) || string.IsNullOrWhiteSpace(message.Key))
+      var origin = string.IsNullOrWhiteSpace(message.Origin) ? "/Localizations.resx" : message.Origin;
+
+      if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(message.Locale) || string.IsNullOrWhiteSpace(message.Key))
       {
-         logger?.LogWarning("Ignoring translation-updated message missing locale or key.");
-         return;
+          logger?.LogWarning("Ignoring translation-updated message missing origin, locale, or key.");
+          return;
       }
 
       try
       {
-         logger?.LogDebug("Applying TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
-         await client.ApplyUpdateAsync(
-            new TranslationItemResponse
-            {
-               Key = message.Key,
-               Value = message.Value
-            },
-            CultureInfo.GetCultureInfo(message.Locale),
-            cancellationToken
-         );
+           logger?.LogDebug("Applying TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
+           await client.ApplyUpdateAsync(
+            new TranslationRef(origin, message.Key),
+             message.Value,
+             CultureInfo.GetCultureInfo(message.Locale),
+             cancellationToken
+          );
 
          logger?.LogDebug("Applied TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
-      }
+       }
       catch (CultureNotFoundException exception)
       {
          logger?.LogWarning(exception, "Ignoring TranslationTools live update for unknown locale {Locale}.", message.Locale);
       }
       catch (ArgumentException exception)
       {
-         logger?.LogWarning(exception, "Ignoring TranslationTools live update for invalid key {Key}.", message.Key);
+         logger?.LogWarning(exception, "Ignoring TranslationTools live update for invalid identity {Origin} {Key}.", origin, message.Key);
       }
    }
 }

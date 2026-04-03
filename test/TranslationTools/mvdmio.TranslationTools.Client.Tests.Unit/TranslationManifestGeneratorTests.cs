@@ -1,8 +1,8 @@
+using System.Collections.Immutable;
+using System.Linq;
 using AwesomeAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Text;
 using mvdmio.TranslationTools.Client.SourceGenerator;
 using System.Collections.Immutable;
 using System.Linq;
@@ -14,46 +14,68 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 public class TranslationManifestGeneratorTests
 {
    [Fact]
-   public void ShouldGenerateKeysAndPropertiesFromResx()
+   public void ShouldGenerateFromNeutralResxFile()
    {
       var result = RunGenerator(
-         "namespace Demo { }",
-         ("D:\\Project\\Errors.resx", Resx(("save.button", "Save"), ("class", "Class value")))
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Button.Hello", "Hello"), ("Button.Save", null)))
+         ]
       );
 
       result.GeneratorDiagnostics.Should().BeEmpty();
-      result.GeneratedSources.Should().ContainSingle();
-      result.GeneratedSources[0].Should().Contain("public static partial class Errors");
-      result.GeneratedSources[0].Should().Contain("public const string Save_Button = \"Errors.save.button\";");
-      result.GeneratedSources[0].Should().Contain("public const string Class = \"Errors.class\";");
-      result.GeneratedSources[0].Should().Contain("public static string Save_Button");
-      result.GeneratedSources[0].Should().Contain("get => Get(\"save.button\", \"Save\");");
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("public static partial class Localizations");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"/Localizations.resx\";");
+      result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Hello = new(Origin, \"Button.Hello\");");
+      result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Save = new(Origin, \"Button.Save\");");
+      result.GeneratedSource.Should().Contain("get => Get(\"Button.Hello\", \"Hello\");");
+      result.GeneratedSource.Should().Contain("get => Get(\"Button.Save\");");
    }
 
    [Fact]
-   public void ShouldGenerateNestedNamespaceFromRelativeFolder()
+   public void ShouldIgnoreLocalizedResxVariants()
    {
       var result = RunGenerator(
-         "namespace Demo { }",
-         ("D:\\Project\\Admin\\Labels.resx", Resx(("title", "Admin")))
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Button.Save", "Save"))),
+            ("src/Demo/Localizations.nl.resx", Resx(("Button.Save", "Opslaan")))
+         ]
       );
 
       result.GeneratorDiagnostics.Should().BeEmpty();
-      result.GeneratedSources.Should().ContainSingle();
-      result.GeneratedSources[0].Should().Contain("namespace GeneratorTests.Admin;");
-      result.GeneratedSources[0].Should().Contain("public static partial class Labels");
-      result.GeneratedSources[0].Should().Contain("public const string Title = \"Admin.Labels.title\";");
+      result.GeneratedSource.Should().Contain("Button_Save");
+      result.GeneratedSource.Should().NotContain("Opslaan");
    }
 
    [Fact]
-   public void ShouldReportConflictingPropertyNamesAfterNormalization()
+   public void ShouldSkipEmptyResxFile()
    {
       var result = RunGenerator(
-         "namespace Demo { }",
-         ("D:\\Project\\Errors.resx", Resx(("save.button", "Save"), ("save.button", "Save 2")))
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Empty.resx", Resx())
+         ]
       );
 
-      result.GeneratorDiagnostics.Select(static x => x.Id).Should().Contain("TTCLIENTGEN002");
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.GeneratedSource.Should().BeEmpty();
+   }
+
+   [Fact]
+   public void ShouldGenerateDistinctSanitizedPropertyNames()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Action.Save", "Save"), ("Action-Save", "Save alt"), ("123.Start", "Start")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("Action_Save");
+      result.GeneratedSource.Should().Contain("_123_Start");
    }
 
    [Fact]
@@ -61,23 +83,10 @@ public class TranslationManifestGeneratorTests
    {
       var references = typeof(TranslationManifestGenerator).Assembly.GetReferencedAssemblies();
 
-      references.Select(static x => x.Name).Should().Contain("Microsoft.CodeAnalysis");
+      references.Should().Contain(x => x.Name == "Microsoft.CodeAnalysis");
    }
 
-   [Fact]
-   public void ShouldGenerateForDottedBaseFileNames()
-   {
-      var result = RunGenerator(
-         "namespace Demo { }",
-         ("D:\\Project\\Shared.Validation.resx", Resx(("required", "Required")))
-      );
-
-      result.GeneratorDiagnostics.Should().BeEmpty();
-      result.GeneratedSources.Should().ContainSingle();
-      result.GeneratedSources[0].Should().Contain("public static partial class Shared.Validation");
-   }
-
-   private static GeneratorTestResult RunGenerator(string source, params (string Path, string Content)[] additionalFiles)
+   private static GeneratorTestResult RunGenerator(string source, IReadOnlyCollection<(string Path, string Content)> additionalFiles)
    {
       var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
       var compilation = CSharpCompilation.Create(
@@ -93,14 +102,17 @@ public class TranslationManifestGeneratorTests
          ["build_property.RootNamespace"] = "GeneratorTests"
       });
       GeneratorDriver driver = CSharpGeneratorDriver.Create(
-         generators: [new TranslationManifestGenerator()],
-         additionalTexts: [.. additionalFiles.Select(static file => new TestAdditionalText(file.Path, file.Content))],
-         parseOptions: parseOptions,
-         optionsProvider: analyzerConfig
+         generators: [new TranslationManifestGenerator().AsSourceGenerator()],
+         additionalTexts: additionalFiles.Select(static file => new TestAdditionalText(file.Path, file.Content)).ToImmutableArray<AdditionalText>(),
+         parseOptions: parseOptions
       );
 
       driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var outputDiagnostics);
       var runResult = driver.GetRunResult();
+      var generatedSource = string.Join(
+         Environment.NewLine,
+         runResult.Results.SelectMany(static x => x.GeneratedSources).Select(static x => x.SourceText.ToString())
+      );
 
       return new GeneratorTestResult(
          GeneratedSources: [.. runResult.Results.SelectMany(static x => x.GeneratedSources).Select(static x => x.SourceText.ToString())],
@@ -111,30 +123,34 @@ public class TranslationManifestGeneratorTests
 
    private static MetadataReference[] GetReferences()
    {
-      var trustedPlatformAssemblies = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
+      return ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
          .Split(Path.PathSeparator)
          .Select(path => MetadataReference.CreateFromFile(path))
-         .ToList();
-      trustedPlatformAssemblies.Add(MetadataReference.CreateFromFile(typeof(TranslationManifestGenerator).Assembly.Location));
-      return [.. trustedPlatformAssemblies.DistinctBy(static x => x.Display, StringComparer.OrdinalIgnoreCase)];
+         .DistinctBy(x => x.Display, StringComparer.OrdinalIgnoreCase)
+         .ToArray();
    }
 
-   private static string Resx(params (string Key, string Value)[] entries)
+   private static string Resx(params (string Key, string? Value)[] entries)
    {
-      var lines = new List<string> {
-         "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
-         "<root>"
-      };
+      var data = string.Join(Environment.NewLine, entries.Select(x => x.Value is null
+         ? $"  <data name=\"{x.Key}\"><value></value></data>"
+         : $"  <data name=\"{x.Key}\"><value>{System.Security.SecurityElement.Escape(x.Value)}</value></data>"));
+      return $$"""
+               <?xml version="1.0" encoding="utf-8"?>
+               <root>
+               {{data}}
+               </root>
+               """;
+   }
 
-      foreach (var entry in entries)
+   private sealed class TestAdditionalText(string path, string content) : AdditionalText
+   {
+      public override string Path { get; } = path;
+
+      public override Microsoft.CodeAnalysis.Text.SourceText GetText(CancellationToken cancellationToken = default)
       {
-         lines.Add($"  <data name=\"{entry.Key}\" xml:space=\"preserve\">");
-         lines.Add($"    <value>{entry.Value}</value>");
-         lines.Add("  </data>");
+         return Microsoft.CodeAnalysis.Text.SourceText.From(content);
       }
-
-      lines.Add("</root>");
-      return string.Join(Environment.NewLine, lines);
    }
 
    private sealed record GeneratorTestResult(

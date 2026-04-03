@@ -13,10 +13,15 @@ internal static class ResxGeneratorEmitter
       builder.AppendLine(";");
       builder.AppendLine();
       builder.AppendLine("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"0.1.0\")]");
-      builder.Append("public static partial class ");
+      builder.Append(model.Accessibility);
+      builder.Append(" static partial class ");
       builder.Append(model.TypeName);
       builder.AppendLine();
       builder.AppendLine("{");
+      builder.Append("   private const string Origin = ");
+      builder.Append(ToStringLiteral(model.Origin));
+      builder.AppendLine(";");
+      builder.AppendLine();
       builder.AppendLine("   private static global::System.Type ManifestType => typeof(" + model.TypeName + ");");
       builder.AppendLine();
       builder.AppendLine("   public static string Get(string key, string? defaultValue = null)");
@@ -41,11 +46,11 @@ internal static class ResxGeneratorEmitter
 
       foreach (var property in model.Properties)
       {
-         builder.Append("      public const string ");
+         builder.Append("      public static readonly global::mvdmio.TranslationTools.Client.TranslationRef ");
          builder.Append(property.Name);
-         builder.Append(" = ");
+         builder.Append(" = new(Origin, ");
          builder.Append(ToStringLiteral(property.Key));
-         builder.AppendLine(";");
+         builder.AppendLine(");");
       }
 
       builder.AppendLine("   }");
@@ -60,7 +65,7 @@ internal static class ResxGeneratorEmitter
          builder.AppendLine();
          builder.AppendLine("   {");
          builder.Append("      get => Get(");
-         builder.Append(ToStringLiteral(property.ResourceKey));
+         builder.Append(ToStringLiteral(property.Key));
 
          if (property.DefaultValue is null)
          {

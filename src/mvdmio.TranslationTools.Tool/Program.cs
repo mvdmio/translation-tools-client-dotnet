@@ -3,6 +3,7 @@ using System.CommandLine;
 
 var rootCommand = new RootCommand("TranslationTools manifest tool");
 rootCommand.Subcommands.Add(InitCommand.Create());
+rootCommand.Subcommands.Add(MigrateCommand.Create());
 rootCommand.Subcommands.Add(PullCommand.Create());
 rootCommand.Subcommands.Add(PushCommand.Create());
 

@@ -13,6 +13,8 @@ namespace mvdmio.TranslationTools.Client;
 [PublicAPI]
 public interface ITranslationToolsClient
 {
+   private static TranslationRef Default(string key) => new("/Localizations.resx", key);
+
    /// <summary>
    /// Preload the default locale into the internal cache.
    /// </summary>
@@ -21,37 +23,43 @@ public interface ITranslationToolsClient
    /// <summary>
    /// Get a translation using <see cref="CultureInfo.CurrentUICulture"/>.
    /// </summary>
-   TranslationItemResponse Get(string key) => AsyncHelper.RunSync(() => GetAsync(key));
-
+   TranslationItemResponse Get(TranslationRef translation) => AsyncHelper.RunSync(() => GetAsync(translation));
+   TranslationItemResponse Get(string key) => Get(Default(key));
+   
    /// <summary>
    /// Get a translation for a specific locale.
    /// </summary>
-   TranslationItemResponse Get(string key, CultureInfo locale) => AsyncHelper.RunSync(() => GetAsync(key, locale));
+   TranslationItemResponse Get(TranslationRef translation, CultureInfo locale) => AsyncHelper.RunSync(() => GetAsync(translation, locale));
+   TranslationItemResponse Get(string key, CultureInfo locale) => Get(Default(key), locale);
 
    /// <summary>
    /// Try to get a translation from the local cache using <see cref="CultureInfo.CurrentUICulture"/>.
    /// </summary>
-   TranslationItemResponse? TryGetCached(string key);
+   TranslationItemResponse? TryGetCached(TranslationRef translation);
+   TranslationItemResponse? TryGetCached(string key) => TryGetCached(Default(key));
 
    /// <summary>
    /// Try to get a translation from the local cache for a specific locale.
    /// </summary>
-   TranslationItemResponse? TryGetCached(string key, CultureInfo locale);
+   TranslationItemResponse? TryGetCached(TranslationRef translation, CultureInfo locale);
+   TranslationItemResponse? TryGetCached(string key, CultureInfo locale) => TryGetCached(Default(key), locale);
 
    /// <summary>
    /// Get a translation using <see cref="CultureInfo.CurrentUICulture"/>.
    /// </summary>
-   Task<TranslationItemResponse> GetAsync(string key, CancellationToken cancellationToken = default);
+   Task<TranslationItemResponse> GetAsync(TranslationRef translation, CancellationToken cancellationToken = default);
+   Task<TranslationItemResponse> GetAsync(string key, CancellationToken cancellationToken = default) => GetAsync(Default(key), cancellationToken);
 
    /// <summary>
    /// Get a translation for a specific locale.
    /// </summary>
-   Task<TranslationItemResponse> GetAsync(string key, CultureInfo locale, CancellationToken cancellationToken = default);
+   Task<TranslationItemResponse> GetAsync(TranslationRef translation, CultureInfo locale, CancellationToken cancellationToken = default);
+   Task<TranslationItemResponse> GetAsync(string key, CultureInfo locale, CancellationToken cancellationToken = default) => GetAsync(Default(key), locale, cancellationToken);
 
    /// <summary>
    /// Get all translations for a specific locale.
    /// </summary>
-   Task<IReadOnlyDictionary<string, string?>> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default);
+   Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default);
 
    /// <summary>
    /// Refresh the cached locale payload from the server.
@@ -66,15 +74,21 @@ public interface ITranslationToolsClient
    /// <summary>
    /// Remove one cached translation.
    /// </summary>
-   void Invalidate(string key, CultureInfo locale);
+   void Invalidate(TranslationRef translation, CultureInfo locale);
+   void Invalidate(string key, CultureInfo locale) => Invalidate(Default(key), locale);
 
    /// <summary>
    /// Replace the cached locale payload with externally supplied values.
    /// </summary>
+   Task ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<TranslationRef, string?> values, CancellationToken cancellationToken = default);
    Task ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default);
 
    /// <summary>
    /// Apply one externally supplied translation update to the cache.
    /// </summary>
-   Task ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken cancellationToken = default);
+   Task ApplyUpdateAsync(TranslationRef translation, string? value, CultureInfo locale, CancellationToken cancellationToken = default);
+   Task ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken cancellationToken = default)
+   {
+      return ApplyUpdateAsync(new TranslationRef(item.Origin, item.Key), item.Value, locale, cancellationToken);
+   }
 }
