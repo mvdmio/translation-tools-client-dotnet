@@ -101,6 +101,28 @@ public class TranslationManifestGeneratorTests
    }
 
    [Fact]
+   public void ShouldUseProjectRelativeNamespaceForWindowsStyleNestedPaths()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("D:\\Repo\\src\\Libraries\\mvdmio.Localization\\Resources\\Shared\\Localizations.resx", Resx(("Button.Save", "Save")))
+         ],
+         globalOptions: new Dictionary<string, string>(StringComparer.Ordinal)
+         {
+            ["build_property.MSBuildProjectDirectory"] = "D:\\Repo\\src\\Libraries\\mvdmio.Localization",
+            ["build_property.RootNamespace"] = "mvdmio.Localization"
+         }
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("namespace mvdmio.Localization.Resources.Shared;");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"/Resources/Shared/Localizations.resx\";");
+      result.GeneratedSource.Should().Contain("public static partial class Localizations");
+   }
+
+   [Fact]
    public void ShouldReferenceStableRoslynAssemblies()
    {
       var references = typeof(TranslationManifestGenerator).Assembly.GetReferencedAssemblies();

@@ -93,8 +93,9 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
 
    private static string BuildOrigin(string relativePath)
    {
-      var fileName = Path.GetFileName(relativePath) ?? string.Empty;
-      var directory = Path.GetDirectoryName(relativePath)?.Replace('\\', '/') ?? string.Empty;
+      var normalizedRelativePath = NormalizePath(relativePath);
+      var fileName = GetFileName(normalizedRelativePath);
+      var directory = GetDirectoryName(normalizedRelativePath);
       string? trimmedFileName;
       var baseFileName = TryGetLocaleSuffix(fileName, out trimmedFileName) ? trimmedFileName : fileName;
 
@@ -105,7 +106,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
 
    private static string BuildTypeName(string path)
    {
-      var fileName = Path.GetFileName(path) ?? string.Empty;
+      var fileName = GetFileName(path);
       string? trimmedFileName;
       var baseFileName = TryGetLocaleSuffix(fileName, out trimmedFileName) ? trimmedFileName : fileName;
       return Path.GetFileNameWithoutExtension(baseFileName).Replace(".", string.Empty);
@@ -118,12 +119,12 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          .Select(SanitizeIdentifier)
       );
 
-      var directory = Path.GetDirectoryName(relativePath) ?? string.Empty;
+      var directory = GetDirectoryName(relativePath);
       if (string.IsNullOrWhiteSpace(directory))
          return sanitizedRootNamespace;
 
       var directorySegments = directory
-         .Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries)
+         .Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries)
          .Select(SanitizeIdentifier);
 
       if (string.IsNullOrWhiteSpace(sanitizedRootNamespace))
@@ -134,24 +135,51 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
 
    private static string BuildProjectRelativePath(string path, string projectDirectory)
    {
+      var normalizedPath = NormalizePath(path);
+      var normalizedProjectDirectory = NormalizePath(projectDirectory);
+
       if (!string.IsNullOrWhiteSpace(projectDirectory))
       {
-         var projectPath = EnsureTrailingSeparator(Path.GetFullPath(projectDirectory));
-         var fullPath = Path.GetFullPath(path);
+         var projectPath = EnsureTrailingSeparator(normalizedProjectDirectory);
+         var fullPath = normalizedPath;
 
          if (fullPath.StartsWith(projectPath, StringComparison.OrdinalIgnoreCase))
-            return fullPath.Substring(projectPath.Length).Replace('\\', '/');
+            return fullPath.Substring(projectPath.Length);
       }
 
-      return Path.GetFileName(path);
+      return GetFileName(normalizedPath);
    }
 
    private static string EnsureTrailingSeparator(string path)
    {
-      if (path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) || path.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+      if (path.EndsWith("/", StringComparison.Ordinal))
          return path;
 
-      return path + Path.DirectorySeparatorChar;
+      return path + "/";
+   }
+
+   private static string NormalizePath(string path)
+   {
+      return path.Replace("\\", "/");
+   }
+
+   private static string GetFileName(string path)
+   {
+      var normalizedPath = NormalizePath(path);
+      var separatorIndex = normalizedPath.LastIndexOf('/');
+      return separatorIndex >= 0
+         ? normalizedPath.Substring(separatorIndex + 1)
+         : normalizedPath;
+   }
+
+   private static string GetDirectoryName(string path)
+   {
+      var normalizedPath = NormalizePath(path).TrimEnd('/');
+      var separatorIndex = normalizedPath.LastIndexOf('/');
+      if (separatorIndex <= 0)
+         return string.Empty;
+
+      return normalizedPath.Substring(0, separatorIndex);
    }
 
    private static string GetGlobalOption(AnalyzerConfigOptions options, string key)

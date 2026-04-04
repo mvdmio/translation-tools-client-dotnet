@@ -63,6 +63,8 @@ var refValue = await app.Services.GetRequiredService<ITranslationToolsClient>().
 
 Source generation now starts from local neutral `.resx` files.
 
+Path handling is separator-agnostic, so generated namespace/origin metadata stays stable for both Windows-style and Unix-style project paths.
+
 Example `Localizations.resx`:
 
 ```xml
