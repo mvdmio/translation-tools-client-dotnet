@@ -6,8 +6,8 @@
          <TranslationToolsManaged>true</TranslationToolsManaged>
       </EmbeddedResource>
 
-      <EmbeddedResource Update="**\*.*.resx" Condition="'%(EmbeddedResource.DependentUpon)' == ''">
-         <DependentUpon>$([System.IO.Path]::GetFileNameWithoutExtension('%(EmbeddedResource.Filename)')).resx</DependentUpon>
+      <EmbeddedResource Update="**\*.*.resx">
+         <DependentUpon Condition="'%(EmbeddedResource.DependentUpon)' == ''">$([System.IO.Path]::GetFileNameWithoutExtension('%(EmbeddedResource.Filename)')).resx</DependentUpon>
       </EmbeddedResource>
 
       <AdditionalFiles Include="**\*.resx"
