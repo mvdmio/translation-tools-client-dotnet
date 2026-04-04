@@ -70,6 +70,8 @@ var dutch = await Localizations.GetAsync("Button.Save", new CultureInfo("nl-NL")
 
 Source generation now starts from local neutral `.resx` files. Localized `.resx` variants are ignored for generation.
 
+Localized `.resx` variants keep their neutral `.resx` file as `DependentUpon`, so IDEs such as Rider continue to show them nested under the neutral resource file.
+
 Example `Localizations.resx`:
 
 ```xml

@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
 
-Current client package version: `2.0.1`.
+Current client package version: `2.0.2`.
 
 ## Packages
 
@@ -62,6 +62,8 @@ var refValue = await app.Services.GetRequiredService<ITranslationToolsClient>().
 ```
 
 Source generation now starts from local neutral `.resx` files.
+
+Localized `.resx` variants keep their neutral `.resx` file as `DependentUpon`, so IDEs such as Rider continue to nest files like `Localizations.nl.resx` under `Localizations.resx`.
 
 Path handling is separator-agnostic, so generated namespace/origin metadata stays stable for both Windows-style and Unix-style project paths.
 
