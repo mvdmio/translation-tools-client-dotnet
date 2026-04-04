@@ -17,7 +17,7 @@ internal static class TranslationManifestEmitter
          builder.AppendLine();
       }
 
-      builder.Append("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"0.1.0\")]");
+      builder.Append("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"2.0.1\")]");
       builder.AppendLine();
        builder.Append(model.Accessibility);
        builder.Append(" static partial class ");

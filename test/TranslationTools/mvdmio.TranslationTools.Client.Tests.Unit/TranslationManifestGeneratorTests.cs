@@ -79,6 +79,28 @@ public class TranslationManifestGeneratorTests
    }
 
    [Fact]
+   public void ShouldUseRootNamespaceAndProjectRelativeOrigin()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("D:\\Repo\\src\\Libraries\\mvdmio.Localization\\Localizations.resx", Resx(("Button.Save", "Save")))
+         ],
+         globalOptions: new Dictionary<string, string>(StringComparer.Ordinal)
+         {
+            ["build_property.MSBuildProjectDirectory"] = "D:\\Repo\\src\\Libraries\\mvdmio.Localization",
+            ["build_property.RootNamespace"] = "mvdmio.Localization"
+         }
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("namespace mvdmio.Localization;");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"/Localizations.resx\";");
+      result.GeneratedSource.Should().Contain("public static partial class Localizations");
+   }
+
+   [Fact]
    public void ShouldReferenceStableRoslynAssemblies()
    {
       var references = typeof(TranslationManifestGenerator).Assembly.GetReferencedAssemblies();
@@ -86,7 +108,10 @@ public class TranslationManifestGeneratorTests
       references.Should().Contain(x => x.Name == "Microsoft.CodeAnalysis");
    }
 
-   private static GeneratorTestResult RunGenerator(string source, IReadOnlyCollection<(string Path, string Content)> additionalFiles)
+   private static GeneratorTestResult RunGenerator(
+      string source,
+      IReadOnlyCollection<(string Path, string Content)> additionalFiles,
+      IReadOnlyDictionary<string, string>? globalOptions = null)
    {
       var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
       var compilation = CSharpCompilation.Create(
@@ -96,7 +121,7 @@ public class TranslationManifestGeneratorTests
          options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
       );
 
-      var analyzerConfig = new TestAnalyzerConfigOptionsProvider(new Dictionary<string, string>(StringComparer.Ordinal)
+      var analyzerConfig = new TestAnalyzerConfigOptionsProvider(globalOptions ?? new Dictionary<string, string>(StringComparer.Ordinal)
       {
          ["build_property.MSBuildProjectDirectory"] = "D:\\Project",
          ["build_property.RootNamespace"] = "GeneratorTests"
@@ -104,7 +129,8 @@ public class TranslationManifestGeneratorTests
       GeneratorDriver driver = CSharpGeneratorDriver.Create(
          generators: [new TranslationManifestGenerator().AsSourceGenerator()],
          additionalTexts: additionalFiles.Select(static file => new TestAdditionalText(file.Path, file.Content)).ToImmutableArray<AdditionalText>(),
-         parseOptions: parseOptions
+         parseOptions: parseOptions,
+         optionsProvider: analyzerConfig
       );
 
       driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var outputDiagnostics);

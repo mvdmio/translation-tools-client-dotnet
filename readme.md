@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
 
-Current client package version: `2.0.0`.
+Current client package version: `2.0.1`.
 
 ## Packages
 

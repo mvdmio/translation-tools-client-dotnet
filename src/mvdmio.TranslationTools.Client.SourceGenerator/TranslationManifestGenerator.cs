@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
@@ -13,9 +14,15 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
 {
    public void Initialize(IncrementalGeneratorInitializationContext context)
    {
+      var analyzerOptions = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => new GeneratorOptions {
+         ProjectDirectory = GetGlobalOption(provider.GlobalOptions, "build_property.MSBuildProjectDirectory"),
+         RootNamespace = GetGlobalOption(provider.GlobalOptions, "build_property.RootNamespace")
+      });
+
       var manifests = context.AdditionalTextsProvider
          .Where(file => file.Path.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
-         .Select((file, cancellationToken) => BuildManifest(file, cancellationToken));
+         .Combine(analyzerOptions)
+         .Select(static (input, cancellationToken) => BuildManifest(input.Left, input.Right, cancellationToken));
 
       context.RegisterSourceOutput(manifests, static (productionContext, result) => {
          foreach (var diagnostic in result.Diagnostics)
@@ -31,7 +38,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       });
    }
 
-   private static TranslationManifestResult BuildManifest(AdditionalText file, CancellationToken cancellationToken)
+   private static TranslationManifestResult BuildManifest(AdditionalText file, GeneratorOptions options, CancellationToken cancellationToken)
    {
       var text = file.GetText(cancellationToken)?.ToString();
       if (string.IsNullOrWhiteSpace(text))
@@ -53,9 +60,10 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       if (entries.Length == 0)
          return new TranslationManifestResult();
 
-      var origin = BuildOrigin(file.Path);
+      var relativePath = BuildProjectRelativePath(file.Path, options.ProjectDirectory);
+      var origin = BuildOrigin(relativePath);
       var typeName = BuildTypeName(file.Path);
-      var @namespace = BuildNamespace(file.Path);
+      var @namespace = BuildNamespace(relativePath, options.RootNamespace);
 
       return new TranslationManifestResult {
          Model = new TranslationManifestModel {
@@ -83,15 +91,11 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          : model.Namespace + "." + model.TypeName + ".Translations";
    }
 
-   private static string BuildOrigin(string path)
+   private static string BuildOrigin(string relativePath)
    {
-      var normalizedPath = path.Replace('\\', '/');
-      var marker = "/src/";
-      var markerIndex = normalizedPath.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
-      var relativePath = markerIndex >= 0 ? normalizedPath.Substring(markerIndex + marker.Length) : Path.GetFileName(path);
-      var fileName = Path.GetFileName(relativePath);
+      var fileName = Path.GetFileName(relativePath) ?? string.Empty;
       var directory = Path.GetDirectoryName(relativePath)?.Replace('\\', '/') ?? string.Empty;
-      string trimmedFileName;
+      string? trimmedFileName;
       var baseFileName = TryGetLocaleSuffix(fileName, out trimmedFileName) ? trimmedFileName : fileName;
 
       return string.IsNullOrWhiteSpace(directory)
@@ -101,29 +105,60 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
 
    private static string BuildTypeName(string path)
    {
-      var fileName = Path.GetFileName(path);
-      string trimmedFileName;
+      var fileName = Path.GetFileName(path) ?? string.Empty;
+      string? trimmedFileName;
       var baseFileName = TryGetLocaleSuffix(fileName, out trimmedFileName) ? trimmedFileName : fileName;
       return Path.GetFileNameWithoutExtension(baseFileName).Replace(".", string.Empty);
    }
 
-   private static string BuildNamespace(string path)
+   private static string BuildNamespace(string relativePath, string rootNamespace)
    {
-      var normalizedPath = path.Replace('\\', '/');
-      var marker = "/src/";
-      var markerIndex = normalizedPath.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
-      if (markerIndex < 0)
-         return string.Empty;
+      var sanitizedRootNamespace = string.Join(".", rootNamespace
+         .Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)
+         .Select(SanitizeIdentifier)
+      );
 
-      var relativePath = normalizedPath.Substring(markerIndex + marker.Length);
-      var directory = Path.GetDirectoryName(relativePath)?.Replace('\\', '.') ?? string.Empty;
+      var directory = Path.GetDirectoryName(relativePath) ?? string.Empty;
       if (string.IsNullOrWhiteSpace(directory))
-         return string.Empty;
+         return sanitizedRootNamespace;
 
-      var segments = directory.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries)
-          .Select(SanitizeIdentifier)
-          .ToArray();
-      return string.Join(".", segments);
+      var directorySegments = directory
+         .Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries)
+         .Select(SanitizeIdentifier);
+
+      if (string.IsNullOrWhiteSpace(sanitizedRootNamespace))
+         return string.Join(".", directorySegments);
+
+      return string.Join(".", new[] { sanitizedRootNamespace }.Concat(directorySegments));
+   }
+
+   private static string BuildProjectRelativePath(string path, string projectDirectory)
+   {
+      if (!string.IsNullOrWhiteSpace(projectDirectory))
+      {
+         var projectPath = EnsureTrailingSeparator(Path.GetFullPath(projectDirectory));
+         var fullPath = Path.GetFullPath(path);
+
+         if (fullPath.StartsWith(projectPath, StringComparison.OrdinalIgnoreCase))
+            return fullPath.Substring(projectPath.Length).Replace('\\', '/');
+      }
+
+      return Path.GetFileName(path);
+   }
+
+   private static string EnsureTrailingSeparator(string path)
+   {
+      if (path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) || path.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+         return path;
+
+      return path + Path.DirectorySeparatorChar;
+   }
+
+   private static string GetGlobalOption(AnalyzerConfigOptions options, string key)
+   {
+      return options.TryGetValue(key, out var value)
+         ? value
+         : string.Empty;
    }
 
    private static string SanitizeIdentifier(string value)
@@ -166,5 +201,11 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
    private static string? NormalizeValue(string? value)
    {
       return value == string.Empty ? null : value;
+   }
+
+   private sealed class GeneratorOptions
+   {
+      public string ProjectDirectory { get; set; } = string.Empty;
+      public string RootNamespace { get; set; } = string.Empty;
    }
 }
