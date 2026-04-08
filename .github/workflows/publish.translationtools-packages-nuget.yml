@@ -1,0 +1,48 @@
+name: "Publish TranslationTools Packages (NuGet)"
+
+on:
+   workflow_dispatch:
+   push:
+      branches:
+      - master
+      paths:
+      - ".github/workflows/publish.translationtools-packages-nuget.yml"
+      - "Directory.Build.props"
+      - "mvdmio.TranslationTools.Client.slnx"
+      - "src/mvdmio.TranslationTools.Client/**"
+      - "src/mvdmio.TranslationTools.Client.SourceGenerator/**"
+      - "src/mvdmio.TranslationTools.Tool/**"
+      - "test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/**"
+      - "test/TranslationTools/SourceGeneratorEndToEnd/**"
+      - "test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit/**"
+
+jobs:
+   Build_Test_And_Publish_TranslationTools_Packages:
+      runs-on: ubuntu-22.04
+      permissions:
+         contents: read
+
+      steps:
+      -  uses: actions/checkout@v4
+
+      -  name: Setup .NET
+         uses: actions/setup-dotnet@v4
+         with:
+            dotnet-version: 10.0.x
+
+      -  name: Restore solution
+         run: dotnet restore mvdmio.TranslationTools.Client.slnx
+
+      -  name: Build solution
+         run: dotnet build mvdmio.TranslationTools.Client.slnx --configuration Release --no-restore
+
+      -  name: Test solution
+         run: dotnet test mvdmio.TranslationTools.Client.slnx --configuration Release --no-build --verbosity normal
+
+      -  name: Pack packages
+         run: |
+            dotnet pack src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj --configuration Release --no-build -o ./artifacts
+            dotnet pack src/mvdmio.TranslationTools.Tool/mvdmio.TranslationTools.Tool.csproj --configuration Release --no-build -o ./artifacts
+
+      -  name: Publish packages
+         run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source "https://api.nuget.org/v3/index.json" --skip-duplicate

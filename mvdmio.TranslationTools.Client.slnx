@@ -5,8 +5,7 @@
     <Project Path="test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit/mvdmio.TranslationTools.Tool.Tests.Unit.csproj" />
   </Folder>
   <Folder Name="/Git Workflows/">
-    <File Path=".github/workflows/publish.translationtools-client-nuget.yml" />
-    <File Path=".github/workflows/publish.translationtools-dotnet-tool-nuget.yml" />
+    <File Path=".github/workflows/publish.translationtools-packages-nuget.yml" />
   </Folder>
   <Folder Name="/_Solution/">
     <File Path=".editorconfig" />

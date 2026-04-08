@@ -4,6 +4,8 @@ Public .NET packages for working with the TranslationTools API, origin-aware run
 
 Current client package version: `2.0.3`.
 
+GitHub Actions release automation now uses a single workflow that builds and tests the full solution before publishing both the client and tool NuGet packages together.
+
 ## Packages
 
 - `mvdmio.TranslationTools.Client` - API client, DI helpers, embedded snapshot bootstrap, source-generated localization support
