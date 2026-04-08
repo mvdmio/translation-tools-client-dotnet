@@ -10,17 +10,31 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 public class TranslationToolsLiveUpdateMessageProcessorTests
 {
    [Fact]
-   public async Task ProcessAsync_ShouldApplyTranslationUpdatedPayloadAndDefaultOrigin()
+   public async Task ProcessAsync_ShouldApplyTranslationUpdatedPayload()
    {
       using var client = CreateClient();
 
       await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
          client,
-         """{"type":"translation-updated","locale":"en","key":"Button.Save","value":"Save now"}""",
+         """{"type":"translation-updated","origin":"/Localizations.resx","locale":"en","key":"Button.Save","value":"Save now"}""",
          TestContext.Current.CancellationToken
       );
 
       client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en"))!.Value.Should().Be("Save now");
+   }
+
+   [Fact]
+   public async Task ProcessAsync_ShouldThrowWhenOriginIsMissing()
+   {
+      using var client = CreateClient();
+
+      var act = async () => await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+         client,
+         """{"type":"translation-updated","locale":"en","key":"Button.Save","value":"Save now"}""",
+         TestContext.Current.CancellationToken
+      );
+
+      await act.Should().ThrowAsync<ArgumentException>();
    }
 
    [Fact]

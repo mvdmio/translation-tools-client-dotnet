@@ -114,7 +114,7 @@ Live update cache support:
   - `{ "type": "connected" }`
   - `{ "type": "translation-updated", "origin": "/Localizations.resx", "locale": "en", "key": "home.title", "value": "Hello" }`
 - Current live transport applies single-item cache updates only, and those updates now flow through the shared locale-aware cache state so `GetAsync(...)` and `GetLocaleAsync(...)` stay aligned.
-- Current runtime still accepts missing `origin` as legacy `/Localizations.resx` compatibility.
+- `translation-updated` messages must include `origin`; missing `origin` is treated as an invalid payload.
 
 ## CLI quick start
 
@@ -178,4 +178,8 @@ dotnet build mvdmio.TranslationTools.Client.slnx
 dotnet test mvdmio.TranslationTools.Client.slnx
 ```
 
-Current unit coverage includes source generation, fixture-project end-to-end generated API coverage, tool config resolution, pull/push/migrate helper logic, `.resx` parsing/writing, and origin-aware client lookup types.
+Current automated coverage includes source generation, fixture-project end-to-end generated API coverage, tool config resolution, pull/push/migrate helper logic, `.resx` parsing/writing, origin-aware client lookup types, and a real loopback-host integration test for startup hydration plus websocket live-update cache propagation.
+
+Planning notes for broader integration coverage now live under `agents/`, including `agents/end-to-end-tests.md` for startup, hydration, and live-update test design.
+
+That plan assumes any endpoint override used for integration testing stays internal-only and is not exposed as public consumer configuration.

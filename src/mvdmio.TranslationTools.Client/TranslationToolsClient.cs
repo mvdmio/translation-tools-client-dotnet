@@ -28,6 +28,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    private TranslationToolsClientOptions Options => _options.Value;
 
+   private Uri BaseUri => new(Options.BaseUrlOverride);
+
    /// <summary>
    /// Create a client using cache services registered in the container.
    /// </summary>
@@ -45,7 +47,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (string.IsNullOrWhiteSpace(Options.ApiKey))
          throw new ArgumentException("ApiKey is required.", nameof(options));
 
-      _client.BaseAddress = new Uri(TranslationToolsClientOptions.DEFAULT_BASE_URL);
+      _client.BaseAddress = BaseUri;
       _client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", Options.ApiKey);
    }
 

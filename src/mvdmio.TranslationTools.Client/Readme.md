@@ -139,7 +139,7 @@ var asyncLabel = await Localizations.GetAsync("Button.Save");
   - apply `{ "type": "translation-updated", "origin": "/Localizations.resx", "locale": "en", "key": "home.title", "value": "Hello" }`
 - Current transport applies single-item cache updates only.
 - Current implementation reconnects best-effort and fetches a fresh socket token before reconnecting.
-- Current runtime still accepts missing `origin` as legacy `/Localizations.resx` compatibility.
+- `translation-updated` messages must include `origin`; missing `origin` is treated as an invalid payload.
 
 ## Create-on-read and `defaultValue`
 
@@ -189,7 +189,6 @@ await app.Services.InitializeTranslationToolsClientAsync();
 
 - legacy string-only overloads still exist for `/Localizations.resx`
 - legacy embedded snapshot JSON shape still supported
-- legacy live update payloads without `origin` still supported
 
 ## OpenAPI and docs
 

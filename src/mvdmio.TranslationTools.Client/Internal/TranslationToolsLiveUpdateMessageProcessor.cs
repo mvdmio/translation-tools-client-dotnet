@@ -44,19 +44,16 @@ internal static class TranslationToolsLiveUpdateMessageProcessor
          return;
       }
 
-      var origin = string.IsNullOrWhiteSpace(message.Origin) ? "/Localizations.resx" : message.Origin;
-
-      if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(message.Locale) || string.IsNullOrWhiteSpace(message.Key))
+      if (string.IsNullOrWhiteSpace(message.Origin) || string.IsNullOrWhiteSpace(message.Locale) || string.IsNullOrWhiteSpace(message.Key))
       {
-         logger?.LogWarning("Ignoring translation-updated message missing origin, locale, or key.");
-         return;
+         throw new ArgumentException("TranslationTools live update message must include origin, locale, and key.", nameof(payload));
       }
 
       try
       {
          logger?.LogDebug("Applying TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
          await client.ApplyUpdateAsync(
-            new TranslationRef(origin, message.Key),
+            new TranslationRef(message.Origin, message.Key),
             message.Value,
             CultureInfo.GetCultureInfo(message.Locale),
             cancellationToken
@@ -73,7 +70,7 @@ internal static class TranslationToolsLiveUpdateMessageProcessor
          logger?.LogWarning(
             exception,
             "Ignoring TranslationTools live update for invalid identity {Origin} {Key}.",
-            origin,
+            message.Origin,
             message.Key
          );
       }

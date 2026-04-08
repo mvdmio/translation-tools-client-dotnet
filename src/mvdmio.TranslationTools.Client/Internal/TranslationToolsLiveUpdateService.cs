@@ -71,6 +71,8 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
       _startLock.Dispose();
    }
 
+   private Uri BaseUri => new(_options.Value.BaseUrlOverride);
+
    private async Task RunAsync(CancellationToken cancellationToken)
    {
       while (!cancellationToken.IsCancellationRequested)
@@ -80,14 +82,14 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          try
          {
             using var httpClient = _httpClientFactory.CreateClient(nameof(TranslationToolsClient));
-            baseUri = new Uri(TranslationToolsClientOptions.DEFAULT_BASE_URL);
+            baseUri = BaseUri;
             httpClient.BaseAddress = baseUri;
 
             _logger.LogDebug("Requesting TranslationTools live update socket token from {BaseUrl}.", baseUri);
             var socketToken = await GetSocketTokenAsync(httpClient, cancellationToken);
             using var webSocket = new ClientWebSocket();
             _logger.LogDebug("Connecting TranslationTools live update websocket to {BaseUrl}.", baseUri);
-            await webSocket.ConnectAsync(BuildSocketUri(socketToken.Token), cancellationToken);
+             await webSocket.ConnectAsync(BuildSocketUri(baseUri, socketToken.Token), cancellationToken);
             _logger.LogInformation("Connected TranslationTools live update websocket to {BaseUrl}.", baseUri);
             await ReceiveLoopAsync(webSocket, cancellationToken);
 
@@ -205,14 +207,19 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
              ?? throw new InvalidOperationException("Socket token response body was empty.");
    }
 
-   private static Uri BuildSocketUri(string socketToken)
-   {
-      var builder = new UriBuilder(TranslationToolsClientOptions.DEFAULT_BASE_URL)
-      {
-         Scheme = "wss",
-         Path = "/ws/translations",
-         Query = $"token={Uri.EscapeDataString(socketToken)}"
-      };
+    private static Uri BuildSocketUri(Uri baseUri, string socketToken)
+    {
+       var builder = new UriBuilder(baseUri)
+       {
+          Scheme = baseUri.Scheme switch
+          {
+             "http" => "ws",
+             "https" => "wss",
+             _ => throw new InvalidOperationException($"Unsupported TranslationTools base URI scheme '{baseUri.Scheme}'.")
+          },
+          Path = "/ws/translations",
+          Query = $"token={Uri.EscapeDataString(socketToken)}"
+       };
 
       return builder.Uri;
    }

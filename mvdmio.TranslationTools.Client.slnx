@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/Tests/">
     <Project Path="test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/mvdmio.TranslationTools.Client.Tests.Unit.csproj" />
+    <Project Path="test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Integration/mvdmio.TranslationTools.Client.Tests.Integration.csproj" />
     <Project Path="test/TranslationTools/SourceGeneratorEndToEnd/SourceGeneratorEndToEnd.csproj" />
     <Project Path="test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit/mvdmio.TranslationTools.Tool.Tests.Unit.csproj" />
   </Folder>

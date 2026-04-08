@@ -9,6 +9,8 @@ public sealed class TranslationToolsClientOptions
 {
    internal const string DEFAULT_BASE_URL = "https://translations.mvdm.io";
 
+   internal string BaseUrlOverride { get; set; } = DEFAULT_BASE_URL;
+
    /// <summary>
    /// Default locale used when no specific locale can be resolved.
    /// </summary>
