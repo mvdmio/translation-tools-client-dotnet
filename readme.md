@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
 
-Current client package version: `2.2.3`.
+Current client package version: `2.3.0`.
 
 GitHub Actions release automation now uses a single workflow that builds and tests the full solution before publishing both the client and tool NuGet packages together.
 
@@ -71,6 +71,10 @@ Localized `.resx` variants keep their neutral `.resx` file as `DependentUpon`, s
 Path handling is separator-agnostic, and Windows-style absolute project paths stay project-relative even when generation runs on Unix-based CI agents.
 
 Generated `GeneratedCodeAttribute` metadata now uses the source generator assembly version automatically, and shared package/version metadata is centralized so the emitted version stays aligned.
+
+Generated `.g.cs` files are now emitted to the consuming project's `obj/Generated` directory by default so package consumers can inspect and step through generated localization code while debugging.
+
+Published packages now include Source Link and symbol package metadata so debuggers can step into the client library source as well.
 
 `TranslationLocaleSnapshot` now derives its legacy string-key lookup surface directly from ordered snapshot items instead of maintaining a separate legacy index.
 

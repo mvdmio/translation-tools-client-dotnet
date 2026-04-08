@@ -19,6 +19,7 @@
       <Authors>Michiel van der Meer</Authors>
       <PackageReadmeFile>README.md</PackageReadmeFile>
       <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+      <RepositoryUrl>$(RepositoryUrl)</RepositoryUrl>
    </PropertyGroup>
 
    <ItemGroup>

@@ -6,8 +6,6 @@
       <Nullable>enable</Nullable>
       <RootNamespace>Fixture.App</RootNamespace>
       <AssemblyName>SourceGeneratorEndToEnd</AssemblyName>
-      <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-      <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
    </PropertyGroup>
 
    <ItemGroup>

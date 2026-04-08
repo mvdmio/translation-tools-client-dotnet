@@ -1,4 +1,9 @@
 <Project>
+   <PropertyGroup>
+      <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+      <CompilerGeneratedFilesOutputPath Condition="'$(CompilerGeneratedFilesOutputPath)' == ''">$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+   </PropertyGroup>
+
    <ItemGroup>
       <EmbeddedResource Update="**\*.resx">
          <Generator></Generator>

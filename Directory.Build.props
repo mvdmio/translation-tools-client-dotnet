@@ -1,5 +1,15 @@
 <Project>
   <PropertyGroup>
-    <TranslationToolsVersion>2.2.3</TranslationToolsVersion>
+    <TranslationToolsVersion>2.3.0</TranslationToolsVersion>
+    <RepositoryUrl>https://github.com/mvdmio/translation-tools-client-dotnet</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
 </Project>

@@ -62,11 +62,11 @@ public static class DependencyInjectionExtensions
       using var scope = app.Services.CreateScope();
 
       try
-       {
+      {
 
-          var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
+         var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
 
-          await client.Initialize(cancellationToken);
+         await client.Initialize(cancellationToken);
 
          var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
          if (options.EnableLiveUpdates)

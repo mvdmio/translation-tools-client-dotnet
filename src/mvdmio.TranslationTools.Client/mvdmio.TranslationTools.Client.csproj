@@ -19,6 +19,7 @@
     <PackageReadmeFile>Readme.md</PackageReadmeFile>
     <PackageLicenseFile>License.txt</PackageLicenseFile>
     <PackageId>mvdmio.TranslationTools.Client</PackageId>
+    <RepositoryUrl>$(RepositoryUrl)</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

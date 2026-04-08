@@ -13,6 +13,30 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 public class SourceGeneratorEndToEndProjectTests
 {
    [Fact]
+   public void FixtureProject_ShouldEmitGeneratedFilesToDefaultObjGeneratedDirectory()
+   {
+      var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".."));
+      var generatedDirectory = Path.Combine(
+         repositoryRoot,
+         "test",
+         "TranslationTools",
+         "SourceGeneratorEndToEnd",
+         "obj",
+         "Generated",
+         "mvdmio.TranslationTools.Client.SourceGenerator",
+         "mvdmio.TranslationTools.Client.SourceGenerator.TranslationManifestGenerator"
+      );
+
+      var localizationsPath = Path.Combine(generatedDirectory, "Fixture.App.Localizations.Translations.g.cs");
+      var errorsPath = Path.Combine(generatedDirectory, "Fixture.App.Resources.Shared.Errors.Translations.g.cs");
+      var expectedGeneratorVersion = typeof(mvdmio.TranslationTools.Client.SourceGenerator.TranslationManifestGenerator).Assembly.GetName().Version?.ToString();
+
+      File.Exists(localizationsPath).Should().BeTrue();
+      File.Exists(errorsPath).Should().BeTrue();
+      File.ReadAllText(localizationsPath).Should().Contain($"[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"{expectedGeneratorVersion}\")]");
+   }
+
+   [Fact]
    public async Task FixtureProject_ShouldGenerateCompileAndRunExpectedSurface()
    {
       typeof(Localizations).Should().NotBeNull();

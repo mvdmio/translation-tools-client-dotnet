@@ -72,6 +72,10 @@ Source generation now starts from local neutral `.resx` files. Localized `.resx`
 
 Localized `.resx` variants keep their neutral `.resx` file as `DependentUpon`, so IDEs such as Rider continue to show them nested under the neutral resource file.
 
+Generated `.g.cs` files are emitted to the consuming project's `obj/Generated` directory by default so you can inspect and step through generated localization code while debugging.
+
+Published packages include Source Link and symbols so debuggers can step into `mvdmio.TranslationTools.Client` source from the NuGet package.
+
 Example `Localizations.resx`:
 
 ```xml
