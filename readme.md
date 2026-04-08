@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
 
-Current client package version: `2.3.0`.
+Current client package version: `2.3.1`.
 
 GitHub Actions release automation now uses a single workflow that builds and tests the full solution before publishing both the client and tool NuGet packages together.
 
