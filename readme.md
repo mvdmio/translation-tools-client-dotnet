@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
 
-Current client package version: `2.3.2`.
+Current client package version: `2.3.5`.
 
 GitHub Actions release automation now uses a single workflow that builds and tests the full solution before publishing both the client and tool NuGet packages together.
 
@@ -158,6 +158,7 @@ Current notes:
 
 - pull/write model is origin-aware and `.resx`-first
 - push scans `.resx` files directly
+- push sends missing keys from sparse locale files as `null` when those keys exist in another locale for the same `.resx` origin
 - current `pull --prune` surface exists, but full remote-aligned deletion is not fully implemented yet
 - current push path still contains a legacy manifest fallback for tests/compatibility when no `.resx` files exist
 

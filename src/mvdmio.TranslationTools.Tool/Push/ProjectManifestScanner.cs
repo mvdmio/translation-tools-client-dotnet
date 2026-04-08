@@ -22,6 +22,7 @@ internal sealed class ProjectManifestScanner
    public ProjectManifestScanResult ScanProject(string projectDirectory, string defaultLocale)
    {
       ResxMigrationScanResult? scanResult = null;
+      var normalizedDefaultLocale = ResxMigrationScanner.NormalizeLocale(defaultLocale);
 
       try
       {
@@ -34,15 +35,13 @@ internal sealed class ProjectManifestScanner
       if (scanResult is null)
          return ScanManifestFiles(projectDirectory);
 
-      var items = scanResult.SourceFiles
+      var parsedFiles = scanResult.SourceFiles
          .Select(_parser.Parse)
-         .SelectMany(parsedFile => parsedFile.Entries.Select(entry => new ProjectTranslationPushItem
-         {
-            Origin = BuildOrigin(parsedFile.SourceFile),
-            Locale = parsedFile.SourceFile.Locale ?? ResxMigrationScanner.NormalizeLocale(defaultLocale),
-            Key = entry.Key,
-            Value = entry.Value
-         }))
+         .ToArray();
+
+      var items = parsedFiles
+         .GroupBy(static parsedFile => parsedFile.SourceFile.ResourceSetName, StringComparer.Ordinal)
+         .SelectMany(resourceSet => BuildResourceSetItems(resourceSet, normalizedDefaultLocale))
          .OrderBy(static item => item.Origin, StringComparer.OrdinalIgnoreCase)
          .ThenBy(static item => item.Key, StringComparer.Ordinal)
          .ThenBy(static item => item.Locale, StringComparer.Ordinal)
@@ -53,6 +52,39 @@ internal sealed class ProjectManifestScanner
          FoundManifest = items.Length > 0,
          Items = items
       };
+   }
+
+   private static IReadOnlyCollection<ProjectTranslationPushItem> BuildResourceSetItems(
+      IGrouping<string, ResxParsedFile> resourceSet,
+      string defaultLocale
+   )
+   {
+      var filesByLocale = resourceSet
+         .ToDictionary(
+            file => file.SourceFile.Locale ?? defaultLocale,
+            StringComparer.Ordinal
+         );
+
+      var keys = filesByLocale.Values
+         .SelectMany(static file => file.Entries.Select(static entry => entry.Key))
+         .Distinct(StringComparer.Ordinal)
+         .OrderBy(static key => key, StringComparer.Ordinal)
+         .ToArray();
+
+      return filesByLocale
+         .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
+         .SelectMany(
+            pair => keys.Select(
+               key => new ProjectTranslationPushItem
+               {
+                  Origin = BuildOrigin(pair.Value.SourceFile),
+                  Locale = pair.Key,
+                  Key = key,
+                  Value = pair.Value.Entries.FirstOrDefault(entry => entry.Key == key)?.Value
+               }
+            )
+         )
+         .ToArray();
    }
 
    private ProjectManifestScanResult ScanManifestFiles(string projectDirectory)

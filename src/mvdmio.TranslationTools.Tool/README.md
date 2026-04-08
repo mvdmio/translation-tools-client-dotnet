@@ -94,7 +94,8 @@ Current behavior:
 
 - scans `.resx` files directly
 - sends exact local entry names as `Key`
-- sends sparse locale rows only for values that exist locally
+- sends the union of keys across each resource set's locale files
+- emits missing locale keys as `null` values so sparse locale files still clear/create rows remotely
 - requires `defaultLocale` in config
 - command surface exposes `--prune`
 - scanner still includes a legacy manifest fallback only when no `.resx` files exist
