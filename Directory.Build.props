@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TranslationToolsVersion>2.3.3</TranslationToolsVersion>
+    <TranslationToolsVersion>2.3.4</TranslationToolsVersion>
     <RepositoryUrl>https://github.com/mvdmio/translation-tools-client-dotnet</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
