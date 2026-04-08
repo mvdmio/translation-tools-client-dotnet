@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using mvdmio.TranslationTools.Client.Internal;
 
 namespace mvdmio.TranslationTools.Client;
 
@@ -18,7 +19,7 @@ namespace mvdmio.TranslationTools.Client;
 [PublicAPI]
 public static class DependencyInjectionExtensions
 {
-   private const string HTTP_CLIENT_NAME = nameof(TranslationToolsClient);
+   private const string HTTP_CLIENT_NAME = nameof(Internal.TranslationToolsClientRuntime);
 
    /// <summary>
    /// Register the TranslationTools client and configure its options.
@@ -27,23 +28,25 @@ public static class DependencyInjectionExtensions
    {
       services.Configure(options);
 
-      services.AddOptions<TranslationToolsClientOptions>().PostConfigure<IOptions<RequestLocalizationOptions>>(
-         static (clientOptions, localizationOptions) => {
-            if (clientOptions.SupportedLocales.Length > 0)
-               return;
+      services.AddOptions<TranslationToolsClientOptions>()
+         .PostConfigure<IOptions<RequestLocalizationOptions>>(static (clientOptions, localizationOptions) =>
+            {
+               if (clientOptions.SupportedLocales.Length > 0)
+                  return;
 
-            clientOptions.SupportedLocales = localizationOptions.Value.SupportedUICultures?.ToArray() ?? localizationOptions.Value.SupportedCultures?.ToArray() ?? [];
-         }
-      );
+               clientOptions.SupportedLocales = localizationOptions.Value.SupportedUICultures?.ToArray() ?? localizationOptions.Value.SupportedCultures?.ToArray() ?? [];
+            }
+         );
 
-       services.AddHttpClient(HTTP_CLIENT_NAME);
-        services.TryAddSingleton<ITranslationToolsClient>(static serviceProvider => {
-           var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-           var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
-           var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
-           return new TranslationToolsClient(httpClient, clientOptions, serviceProvider);
-        });
-       services.TryAddSingleton<TranslationToolsLiveUpdateService>();
+      services.AddHttpClient(HTTP_CLIENT_NAME);
+      services.TryAddSingleton<Internal.TranslationToolsClientRuntime>(static serviceProvider => {
+          var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+          var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
+          var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
+          return new Internal.TranslationToolsClientRuntime(httpClient, clientOptions);
+       });
+      services.TryAddSingleton<ITranslationToolsClient>(provider => provider.GetRequiredService<Internal.TranslationToolsClientRuntime>());
+      services.TryAddSingleton<TranslationToolsLiveUpdateService>();
 
       return services;
    }
@@ -53,11 +56,10 @@ public static class DependencyInjectionExtensions
    /// </summary>
    public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)
    {
+      TranslationToolsClient.SetServiceProvider(app.Services);
+
       using var scope = app.Services.CreateScope();
       var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
-
-      foreach (var assembly in GetManifestAssemblies())
-         TranslationManifestRuntime.RegisterClient(assembly, client);
 
       await client.Initialize(cancellationToken);
 
@@ -71,11 +73,7 @@ public static class DependencyInjectionExtensions
 
    internal static Assembly[] GetManifestAssemblies()
    {
-      return AppDomain.CurrentDomain.GetAssemblies()
-          .Where(static assembly => !assembly.IsDynamic)
-          .Where(static assembly => assembly.GetManifestResourceNames().Any(static resourceName => resourceName.EndsWith(".mvdmio-translations.snapshot.json", StringComparison.Ordinal)))
-           .Distinct()
-           .ToArray();
+      return AppDomain.CurrentDomain.GetAssemblies().Where(static assembly => !assembly.IsDynamic).Where(static assembly => assembly.GetManifestResourceNames().Any(static resourceName => resourceName.EndsWith(".mvdmio-translations.snapshot.json", StringComparison.Ordinal))).Distinct().ToArray();
    }
 
    private static Type[] GetLoadableTypes(Assembly assembly)

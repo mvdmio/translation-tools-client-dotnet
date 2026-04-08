@@ -1,4 +1,3 @@
-using mvdmio.TranslationTools.Client;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -19,7 +18,6 @@ internal sealed class ToolConfiguration
    public string? Output { get; set; }
    public string? Namespace { get; set; }
    public string ClassName { get; set; } = "Localizations";
-   public TranslationKeyNaming KeyNaming { get; set; } = TranslationKeyNaming.UnderscoreToDot;
 
    public void Save(string directoryPath)
    {

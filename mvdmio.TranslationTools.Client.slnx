@@ -1,11 +1,21 @@
 <Solution>
   <Folder Name="/Tests/">
     <Project Path="test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/mvdmio.TranslationTools.Client.Tests.Unit.csproj" />
+    <Project Path="test/TranslationTools/SourceGeneratorEndToEnd/SourceGeneratorEndToEnd.csproj" />
     <Project Path="test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit/mvdmio.TranslationTools.Tool.Tests.Unit.csproj" />
   </Folder>
   <Folder Name="/Git Workflows/">
     <File Path=".github/workflows/publish.translationtools-client-nuget.yml" />
     <File Path=".github/workflows/publish.translationtools-dotnet-tool-nuget.yml" />
+  </Folder>
+  <Folder Name="/_Solution/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="AGENTS.md" />
+    <File Path="Directory.Build.props" />
+    <File Path="LICENSE" />
+    <File Path="opencode.jsonc" />
+    <File Path="readme.md" />
   </Folder>
   <Project Path="src/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
   <Project Path="src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj" />

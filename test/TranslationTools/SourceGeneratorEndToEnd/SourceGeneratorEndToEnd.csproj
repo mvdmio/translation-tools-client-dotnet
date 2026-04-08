@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+   <PropertyGroup>
+      <TargetFramework>net10.0</TargetFramework>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <Nullable>enable</Nullable>
+      <RootNamespace>Fixture.App</RootNamespace>
+      <AssemblyName>SourceGeneratorEndToEnd</AssemblyName>
+      <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+      <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+   </PropertyGroup>
+
+   <ItemGroup>
+      <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Client\mvdmio.TranslationTools.Client.csproj" />
+      <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj"
+                        OutputItemType="Analyzer"
+                        ReferenceOutputAssembly="false" />
+   </ItemGroup>
+
+   <Import Project="..\..\..\src\mvdmio.TranslationTools.Client\buildTransitive\mvdmio.TranslationTools.Client.props" />
+   <Import Project="..\..\..\src\mvdmio.TranslationTools.Client\buildTransitive\mvdmio.TranslationTools.Client.targets" />
+
+</Project>

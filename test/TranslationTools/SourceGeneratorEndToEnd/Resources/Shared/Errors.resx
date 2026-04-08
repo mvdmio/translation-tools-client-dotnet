@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="404.title">
+    <value>Not found</value>
+  </data>
+  <data name="Status.Code">
+    <value>Status</value>
+  </data>
+</root>

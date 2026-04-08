@@ -3,7 +3,6 @@ using System.Xml.Linq;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Scaffolding;
-using mvdmio.TranslationTools.Tool.Migrate;
 
 namespace mvdmio.TranslationTools.Tool.Pull;
 
@@ -124,7 +123,6 @@ internal sealed class PullHandler
          SnapshotPath = ToolProjectResolver.GetSnapshotPath(config),
          Namespace = resolvedNamespace,
          ClassName = config.ClassName,
-         KeyNaming = config.KeyNaming,
          SharedKeyPrefix = config.SharedKeyPrefix
       };
    }
@@ -192,7 +190,6 @@ internal sealed class PullHandler
    internal static IReadOnlyCollection<ManifestPropertyDefinition> BuildPropertyDefinitions(
       IEnumerable<TranslationItemResponse> items,
       IEnumerable<TranslationItemResponse> defaultLocaleItems,
-      TranslationKeyNaming keyNaming,
       string? sharedKeyPrefix = null
    )
    {
@@ -210,13 +207,11 @@ internal sealed class PullHandler
       {
          var effectiveKey = TrimSharedKeyPrefix(item.Key, sharedKeyPrefix);
          var propertyName = ManifestPropertyNameResolver.Resolve(effectiveKey);
-         var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
-         var emitExplicitKey = !string.Equals(derivedKey, effectiveKey, StringComparison.Ordinal);
 
          if (canonicalByProperty.TryGetValue(propertyName, out var existing))
          {
-            var existingMatchesNaming = string.Equals(TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming), TrimSharedKeyPrefix(existing.Key, sharedKeyPrefix), StringComparison.Ordinal);
-            var currentMatchesNaming = string.Equals(derivedKey, effectiveKey, StringComparison.Ordinal);
+            var existingMatchesNaming = string.Equals(propertyName, TrimSharedKeyPrefix(existing.Key, sharedKeyPrefix), StringComparison.Ordinal);
+            var currentMatchesNaming = string.Equals(propertyName, effectiveKey, StringComparison.Ordinal);
 
             if (!existingMatchesNaming && currentMatchesNaming)
                canonicalByProperty[propertyName] = item;
@@ -232,11 +227,10 @@ internal sealed class PullHandler
          var item = pair.Value;
          var effectiveKey = TrimSharedKeyPrefix(item.Key, sharedKeyPrefix);
          var propertyName = pair.Key;
-         var derivedKey = TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming);
          definitions[propertyName] = new ManifestPropertyDefinition {
              PropertyName = propertyName,
              Key = item.Key,
-             EmitExplicitKey = !string.IsNullOrWhiteSpace(sharedKeyPrefix) || !string.Equals(derivedKey, effectiveKey, StringComparison.Ordinal),
+             EmitExplicitKey = !string.IsNullOrWhiteSpace(sharedKeyPrefix) || !string.Equals(propertyName, effectiveKey, StringComparison.Ordinal),
              DefaultValue = defaultValues.GetValueOrDefault(item.Key)
           };
        }

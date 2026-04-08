@@ -1,52 +1,57 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-   <PropertyGroup>
-      <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-      <LangVersion>latest</LangVersion>
-      <ImplicitUsings>disable</ImplicitUsings>
-      <Nullable>enable</Nullable>
-      <DebugType>embedded</DebugType>
-      <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-      <GenerateDocumentationFile>True</GenerateDocumentationFile>
-   </PropertyGroup>
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DebugType>embedded</DebugType>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+  </PropertyGroup>
 
-   <PropertyGroup>
-      <Version>2.0.3</Version>
-      <Title>mvdmio.TranslationTools.Client</Title>
-      <Description>Client library for the mvdm.io TranslationTools translation API.</Description>
-      <Company>mvdmio</Company>
-      <Authors>Michiel van der Meer</Authors>
-      <PackageReadmeFile>Readme.md</PackageReadmeFile>
-      <PackageLicenseFile>License.txt</PackageLicenseFile>
-      <PackageId>mvdmio.TranslationTools.Client</PackageId>
-    </PropertyGroup>
+  <PropertyGroup>
+    <Version>$(TranslationToolsVersion)</Version>
+    <Title>mvdmio.TranslationTools.Client</Title>
+    <Description>Client library for the mvdm.io TranslationTools translation API.</Description>
+    <Company>mvdmio</Company>
+    <Authors>Michiel van der Meer</Authors>
+    <PackageReadmeFile>Readme.md</PackageReadmeFile>
+    <PackageLicenseFile>License.txt</PackageLicenseFile>
+    <PackageId>mvdmio.TranslationTools.Client</PackageId>
+  </PropertyGroup>
 
-   <ItemGroup>
-      <FrameworkReference Include="Microsoft.AspNetCore.App" />
-   </ItemGroup>
+  <ItemGroup>
+    <None Include="License.txt" PackagePath="" Pack="true"/>
+    <None Include="Readme.md" PackagePath="" Pack="true"/>
+  </ItemGroup>
 
-   <ItemGroup>
-      <None Include="License.txt" PackagePath="" Pack="true" />
-      <None Include="Readme.md" PackagePath="" Pack="true" />
-    </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+  </ItemGroup>
 
-   <ItemGroup>
-     <PackageReference Include="JetBrains.Annotations" Version="2025.2.4" />
-   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="mvdmio.TranslationTools.Tool.Tests.Unit"/>
+    <InternalsVisibleTo Include="mvdmio.TranslationTools.Client.Tests.Unit"/>
+  </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="JetBrains.Annotations" Version="2025.2.4"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj" PrivateAssets="all" ReferenceOutputAssembly="false"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="buildTransitive\mvdmio.TranslationTools.Client.props" PackagePath="buildTransitive\mvdmio.TranslationTools.Client.props" Pack="true"/>
+    <None Include="buildTransitive\mvdmio.TranslationTools.Client.targets" PackagePath="buildTransitive\mvdmio.TranslationTools.Client.targets" Pack="true"/>
+  </ItemGroup>
+
+  <Target Name="PackTranslationToolsSourceGenerator" BeforeTargets="_GetPackageFiles">
     <ItemGroup>
-      <ProjectReference Include="..\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" />
+      <None Include="..\mvdmio.TranslationTools.Client.SourceGenerator\bin\$(Configuration)\netstandard2.0\mvdmio.TranslationTools.Client.SourceGenerator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false"/>
     </ItemGroup>
-
-     <ItemGroup>
-        <None Include="buildTransitive\mvdmio.TranslationTools.Client.props" PackagePath="buildTransitive\mvdmio.TranslationTools.Client.props" Pack="true" />
-        <None Include="buildTransitive\mvdmio.TranslationTools.Client.targets" PackagePath="buildTransitive\mvdmio.TranslationTools.Client.targets" Pack="true" />
-     </ItemGroup>
-
-    <Target Name="PackTranslationToolsSourceGenerator" BeforeTargets="_GetPackageFiles">
-       <ItemGroup>
-          <None Include="..\mvdmio.TranslationTools.Client.SourceGenerator\bin\$(Configuration)\netstandard2.0\mvdmio.TranslationTools.Client.SourceGenerator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-       </ItemGroup>
-    </Target>
+  </Target>
 
 </Project>

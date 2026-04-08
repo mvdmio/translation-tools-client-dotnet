@@ -1,6 +1,5 @@
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
-using mvdmio.TranslationTools.Tool.Scaffolding;
 
 namespace mvdmio.TranslationTools.Tool.Push;
 

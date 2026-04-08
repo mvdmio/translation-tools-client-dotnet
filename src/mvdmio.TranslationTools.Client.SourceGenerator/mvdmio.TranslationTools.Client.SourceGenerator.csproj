@@ -2,6 +2,7 @@
 
    <PropertyGroup>
       <TargetFramework>netstandard2.0</TargetFramework>
+      <Version>$(TranslationToolsVersion)</Version>
       <LangVersion>latest</LangVersion>
       <ImplicitUsings>disable</ImplicitUsings>
       <Nullable>enable</Nullable>

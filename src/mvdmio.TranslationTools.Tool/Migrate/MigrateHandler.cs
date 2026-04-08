@@ -113,7 +113,6 @@ internal sealed class MigrateHandler
           Output = config.Output,
           Namespace = config.Namespace,
           ClassName = config.ClassName,
-          KeyNaming = config.KeyNaming,
           SharedKeyPrefix = sharedKeyPrefix
        };
     }

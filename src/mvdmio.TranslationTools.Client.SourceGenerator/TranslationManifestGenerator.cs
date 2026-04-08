@@ -15,7 +15,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
    public void Initialize(IncrementalGeneratorInitializationContext context)
    {
       var analyzerOptions = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => new GeneratorOptions {
-         ProjectDirectory = GetGlobalOption(provider.GlobalOptions, "build_property.MSBuildProjectDirectory"),
+         ProjectDirectory = GetProjectDirectory(provider.GlobalOptions),
          RootNamespace = GetGlobalOption(provider.GlobalOptions, "build_property.RootNamespace")
       });
 
@@ -138,6 +138,9 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       var normalizedPath = NormalizePath(path);
       var normalizedProjectDirectory = NormalizePath(projectDirectory);
 
+      if (!Path.IsPathRooted(path))
+         return normalizedPath.TrimStart('/');
+
       if (!string.IsNullOrWhiteSpace(projectDirectory))
       {
          var projectPath = EnsureTrailingSeparator(normalizedProjectDirectory);
@@ -187,6 +190,15 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       return options.TryGetValue(key, out var value)
          ? value
          : string.Empty;
+   }
+
+   private static string GetProjectDirectory(AnalyzerConfigOptions options)
+   {
+      var projectDirectory = GetGlobalOption(options, "build_property.MSBuildProjectDirectory");
+      if (!string.IsNullOrWhiteSpace(projectDirectory))
+         return projectDirectory;
+
+      return GetGlobalOption(options, "build_property.ProjectDir");
    }
 
    private static string SanitizeIdentifier(string value)

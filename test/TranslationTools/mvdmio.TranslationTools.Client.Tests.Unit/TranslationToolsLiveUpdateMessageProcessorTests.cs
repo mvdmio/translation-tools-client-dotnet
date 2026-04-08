@@ -1,0 +1,81 @@
+using System.Globalization;
+using System.Net;
+using AwesomeAssertions;
+using Microsoft.Extensions.Options;
+using mvdmio.TranslationTools.Client.Internal;
+using Xunit;
+
+namespace mvdmio.TranslationTools.Client.Tests.Unit;
+
+public class TranslationToolsLiveUpdateMessageProcessorTests
+{
+   [Fact]
+   public async Task ProcessAsync_ShouldApplyTranslationUpdatedPayloadAndDefaultOrigin()
+   {
+      using var client = CreateClient();
+
+      await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+         client,
+         """{"type":"translation-updated","locale":"en","key":"Button.Save","value":"Save now"}""",
+         TestContext.Current.CancellationToken
+      );
+
+      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en"))!.Value.Should().Be("Save now");
+   }
+
+   [Fact]
+   public async Task ProcessAsync_ShouldIgnoreUnknownMessageType()
+   {
+      using var client = CreateClient();
+
+      await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+         client,
+         """{"type":"connected"}""",
+         TestContext.Current.CancellationToken
+      );
+
+      client.TryGetCached("Button.Save", new CultureInfo("en")).Should().BeNull();
+   }
+
+   [Fact]
+   public async Task ProcessAsync_ShouldIgnoreInvalidIdentityOrLocale()
+   {
+      using var client = CreateClient();
+
+      await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+         client,
+         """{"type":"translation-updated","origin":"invalid","locale":"en","key":"Button.Save","value":"Save now"}""",
+         TestContext.Current.CancellationToken
+      );
+      await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
+         client,
+         """{"type":"translation-updated","origin":"/Localizations.resx","locale":"bad-locale-@@","key":"Button.Save","value":"Save now"}""",
+         TestContext.Current.CancellationToken
+      );
+
+      client.TryGetCached("Button.Save", new CultureInfo("en")).Should().BeNull();
+   }
+
+   private static TranslationToolsClientRuntime CreateClient()
+   {
+      return new TranslationToolsClientRuntime(
+         new HttpClient(new EmptySuccessHandler()),
+         Options.Create(new TranslationToolsClientOptions
+         {
+            ApiKey = "api-key"
+         }),
+         new LocalTranslationToolsClientCache()
+      );
+   }
+
+   private sealed class EmptySuccessHandler : HttpMessageHandler
+   {
+      protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+      {
+         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+         {
+            Content = new StringContent("[]")
+         });
+      }
+   }
+}

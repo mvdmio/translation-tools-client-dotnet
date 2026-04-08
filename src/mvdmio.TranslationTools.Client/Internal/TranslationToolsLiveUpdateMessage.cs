@@ -1,4 +1,4 @@
-namespace mvdmio.TranslationTools.Client;
+namespace mvdmio.TranslationTools.Client.Internal;
 
 internal sealed class TranslationToolsLiveUpdateMessage
 {

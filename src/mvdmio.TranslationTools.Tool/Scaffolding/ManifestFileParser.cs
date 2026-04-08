@@ -1,13 +1,11 @@
-using System.Linq;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using mvdmio.TranslationTools.Client;
 
 namespace mvdmio.TranslationTools.Tool.Scaffolding;
 
 internal sealed class ManifestFileParser
 {
-   public ManifestParseResult ParseDocument(string content, string className, TranslationKeyNaming keyNaming)
+   public ManifestParseResult ParseDocument(string content, string className)
    {
       var syntaxTree = CSharpSyntaxTree.ParseText(content);
       var root = syntaxTree.GetRoot();
@@ -26,7 +24,7 @@ internal sealed class ManifestFileParser
       var properties = classDeclaration.Members
          .OfType<PropertyDeclarationSyntax>()
          .Where(static x => x.Modifiers.Any(static modifier => modifier.Kind() == SyntaxKind.PartialKeyword))
-         .Select(property => ParseProperty(property, keyNaming))
+         .Select(ParseProperty)
          .Where(static x => x is not null)
          .Cast<ManifestPropertyDefinition>()
          .ToArray();
@@ -37,12 +35,12 @@ internal sealed class ManifestFileParser
       };
    }
 
-   public IReadOnlyCollection<ManifestPropertyDefinition> Parse(string content, string className, TranslationKeyNaming keyNaming)
+   public IReadOnlyCollection<ManifestPropertyDefinition> Parse(string content, string className)
    {
-      return ParseDocument(content, className, keyNaming).Properties;
+      return ParseDocument(content, className).Properties;
    }
 
-   private static ManifestPropertyDefinition? ParseProperty(PropertyDeclarationSyntax property, TranslationKeyNaming keyNaming)
+   private static ManifestPropertyDefinition? ParseProperty(PropertyDeclarationSyntax property)
    {
       var propertyName = property.Identifier.ValueText;
       if (string.IsNullOrWhiteSpace(propertyName))
@@ -77,7 +75,7 @@ internal sealed class ManifestFileParser
 
       return new ManifestPropertyDefinition {
          PropertyName = propertyName,
-         Key = explicitKey ?? TranslationKeyNamingConverter.Convert(propertyName, (int)keyNaming),
+         Key = explicitKey ?? propertyName,
          EmitExplicitKey = explicitKey is not null,
          DefaultValue = defaultValue
       };

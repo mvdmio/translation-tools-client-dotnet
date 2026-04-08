@@ -5,21 +5,18 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace mvdmio.TranslationTools.Client;
+namespace mvdmio.TranslationTools.Client.Internal;
 
 internal static class TranslationToolsLiveUpdateMessageProcessor
 {
-   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
-   {
-      PropertyNameCaseInsensitive = true
-   };
+   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
 
-   public static async Task ProcessAsync(ITranslationToolsClient client, string payload, CancellationToken cancellationToken)
+   public static async Task ProcessAsync(TranslationToolsClientRuntime client, string payload, CancellationToken cancellationToken)
    {
       await ProcessAsync(client, payload, logger: null, cancellationToken);
    }
 
-   public static async Task ProcessAsync(ITranslationToolsClient client, string payload, ILogger? logger, CancellationToken cancellationToken)
+   public static async Task ProcessAsync(TranslationToolsClientRuntime client, string payload, ILogger? logger, CancellationToken cancellationToken)
    {
       ArgumentNullException.ThrowIfNull(client);
 
@@ -51,29 +48,34 @@ internal static class TranslationToolsLiveUpdateMessageProcessor
 
       if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(message.Locale) || string.IsNullOrWhiteSpace(message.Key))
       {
-          logger?.LogWarning("Ignoring translation-updated message missing origin, locale, or key.");
-          return;
+         logger?.LogWarning("Ignoring translation-updated message missing origin, locale, or key.");
+         return;
       }
 
       try
       {
-           logger?.LogDebug("Applying TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
-           await client.ApplyUpdateAsync(
+         logger?.LogDebug("Applying TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
+         await client.ApplyUpdateAsync(
             new TranslationRef(origin, message.Key),
-             message.Value,
-             CultureInfo.GetCultureInfo(message.Locale),
-             cancellationToken
-          );
+            message.Value,
+            CultureInfo.GetCultureInfo(message.Locale),
+            cancellationToken
+         );
 
          logger?.LogDebug("Applied TranslationTools live update for {Locale} {Key}.", message.Locale, message.Key);
-       }
+      }
       catch (CultureNotFoundException exception)
       {
          logger?.LogWarning(exception, "Ignoring TranslationTools live update for unknown locale {Locale}.", message.Locale);
       }
       catch (ArgumentException exception)
       {
-         logger?.LogWarning(exception, "Ignoring TranslationTools live update for invalid identity {Origin} {Key}.", origin, message.Key);
+         logger?.LogWarning(
+            exception,
+            "Ignoring TranslationTools live update for invalid identity {Origin} {Key}.",
+            origin,
+            message.Key
+         );
       }
    }
 }

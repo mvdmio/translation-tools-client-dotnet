@@ -29,6 +29,7 @@
    <ItemGroup>
       <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Client\mvdmio.TranslationTools.Client.csproj" />
       <ProjectReference Include="..\..\..\src\mvdmio.TranslationTools.Client.SourceGenerator\mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
-    </ItemGroup>
+      <ProjectReference Include="..\SourceGeneratorEndToEnd\SourceGeneratorEndToEnd.csproj" />
+      </ItemGroup>
 
 </Project>

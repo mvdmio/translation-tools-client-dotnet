@@ -1,9 +1,16 @@
+using System.Reflection;
 using System.Text;
 
 namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
 internal static class TranslationManifestEmitter
 {
+   private static readonly string GeneratedCodeVersion = typeof(TranslationManifestEmitter).Assembly
+      .GetName().Version?.ToString()
+      ?? typeof(TranslationManifestEmitter).Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version
+      ?? typeof(TranslationManifestEmitter).Assembly.GetName().Version?.ToString()
+      ?? "0.0.0.0";
+
    public static string Emit(TranslationManifestModel model)
    {
       var builder = new StringBuilder();
@@ -17,7 +24,9 @@ internal static class TranslationManifestEmitter
          builder.AppendLine();
       }
 
-      builder.Append("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"2.0.1\")]");
+      builder.Append("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", ");
+      builder.Append(ToStringLiteral(GeneratedCodeVersion));
+      builder.Append(")]");
       builder.AppendLine();
        builder.Append(model.Accessibility);
        builder.Append(" static partial class ");
@@ -29,31 +38,29 @@ internal static class TranslationManifestEmitter
        builder.Append(ToStringLiteral(model.Origin));
        builder.AppendLine(";");
        builder.AppendLine();
-       builder.AppendLine("   private static global::System.Type ManifestType => typeof(" + model.TypeName + ");");
+       builder.AppendLine("   public static string Get(string key, string? defaultValue = null)");
+       builder.AppendLine("   {");
+
+       if (model.UsesCultureOverride)
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue);");
+       else
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue);");
+
+       builder.AppendLine("   }");
        builder.AppendLine();
-      builder.AppendLine("   public static string Get(string key, string? defaultValue = null)");
-      builder.AppendLine("   {");
+       builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
+       builder.AppendLine("   {");
 
-      if (model.UsesCultureOverride)
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.Get(ManifestType, key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue);");
-      else
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.Get(ManifestType, key, defaultValue);");
+       if (model.UsesCultureOverride)
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, cancellationToken);");
+       else
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken);");
 
-      builder.AppendLine("   }");
-      builder.AppendLine();
-      builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
-      builder.AppendLine("   {");
-
-      if (model.UsesCultureOverride)
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.GetAsync(ManifestType, key, Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, cancellationToken);");
-      else
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.GetAsync(ManifestType, key, defaultValue, cancellationToken);");
-
-      builder.AppendLine("   }");
-      builder.AppendLine();
-      builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, global::System.Globalization.CultureInfo locale, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
-      builder.AppendLine("   {");
-      builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationManifestRuntime.GetAsync(ManifestType, key, locale, defaultValue, cancellationToken);");
+       builder.AppendLine("   }");
+       builder.AppendLine();
+       builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, global::System.Globalization.CultureInfo locale, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
+       builder.AppendLine("   {");
+       builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), locale, defaultValue, cancellationToken);");
 
       builder.AppendLine("   }");
       builder.AppendLine();

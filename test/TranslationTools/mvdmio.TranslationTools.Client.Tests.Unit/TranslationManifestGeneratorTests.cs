@@ -1,12 +1,11 @@
 using System.Collections.Immutable;
-using System.Linq;
+using System.Reflection;
 using Microsoft.CodeAnalysis.Diagnostics;
 using AwesomeAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 using mvdmio.TranslationTools.Client.SourceGenerator;
-using System.Reflection;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
@@ -16,6 +15,8 @@ public class TranslationManifestGeneratorTests
    [Fact]
    public void ShouldGenerateFromNeutralResxFile()
    {
+      var expectedGeneratorVersion = typeof(TranslationManifestGenerator).Assembly.GetName().Version?.ToString();
+
       var result = RunGenerator(
          source: "namespace Demo; public sealed class Marker;",
          additionalFiles: [
@@ -25,10 +26,14 @@ public class TranslationManifestGeneratorTests
 
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain($"[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"{expectedGeneratorVersion}\")]");
+      result.GeneratedSource.Should().Contain("namespace GeneratorTests.src.Demo;");
       result.GeneratedSource.Should().Contain("public static partial class Localizations");
-      result.GeneratedSource.Should().Contain("private const string Origin = \"/Localizations.resx\";");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"/src/Demo/Localizations.resx\";");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Hello = new(Origin, \"Button.Hello\");");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Save = new(Origin, \"Button.Save\");");
+      result.GeneratedSource.Should().Contain("TranslationToolsClient.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue)");
+      result.GeneratedSource.Should().Contain("TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken)");
       result.GeneratedSource.Should().Contain("get => Get(\"Button.Hello\", \"Hello\");");
       result.GeneratedSource.Should().Contain("get => Get(\"Button.Save\");");
    }
@@ -123,6 +128,28 @@ public class TranslationManifestGeneratorTests
    }
 
    [Fact]
+   public void ShouldUseRelativeAdditionalFilePathForNestedNamespaceAndOrigin()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("Resources/Shared/Errors.resx", Resx(("404.title", "Not found")))
+         ],
+         globalOptions: new Dictionary<string, string>(StringComparer.Ordinal)
+         {
+            ["build_property.MSBuildProjectDirectory"] = "D:\\Repo\\src\\Fixture.App",
+            ["build_property.RootNamespace"] = "Fixture.App"
+         }
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("namespace Fixture.App.Resources.Shared;");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"/Resources/Shared/Errors.resx\";");
+      result.GeneratedSource.Should().Contain("public static partial class Errors");
+   }
+
+   [Fact]
    public void ShouldReferenceStableRoslynAssemblies()
    {
       var references = typeof(TranslationManifestGenerator).Assembly.GetReferencedAssemblies();
@@ -135,10 +162,42 @@ public class TranslationManifestGeneratorTests
       IReadOnlyCollection<(string Path, string Content)> additionalFiles,
       IReadOnlyDictionary<string, string>? globalOptions = null)
    {
+      var runtimeStub = """
+         namespace mvdmio.TranslationTools.Client
+         {
+            public static class TranslationManifestRuntime
+            {
+               public static string Get(System.Type manifestType, string key, string? defaultValue = null)
+               {
+                  return defaultValue ?? key;
+               }
+
+               public static string Get(System.Type manifestType, string key, System.Globalization.CultureInfo locale, string? defaultValue = null)
+               {
+                  return defaultValue ?? key;
+               }
+
+               public static System.Threading.Tasks.Task<string> GetAsync(System.Type manifestType, string key, string? defaultValue = null, System.Threading.CancellationToken cancellationToken = default)
+               {
+                  return System.Threading.Tasks.Task.FromResult(defaultValue ?? key);
+               }
+
+               public static System.Threading.Tasks.Task<string> GetAsync(System.Type manifestType, string key, System.Globalization.CultureInfo locale, string? defaultValue = null, System.Threading.CancellationToken cancellationToken = default)
+               {
+                  return System.Threading.Tasks.Task.FromResult(defaultValue ?? key);
+               }
+            }
+         }
+         """;
+
       var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
       var compilation = CSharpCompilation.Create(
          assemblyName: "GeneratorTests",
-         syntaxTrees: [CSharpSyntaxTree.ParseText(source, parseOptions)],
+         syntaxTrees:
+         [
+            CSharpSyntaxTree.ParseText(runtimeStub, parseOptions),
+            CSharpSyntaxTree.ParseText(source, parseOptions)
+         ],
          references: GetReferences(),
          options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
       );
@@ -163,10 +222,10 @@ public class TranslationManifestGeneratorTests
       );
 
       return new GeneratorTestResult(
-         GeneratedSources: [.. runResult.Results.SelectMany(static x => x.GeneratedSources).Select(static x => x.SourceText.ToString())],
-         GeneratorDiagnostics: runResult.Results.SelectMany(static x => x.Diagnostics).ToImmutableArray(),
-         CompilationDiagnostics: [.. outputCompilation.GetDiagnostics(), .. outputDiagnostics]
-      );
+          GeneratedSources: [.. runResult.Results.SelectMany(static x => x.GeneratedSources).Select(static x => x.SourceText.ToString())],
+          GeneratorDiagnostics: runResult.Results.SelectMany(static x => x.Diagnostics).ToImmutableArray(),
+          CompilationDiagnostics: [.. outputCompilation.GetDiagnostics(), .. outputDiagnostics]
+       );
    }
 
    private static MetadataReference[] GetReferences()

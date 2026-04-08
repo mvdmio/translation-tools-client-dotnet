@@ -86,7 +86,7 @@ internal sealed class ProjectManifestScanner
       return matches.Select(match => match.Groups["name"].Value)
          .Where(static name => !string.IsNullOrWhiteSpace(name))
          .Distinct(StringComparer.Ordinal)
-         .SelectMany(className => _manifestFileParser.Parse(content, className, Client.TranslationKeyNaming.UnderscoreToDot))
+         .SelectMany(className => _manifestFileParser.Parse(content, className))
          .ToArray();
    }
 

@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace mvdmio.TranslationTools.Client;
+namespace mvdmio.TranslationTools.Client.Internal;
 
 internal sealed class TranslationToolsLiveUpdateService : IDisposable
 {
@@ -20,7 +20,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
    };
 
    private readonly IHttpClientFactory _httpClientFactory;
-   private readonly ITranslationToolsClient _client;
+   private readonly TranslationToolsClientRuntime _client;
    private readonly ILogger<TranslationToolsLiveUpdateService> _logger;
    private readonly IOptions<TranslationToolsClientOptions> _options;
    private readonly SemaphoreSlim _startLock = new(1, 1);
@@ -28,7 +28,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
    private CancellationTokenSource? _cancellationTokenSource;
    private Task? _backgroundTask;
 
-   public TranslationToolsLiveUpdateService(IHttpClientFactory httpClientFactory, ITranslationToolsClient client, IOptions<TranslationToolsClientOptions> options, ILogger<TranslationToolsLiveUpdateService> logger)
+   public TranslationToolsLiveUpdateService(IHttpClientFactory httpClientFactory, TranslationToolsClientRuntime client, IOptions<TranslationToolsClientOptions> options, ILogger<TranslationToolsLiveUpdateService> logger)
    {
       _httpClientFactory = httpClientFactory;
       _client = client;
@@ -79,7 +79,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
 
          try
          {
-            using var httpClient = _httpClientFactory.CreateClient(nameof(TranslationToolsClient));
+            using var httpClient = _httpClientFactory.CreateClient(nameof(TranslationToolsClientRuntime));
             baseUri = new Uri(TranslationToolsClientOptions.DEFAULT_BASE_URL);
             httpClient.BaseAddress = baseUri;
 

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Button.Save">
+    <value>Save</value>
+  </data>
+  <data name="Action-Save">
+    <value>Save now</value>
+  </data>
+</root>

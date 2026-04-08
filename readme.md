@@ -67,6 +67,8 @@ Localized `.resx` variants keep their neutral `.resx` file as `DependentUpon`, s
 
 Path handling is separator-agnostic, so generated namespace/origin metadata stays stable for both Windows-style and Unix-style project paths.
 
+Generated `GeneratedCodeAttribute` metadata now uses the source generator assembly version automatically, and shared package/version metadata is centralized so the emitted version stays aligned.
+
 Example `Localizations.resx`:
 
 ```xml
@@ -164,3 +166,5 @@ dotnet build mvdmio.TranslationTools.Client.slnx
 ```bash
 dotnet test mvdmio.TranslationTools.Client.slnx
 ```
+
+Current unit coverage includes source generation, fixture-project end-to-end generated API coverage, tool config resolution, pull/push/migrate helper logic, `.resx` parsing/writing, and origin-aware client lookup types.

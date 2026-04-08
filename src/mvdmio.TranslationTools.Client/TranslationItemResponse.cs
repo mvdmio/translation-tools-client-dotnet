@@ -8,7 +8,7 @@ public sealed class TranslationItemResponse
    /// <summary>
    /// Resource-set origin.
    /// </summary>
-   public string Origin { get; init; } = "/Localizations.resx";
+   public required string Origin { get; init; }
 
    /// <summary>
    /// Translation key.
