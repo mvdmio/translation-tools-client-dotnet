@@ -138,7 +138,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       var normalizedPath = NormalizePath(path);
       var normalizedProjectDirectory = NormalizePath(projectDirectory);
 
-      if (!Path.IsPathRooted(path))
+      if (!IsAbsolutePath(path))
          return normalizedPath.TrimStart('/');
 
       if (!string.IsNullOrWhiteSpace(projectDirectory))
@@ -151,6 +151,21 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       }
 
       return GetFileName(normalizedPath);
+   }
+
+   private static bool IsAbsolutePath(string path)
+   {
+      if (string.IsNullOrWhiteSpace(path))
+         return false;
+
+      if (Path.IsPathRooted(path))
+         return true;
+
+      var normalizedPath = NormalizePath(path);
+      return normalizedPath.Length >= 3
+         && char.IsLetter(normalizedPath[0])
+         && normalizedPath[1] == ':'
+         && normalizedPath[2] == '/';
    }
 
    private static string EnsureTrailingSeparator(string path)

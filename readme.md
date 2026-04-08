@@ -65,7 +65,7 @@ Source generation now starts from local neutral `.resx` files.
 
 Localized `.resx` variants keep their neutral `.resx` file as `DependentUpon`, so IDEs such as Rider continue to nest files like `Localizations.nl.resx` under `Localizations.resx`.
 
-Path handling is separator-agnostic, so generated namespace/origin metadata stays stable for both Windows-style and Unix-style project paths.
+Path handling is separator-agnostic, and Windows-style absolute project paths stay project-relative even when generation runs on Unix-based CI agents.
 
 Generated `GeneratedCodeAttribute` metadata now uses the source generator assembly version automatically, and shared package/version metadata is centralized so the emitted version stays aligned.
 

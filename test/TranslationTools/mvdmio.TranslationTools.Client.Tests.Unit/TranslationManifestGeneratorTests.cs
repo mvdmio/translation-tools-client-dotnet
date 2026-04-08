@@ -101,7 +101,9 @@ public class TranslationManifestGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
       result.GeneratedSource.Should().Contain("namespace mvdmio.Localization;");
+      result.GeneratedSource.Should().NotContain("namespace mvdmio.Localization.D.Repo");
       result.GeneratedSource.Should().Contain("private const string Origin = \"/Localizations.resx\";");
+      result.GeneratedSource.Should().NotContain("\"/D:/Repo/");
       result.GeneratedSource.Should().Contain("public static partial class Localizations");
    }
 
@@ -123,7 +125,9 @@ public class TranslationManifestGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
       result.GeneratedSource.Should().Contain("namespace mvdmio.Localization.Resources.Shared;");
+      result.GeneratedSource.Should().NotContain("namespace mvdmio.Localization.D.Repo");
       result.GeneratedSource.Should().Contain("private const string Origin = \"/Resources/Shared/Localizations.resx\";");
+      result.GeneratedSource.Should().NotContain("\"/D:/Repo/");
       result.GeneratedSource.Should().Contain("public static partial class Localizations");
    }
 
