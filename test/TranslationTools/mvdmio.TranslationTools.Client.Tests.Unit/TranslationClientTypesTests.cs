@@ -59,6 +59,7 @@ public class TranslationClientTypesTests
       snapshot.TryGetValue("Button.Cancel", out var cancelValue).Should().BeTrue();
       cancelValue.Should().BeNull();
       snapshot.Keys.Should().Equal("Button.Cancel", "Button.Save");
+      snapshot.Values.Should().Equal((string?)null, "Default save");
       snapshot.Count.Should().Be(2);
    }
 }

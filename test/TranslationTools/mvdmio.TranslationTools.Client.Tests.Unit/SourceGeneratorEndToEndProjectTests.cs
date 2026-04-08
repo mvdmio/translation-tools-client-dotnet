@@ -3,6 +3,7 @@ using Fixture.App;
 using Fixture.App.Resources.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Client.Internal;
 using System.Globalization;
 using Xunit;
@@ -42,7 +43,7 @@ public class SourceGeneratorEndToEndProjectTests
       try
       {
          CultureInfo.CurrentUICulture = new CultureInfo("en");
-         Translations.SetServiceProvider(provider);
+         Translations.SetClient(provider.GetRequiredService<ITranslationToolsClient>());
 
          Localizations.Keys.Button_Save.Origin.Should().Be("/Localizations.resx");
          Localizations.Keys.Button_Save.Key.Should().Be("Button.Save");

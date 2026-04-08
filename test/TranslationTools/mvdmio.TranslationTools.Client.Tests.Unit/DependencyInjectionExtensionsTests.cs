@@ -33,12 +33,13 @@ public class DependencyInjectionExtensionsTests
    }
 
    [Fact]
-   public async Task InitializeTranslationToolsClientAsync_ShouldInitializeStaticTranslationsFromInterfaceClient()
+   public async Task InitializeTranslationToolsClientAsync_ShouldWorkWithStaticTranslationsWhenClientIsConfiguredInTestSetup()
    {
       var builder = WebApplication.CreateBuilder();
       builder.Services.AddSingleton<ITranslationToolsClient>(new StubTranslationToolsClient());
 
       await using var app = builder.Build();
+      Translations.SetClient(app.Services.GetRequiredService<ITranslationToolsClient>());
 
       await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
 

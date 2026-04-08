@@ -1,4 +1,5 @@
 using Fixture.App.Resources.Shared;
+using Microsoft.Extensions.DependencyInjection;
 using mvdmio.TranslationTools.Client;
 using System.Globalization;
 
@@ -8,7 +9,7 @@ public static class FixtureUsage
 {
    public static async Task<(string SyncValue, string AsyncValue, TranslationRef SaveKey, TranslationRef ErrorKey)> ExerciseAsync(IServiceProvider services)
    {
-      Translations.SetServiceProvider(services);
+      Translations.SetClient(services.GetRequiredService<ITranslationToolsClient>());
 
       var syncValue = Localizations.Button_Save;
       var asyncValue = await Errors.GetAsync("404.title", new CultureInfo("en"));

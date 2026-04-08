@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Globalization;
 using System.Threading;
@@ -16,11 +15,6 @@ public static class Translations
    internal static void SetClient(ITranslationToolsClient client)
    {
       _client = client;
-   }
-
-   internal static void SetServiceProvider(IServiceProvider serviceProvider)
-   {
-      _client = serviceProvider.GetRequiredService<ITranslationToolsClient>();
    }
 
    /// <summary>
