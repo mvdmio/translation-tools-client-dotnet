@@ -5,7 +5,6 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 using mvdmio.TranslationTools.Client.SourceGenerator;
 using System.Collections.Immutable;
-using System.Reflection;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;

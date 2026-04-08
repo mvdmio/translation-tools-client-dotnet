@@ -2,12 +2,12 @@ using JetBrains.Annotations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
 using System;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -44,7 +44,9 @@ public static class DependencyInjectionExtensions
          var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
          var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
          var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
-         return new TranslationToolsClient(httpClient, clientOptions);
+         var client = new TranslationToolsClient(httpClient, clientOptions);
+         Translations.SetClient(client);
+         return client;
       });
       services.TryAddSingleton<ITranslationToolsClient>(provider => provider.GetRequiredService<TranslationToolsClient>());
       services.TryAddSingleton<TranslationToolsLiveUpdateService>();
@@ -58,33 +60,26 @@ public static class DependencyInjectionExtensions
    public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)
    {
       using var scope = app.Services.CreateScope();
-      var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
-      Translations.SetClient(client);
 
-      await client.Initialize(cancellationToken);
-
-      var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
-      if (options.EnableLiveUpdates)
-      {
-         var liveUpdateService = app.Services.GetRequiredService<TranslationToolsLiveUpdateService>();
-         await liveUpdateService.StartAsync(app.Lifetime.ApplicationStopping);
-      }
-   }
-
-   internal static Assembly[] GetManifestAssemblies()
-   {
-      return AppDomain.CurrentDomain.GetAssemblies().Where(static assembly => !assembly.IsDynamic).Where(static assembly => assembly.GetManifestResourceNames().Any(static resourceName => resourceName.EndsWith(".mvdmio-translations.snapshot.json", StringComparison.Ordinal))).Distinct().ToArray();
-   }
-
-   private static Type[] GetLoadableTypes(Assembly assembly)
-   {
       try
       {
-         return assembly.GetTypes();
+
+         var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
+
+         await client.Initialize(cancellationToken);
+
+         var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
+         if (options.EnableLiveUpdates)
+         {
+            var liveUpdateService = app.Services.GetRequiredService<TranslationToolsLiveUpdateService>();
+            await liveUpdateService.StartAsync(app.Lifetime.ApplicationStopping);
+         }
       }
-      catch (ReflectionTypeLoadException exception)
+      catch (Exception e)
       {
-         return exception.Types.Where(static x => x is not null).Cast<Type>().ToArray();
+         var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+         var logger = loggerFactory.CreateLogger<ITranslationToolsClient>();
+         logger.LogError(e, "Error initializing translation tools client");
       }
    }
 }
