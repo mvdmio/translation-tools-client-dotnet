@@ -1,11 +1,11 @@
-using System.Collections.Immutable;
-using System.Reflection;
-using Microsoft.CodeAnalysis.Diagnostics;
 using AwesomeAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 using mvdmio.TranslationTools.Client.SourceGenerator;
+using System.Collections.Immutable;
+using System.Reflection;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
@@ -32,8 +32,8 @@ public class TranslationManifestGeneratorTests
       result.GeneratedSource.Should().Contain("private const string Origin = \"/src/Demo/Localizations.resx\";");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Hello = new(Origin, \"Button.Hello\");");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Save = new(Origin, \"Button.Save\");");
-      result.GeneratedSource.Should().Contain("TranslationToolsClient.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue)");
-      result.GeneratedSource.Should().Contain("TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken)");
+      result.GeneratedSource.Should().Contain("Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue)");
+      result.GeneratedSource.Should().Contain("Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken)");
       result.GeneratedSource.Should().Contain("get => Get(\"Button.Hello\", \"Hello\");");
       result.GeneratedSource.Should().Contain("get => Get(\"Button.Save\");");
    }
@@ -167,31 +167,33 @@ public class TranslationManifestGeneratorTests
       IReadOnlyDictionary<string, string>? globalOptions = null)
    {
       var runtimeStub = """
-         namespace mvdmio.TranslationTools.Client
-         {
-            public static class TranslationManifestRuntime
-            {
-               public static string Get(System.Type manifestType, string key, string? defaultValue = null)
-               {
-                  return defaultValue ?? key;
-               }
+          namespace mvdmio.TranslationTools.Client
+          {
+             public readonly record struct TranslationRef(string Origin, string Key);
 
-               public static string Get(System.Type manifestType, string key, System.Globalization.CultureInfo locale, string? defaultValue = null)
-               {
-                  return defaultValue ?? key;
-               }
+             public static class Translations
+             {
+                public static string Get(TranslationRef translation, string? defaultValue = null)
+                {
+                   return defaultValue ?? translation.Key;
+                }
 
-               public static System.Threading.Tasks.Task<string> GetAsync(System.Type manifestType, string key, string? defaultValue = null, System.Threading.CancellationToken cancellationToken = default)
-               {
-                  return System.Threading.Tasks.Task.FromResult(defaultValue ?? key);
-               }
+                public static string Get(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue = null)
+                {
+                   return defaultValue ?? translation.Key;
+                }
 
-               public static System.Threading.Tasks.Task<string> GetAsync(System.Type manifestType, string key, System.Globalization.CultureInfo locale, string? defaultValue = null, System.Threading.CancellationToken cancellationToken = default)
-               {
-                  return System.Threading.Tasks.Task.FromResult(defaultValue ?? key);
-               }
-            }
-         }
+                public static System.Threading.Tasks.Task<string> GetAsync(TranslationRef translation, string? defaultValue = null, System.Threading.CancellationToken cancellationToken = default)
+                {
+                   return System.Threading.Tasks.Task.FromResult(defaultValue ?? translation.Key);
+                }
+
+                public static System.Threading.Tasks.Task<string> GetAsync(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue = null, System.Threading.CancellationToken cancellationToken = default)
+                {
+                   return System.Threading.Tasks.Task.FromResult(defaultValue ?? translation.Key);
+                }
+             }
+          }
          """;
 
       var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);

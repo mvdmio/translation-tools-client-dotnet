@@ -1,11 +1,11 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
+using System;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System;
 using System.Threading;
 using System.Xml.Linq;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
@@ -14,7 +14,8 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
 {
    public void Initialize(IncrementalGeneratorInitializationContext context)
    {
-      var analyzerOptions = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => new GeneratorOptions {
+      var analyzerOptions = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => new GeneratorOptions
+      {
          ProjectDirectory = GetProjectDirectory(provider.GlobalOptions),
          RootNamespace = GetGlobalOption(provider.GlobalOptions, "build_property.RootNamespace")
       });
@@ -24,7 +25,8 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          .Combine(analyzerOptions)
          .Select(static (input, cancellationToken) => BuildManifest(input.Left, input.Right, cancellationToken));
 
-      context.RegisterSourceOutput(manifests, static (productionContext, result) => {
+      context.RegisterSourceOutput(manifests, static (productionContext, result) =>
+      {
          foreach (var diagnostic in result.Diagnostics)
             productionContext.ReportDiagnostic(diagnostic);
 
@@ -65,20 +67,23 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       var typeName = BuildTypeName(file.Path);
       var @namespace = BuildNamespace(relativePath, options.RootNamespace);
 
-      return new TranslationManifestResult {
-         Model = new TranslationManifestModel {
+      return new TranslationManifestResult
+      {
+         Model = new TranslationManifestModel
+         {
             Namespace = @namespace,
             TypeName = typeName,
             Origin = origin,
             Accessibility = "public",
-             Properties = entries
+            Properties = entries
                 .GroupBy(entry => SanitizeIdentifier(entry.Key), StringComparer.Ordinal)
                 .Select(group => group.First())
-                .Select(entry => new TranslationManifestPropertyModel {
+                .Select(entry => new TranslationManifestPropertyModel
+                {
                    Name = SanitizeIdentifier(entry.Key),
                    Key = entry.Key,
                    DefaultValue = entry.Value
-               })
+                })
                .ToImmutableArray()
          }
       };
@@ -96,8 +101,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       var normalizedRelativePath = NormalizePath(relativePath);
       var fileName = GetFileName(normalizedRelativePath);
       var directory = GetDirectoryName(normalizedRelativePath);
-      string? trimmedFileName;
-      var baseFileName = TryGetLocaleSuffix(fileName, out trimmedFileName) ? trimmedFileName : fileName;
+      var baseFileName = TryGetLocaleSuffix(fileName, out var trimmedFileName) ? trimmedFileName : fileName;
 
       return string.IsNullOrWhiteSpace(directory)
          ? "/" + baseFileName
@@ -107,8 +111,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
    private static string BuildTypeName(string path)
    {
       var fileName = GetFileName(path);
-      string? trimmedFileName;
-      var baseFileName = TryGetLocaleSuffix(fileName, out trimmedFileName) ? trimmedFileName : fileName;
+      var baseFileName = TryGetLocaleSuffix(fileName, out var trimmedFileName) ? trimmedFileName : fileName;
       return Path.GetFileNameWithoutExtension(baseFileName).Replace(".", string.Empty);
    }
 

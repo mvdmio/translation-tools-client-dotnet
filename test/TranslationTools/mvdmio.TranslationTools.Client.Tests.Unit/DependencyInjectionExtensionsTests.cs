@@ -1,8 +1,9 @@
-using System.Globalization;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using System.Globalization;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
@@ -29,6 +30,49 @@ public class DependencyInjectionExtensionsTests
       var options = provider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
 
       options.SupportedLocales.Select(static x => x.Name).Should().Equal("en", "nl");
-      provider.GetRequiredService<ITranslationToolsClient>().Should().BeOfType<Internal.TranslationToolsClientRuntime>();
+      provider.GetRequiredService<ITranslationToolsClient>().Should().BeOfType<TranslationToolsClient>();
+   }
+
+   [Fact]
+   public async Task InitializeTranslationToolsClientAsync_ShouldInitializeStaticTranslationsFromInterfaceClient()
+   {
+      var builder = WebApplication.CreateBuilder();
+      builder.Services.AddSingleton<ITranslationToolsClient>(new StubTranslationToolsClient());
+
+      await using var app = builder.Build();
+
+      await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
+
+      var value = await Translations.GetAsync(new TranslationRef("/Localizations.resx", "Button.Save"), cancellationToken: TestContext.Current.CancellationToken);
+
+      value.Should().Be("translated:Button.Save");
+   }
+
+   private sealed class StubTranslationToolsClient : ITranslationToolsClient
+   {
+      public Task Initialize(CancellationToken cancellationToken = default)
+      {
+         return Task.CompletedTask;
+      }
+
+      public Task<TranslationItemResponse> GetAsync(TranslationRef translation, CancellationToken cancellationToken = default)
+      {
+         return GetAsync(translation, CultureInfo.CurrentUICulture, cancellationToken);
+      }
+
+      public Task<TranslationItemResponse> GetAsync(TranslationRef translation, CultureInfo locale, CancellationToken cancellationToken = default)
+      {
+         return Task.FromResult(new TranslationItemResponse
+         {
+            Origin = translation.Origin,
+            Key = translation.Key,
+            Value = $"translated:{translation.Key}"
+         });
+      }
+
+      public Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
+      {
+         return Task.FromResult(TranslationLocaleSnapshot.FromItems(locale.Name, []));
+      }
    }
 }

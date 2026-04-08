@@ -4,7 +4,8 @@ namespace mvdmio.TranslationTools.Tool.Pull;
 
 internal sealed class TranslationSnapshotFileWriter
 {
-   private static readonly JsonSerializerOptions JsonSerializerOptions = new() {
+   private static readonly JsonSerializerOptions JsonSerializerOptions = new()
+   {
       PropertyNamingPolicy = null,
       WriteIndented = true
    };

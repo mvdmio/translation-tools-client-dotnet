@@ -21,14 +21,14 @@ internal sealed class PushHandler
       _reporter = reporter;
    }
 
-    public Task HandleAsync(bool prune, CancellationToken cancellationToken = default)
-    {
-       var config = ToolConfigurationLoader.Load();
-       return HandleAsync(config, prune, cancellationToken);
-    }
+   public Task HandleAsync(bool prune, CancellationToken cancellationToken = default)
+   {
+      var config = ToolConfigurationLoader.Load();
+      return HandleAsync(config, prune, cancellationToken);
+   }
 
-    internal async Task HandleAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken = default)
-    {
+   internal async Task HandleAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken = default)
+   {
       if (string.IsNullOrWhiteSpace(config.ApiKey))
       {
          _reporter.WriteError("Error: No API key provided. Add apiKey to .mvdmio-translations.yml.");
@@ -48,9 +48,11 @@ internal sealed class PushHandler
 
       var result = await _translationApiService.PushProjectTranslationsAsync(
          config.ApiKey,
-         new TranslationPushRequest {
+         new TranslationPushRequest
+         {
             Items = scanResult.Items.Select(
-               static x => new TranslationPushItemRequest {
+               static x => new TranslationPushItemRequest
+               {
                   Origin = x.Origin,
                   Locale = x.Locale,
                   Key = x.Key,

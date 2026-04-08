@@ -1,6 +1,6 @@
-using System.Diagnostics.CodeAnalysis;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
+using System.Diagnostics.CodeAnalysis;
 
 namespace mvdmio.TranslationTools.Tool.Migrate;
 
@@ -80,56 +80,59 @@ internal sealed class MigrateHandler
 
       var response = await _translationApiService.ImportProjectStateAsync(
          config.ApiKey,
-         new ProjectTranslationStateImportRequest {
+         new ProjectTranslationStateImportRequest
+         {
             DefaultLocale = state.DefaultLocale,
             Locales = state.Locales.ToArray(),
             Items = state.Items.Select(
-               static item => item.Translations.Select(translation => new ProjectTranslationStateImportItemRequest {
+               static item => item.Translations.Select(translation => new ProjectTranslationStateImportItemRequest
+               {
                   Origin = item.Origin,
                   Locale = translation.Key,
                   Key = item.Key,
                   Value = translation.Value
                })
             ).SelectMany(static x => x).ToArray()
-          },
+         },
           cancellationToken
       );
 
       _reporter.WriteInfo($"Import complete. Keys: {response.ReceivedKeyCount}. Locales: {response.ReceivedLocaleCount}. Created translations: {response.CreatedTranslationCount}. Updated translations: {response.UpdatedTranslationCount}.");
 
-        await _pullRunner.RunAsync(CreatePullConfig(config, scanResult), prune: true, cancellationToken);
-        _reporter.WriteInfo("Local .resx files refreshed from API state.");
-    }
+      await _pullRunner.RunAsync(CreatePullConfig(config, scanResult), prune: true, cancellationToken);
+      _reporter.WriteInfo("Local .resx files refreshed from API state.");
+   }
 
-    internal static ToolConfiguration CreatePullConfig(ToolConfiguration config, ResxMigrationScanResult scanResult)
-    {
-       if (!TryGetSingleResourceSetPrefix(scanResult, out var sharedKeyPrefix))
-          return config;
+   internal static ToolConfiguration CreatePullConfig(ToolConfiguration config, ResxMigrationScanResult scanResult)
+   {
+      if (!TryGetSingleResourceSetPrefix(scanResult, out var sharedKeyPrefix))
+         return config;
 
-       return new ToolConfiguration {
-          ConfigDirectory = config.ConfigDirectory,
-          ApiKey = config.ApiKey,
-          DefaultLocale = config.DefaultLocale,
-          Output = config.Output,
-          Namespace = config.Namespace,
-          ClassName = config.ClassName,
-          SharedKeyPrefix = sharedKeyPrefix
-       };
-    }
+      return new ToolConfiguration
+      {
+         ConfigDirectory = config.ConfigDirectory,
+         ApiKey = config.ApiKey,
+         DefaultLocale = config.DefaultLocale,
+         Output = config.Output,
+         Namespace = config.Namespace,
+         ClassName = config.ClassName,
+         SharedKeyPrefix = sharedKeyPrefix
+      };
+   }
 
-    internal static bool TryGetSingleResourceSetPrefix(ResxMigrationScanResult scanResult, [NotNullWhen(true)] out string? sharedKeyPrefix)
-    {
-       var resourceSetNames = scanResult.SourceFiles
-          .Select(static x => x.ResourceSetName)
-          .Distinct(StringComparer.Ordinal)
-          .ToArray();
+   internal static bool TryGetSingleResourceSetPrefix(ResxMigrationScanResult scanResult, [NotNullWhen(true)] out string? sharedKeyPrefix)
+   {
+      var resourceSetNames = scanResult.SourceFiles
+         .Select(static x => x.ResourceSetName)
+         .Distinct(StringComparer.Ordinal)
+         .ToArray();
 
-       sharedKeyPrefix = resourceSetNames.Length == 1
-          ? resourceSetNames[0]
-          : null;
+      sharedKeyPrefix = resourceSetNames.Length == 1
+         ? resourceSetNames[0]
+         : null;
 
-       return !string.IsNullOrWhiteSpace(sharedKeyPrefix);
-    }
+      return !string.IsNullOrWhiteSpace(sharedKeyPrefix);
+   }
 }
 
 internal interface IMigrateConfigurationLoader
@@ -139,7 +142,7 @@ internal interface IMigrateConfigurationLoader
 
 internal interface IMigratePullRunner
 {
-    Task RunAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken);
+   Task RunAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken);
 }
 
 internal sealed class ToolConfigurationMigrateConfigurationLoader : IMigrateConfigurationLoader
@@ -161,10 +164,10 @@ internal sealed class PullRunner : IMigratePullRunner
 {
    private readonly PullHandler _pullHandler = new();
 
-    public Task RunAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken)
-    {
-       return _pullHandler.HandleAsync(config, prune, cancellationToken);
-    }
+   public Task RunAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken)
+   {
+      return _pullHandler.HandleAsync(config, prune, cancellationToken);
+   }
 }
 
 internal sealed class ConsoleMigrateReporter : IMigrateReporter

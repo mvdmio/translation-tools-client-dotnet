@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
 
-Current client package version: `2.0.3`.
+Current client package version: `2.2.0`.
 
 GitHub Actions release automation now uses a single workflow that builds and tests the full solution before publishing both the client and tool NuGet packages together.
 
@@ -57,10 +57,11 @@ Read translations at runtime:
 ```csharp
 using mvdmio.TranslationTools.Client;
 
+var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 var title = Localizations.Button_Save;
 var fetchedTitle = await Localizations.GetAsync("Button.Save");
-var locale = await app.Services.GetRequiredService<ITranslationToolsClient>().GetLocaleAsync(new System.Globalization.CultureInfo("en"));
-var refValue = await app.Services.GetRequiredService<ITranslationToolsClient>().GetAsync(Localizations.Keys.Button_Save, new System.Globalization.CultureInfo("en"));
+var locale = await client.GetLocaleAsync(new System.Globalization.CultureInfo("en"));
+var refValue = await client.GetAsync(Localizations.Keys.Button_Save, new System.Globalization.CultureInfo("en"));
 ```
 
 Source generation now starts from local neutral `.resx` files.
@@ -95,8 +96,8 @@ var asyncLabel = await Localizations.GetAsync("Button.Save");
 
 Offline mode details:
 
-- Sync generated properties read from the runtime client cache first, then compiled `.resx` resources.
-- Async generated helpers read runtime cache first, then compiled `.resx` resources, then network on miss.
+- Consumers should inject and use `ITranslationToolsClient` for runtime translation access.
+- Generated `.resx` types use the static `Translations` facade, which receives the `ITranslationToolsClient` instance during `InitializeTranslationToolsClientAsync()`.
 
 Live update cache support:
 

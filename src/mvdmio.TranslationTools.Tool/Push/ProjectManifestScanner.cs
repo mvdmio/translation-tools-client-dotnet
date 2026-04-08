@@ -19,8 +19,8 @@ internal sealed class ProjectManifestScanner
       _parser = parser;
    }
 
-    public ProjectManifestScanResult ScanProject(string projectDirectory, string defaultLocale)
-    {
+   public ProjectManifestScanResult ScanProject(string projectDirectory, string defaultLocale)
+   {
       ResxMigrationScanResult? scanResult = null;
 
       try
@@ -36,7 +36,8 @@ internal sealed class ProjectManifestScanner
 
       var items = scanResult.SourceFiles
          .Select(_parser.Parse)
-         .SelectMany(parsedFile => parsedFile.Entries.Select(entry => new ProjectTranslationPushItem {
+         .SelectMany(parsedFile => parsedFile.Entries.Select(entry => new ProjectTranslationPushItem
+         {
             Origin = BuildOrigin(parsedFile.SourceFile),
             Locale = parsedFile.SourceFile.Locale ?? ResxMigrationScanner.NormalizeLocale(defaultLocale),
             Key = entry.Key,
@@ -47,23 +48,26 @@ internal sealed class ProjectManifestScanner
          .ThenBy(static item => item.Locale, StringComparer.Ordinal)
          .ToArray();
 
-      return new ProjectManifestScanResult {
+      return new ProjectManifestScanResult
+      {
          FoundManifest = items.Length > 0,
          Items = items
       };
-     }
+   }
 
    private ProjectManifestScanResult ScanManifestFiles(string projectDirectory)
    {
       var items = Directory.GetFiles(projectDirectory, "*.cs", SearchOption.AllDirectories)
          .SelectMany(filePath => ScanManifestFile(filePath))
          .GroupBy(static item => item.Key, StringComparer.Ordinal)
-         .Select(static group => {
+         .Select(static group =>
+         {
             var values = group.Select(static x => x.DefaultValue).Where(static x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal).ToArray();
             if (values.Length > 1)
                throw new InvalidOperationException($"Conflicting default values for translation key '{group.Key}'.");
 
-            return new ProjectTranslationPushItem {
+            return new ProjectTranslationPushItem
+            {
                Origin = "/Localizations.resx",
                Locale = "en",
                Key = group.Key,
@@ -73,7 +77,8 @@ internal sealed class ProjectManifestScanner
          .OrderBy(static item => item.Key, StringComparer.Ordinal)
          .ToArray();
 
-      return new ProjectManifestScanResult {
+      return new ProjectManifestScanResult
+      {
          FoundManifest = items.Length > 0,
          Items = items
       };

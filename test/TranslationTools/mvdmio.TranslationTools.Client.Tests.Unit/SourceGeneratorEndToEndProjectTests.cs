@@ -1,10 +1,10 @@
-using System.Globalization;
 using AwesomeAssertions;
 using Fixture.App;
 using Fixture.App.Resources.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
+using System.Globalization;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
@@ -18,15 +18,15 @@ public class SourceGeneratorEndToEndProjectTests
       typeof(Errors).Should().NotBeNull();
 
       var services = new ServiceCollection();
-      services.AddSingleton(new TranslationToolsClientRuntime(
+      services.AddSingleton(new TranslationToolsClient(
          new HttpClient(new EmptySuccessHandler()),
          Options.Create(new TranslationToolsClientOptions { ApiKey = "api-key" }),
          new LocalTranslationToolsClientCache()
       ));
-      services.AddSingleton<ITranslationToolsClient>(provider => provider.GetRequiredService<TranslationToolsClientRuntime>());
+      services.AddSingleton<ITranslationToolsClient>(provider => provider.GetRequiredService<TranslationToolsClient>());
       using var provider = services.BuildServiceProvider();
 
-      var runtimeClient = provider.GetRequiredService<TranslationToolsClientRuntime>();
+      var runtimeClient = provider.GetRequiredService<TranslationToolsClient>();
       await runtimeClient.ApplyLocaleUpdateAsync(
          new System.Globalization.CultureInfo("en"),
          new Dictionary<TranslationRef, string?>
@@ -42,7 +42,7 @@ public class SourceGeneratorEndToEndProjectTests
       try
       {
          CultureInfo.CurrentUICulture = new CultureInfo("en");
-         TranslationToolsClient.SetServiceProvider(provider);
+         Translations.SetServiceProvider(provider);
 
          Localizations.Keys.Button_Save.Origin.Should().Be("/Localizations.resx");
          Localizations.Keys.Button_Save.Key.Should().Be("Button.Save");

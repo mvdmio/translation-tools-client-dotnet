@@ -28,71 +28,71 @@ internal static class TranslationManifestEmitter
       builder.Append(ToStringLiteral(GeneratedCodeVersion));
       builder.Append(")]");
       builder.AppendLine();
-       builder.Append(model.Accessibility);
-       builder.Append(" static partial class ");
+      builder.Append(model.Accessibility);
+      builder.Append(" static partial class ");
 
-       builder.Append(model.TypeName);
-       builder.AppendLine();
-       builder.AppendLine("{");
-       builder.Append("   private const string Origin = ");
-       builder.Append(ToStringLiteral(model.Origin));
-       builder.AppendLine(";");
-       builder.AppendLine();
-       builder.AppendLine("   public static string Get(string key, string? defaultValue = null)");
-       builder.AppendLine("   {");
+      builder.Append(model.TypeName);
+      builder.AppendLine();
+      builder.AppendLine("{");
+      builder.Append("   private const string Origin = ");
+      builder.Append(ToStringLiteral(model.Origin));
+      builder.AppendLine(";");
+      builder.AppendLine();
+      builder.AppendLine("   public static string Get(string key, string? defaultValue = null)");
+      builder.AppendLine("   {");
 
-       if (model.UsesCultureOverride)
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue);");
-       else
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue);");
-
-       builder.AppendLine("   }");
-       builder.AppendLine();
-       builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
-       builder.AppendLine("   {");
-
-       if (model.UsesCultureOverride)
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, cancellationToken);");
-       else
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken);");
-
-       builder.AppendLine("   }");
-       builder.AppendLine();
-       builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, global::System.Globalization.CultureInfo locale, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
-       builder.AppendLine("   {");
-       builder.AppendLine("      return global::mvdmio.TranslationTools.Client.TranslationToolsClient.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), locale, defaultValue, cancellationToken);");
+      if (model.UsesCultureOverride)
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue);");
+      else
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue);");
 
       builder.AppendLine("   }");
       builder.AppendLine();
-       builder.AppendLine("   public static class Keys");
-       builder.AppendLine("   {");
+      builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
+      builder.AppendLine("   {");
 
-       foreach (var property in model.Properties)
-       {
-          builder.Append("      public static readonly global::mvdmio.TranslationTools.Client.TranslationRef ");
-          builder.Append(property.Name);
-          builder.Append(" = new(Origin, ");
-          builder.Append(ToStringLiteral(property.Key));
-          builder.AppendLine(");");
-       }
+      if (model.UsesCultureOverride)
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, cancellationToken);");
+      else
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken);");
+
+      builder.AppendLine("   }");
+      builder.AppendLine();
+      builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, global::System.Globalization.CultureInfo locale, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
+      builder.AppendLine("   {");
+      builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), locale, defaultValue, cancellationToken);");
+
+      builder.AppendLine("   }");
+      builder.AppendLine();
+      builder.AppendLine("   public static class Keys");
+      builder.AppendLine("   {");
+
+      foreach (var property in model.Properties)
+      {
+         builder.Append("      public static readonly global::mvdmio.TranslationTools.Client.TranslationRef ");
+         builder.Append(property.Name);
+         builder.Append(" = new(Origin, ");
+         builder.Append(ToStringLiteral(property.Key));
+         builder.AppendLine(");");
+      }
 
       builder.AppendLine("   }");
 
       if (model.Properties.Length > 0)
          builder.AppendLine();
 
-       foreach (var property in model.Properties)
-       {
-          builder.Append("   public static string ");
-          builder.Append(property.Name);
-          builder.AppendLine();
-          builder.AppendLine("   {");
+      foreach (var property in model.Properties)
+      {
+         builder.Append("   public static string ");
+         builder.Append(property.Name);
+         builder.AppendLine();
+         builder.AppendLine("   {");
          builder.Append("      get => Get(");
          builder.Append(ToStringLiteral(property.Key));
 
-          if (property.DefaultValue is null)
-          {
-             builder.AppendLine(");");
+         if (property.DefaultValue is null)
+         {
+            builder.AppendLine(");");
             builder.AppendLine("   }");
             continue;
          }

@@ -11,12 +11,12 @@ internal static class TranslationToolsLiveUpdateMessageProcessor
 {
    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
 
-   public static async Task ProcessAsync(TranslationToolsClientRuntime client, string payload, CancellationToken cancellationToken)
+   public static async Task ProcessAsync(TranslationToolsClient client, string payload, CancellationToken cancellationToken)
    {
       await ProcessAsync(client, payload, logger: null, cancellationToken);
    }
 
-   public static async Task ProcessAsync(TranslationToolsClientRuntime client, string payload, ILogger? logger, CancellationToken cancellationToken)
+   public static async Task ProcessAsync(TranslationToolsClient client, string payload, ILogger? logger, CancellationToken cancellationToken)
    {
       ArgumentNullException.ThrowIfNull(client);
 

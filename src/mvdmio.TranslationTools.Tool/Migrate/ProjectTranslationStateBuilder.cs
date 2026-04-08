@@ -39,7 +39,7 @@ internal sealed class ProjectTranslationStateBuilder
 
       foreach (var parsedFile in parsedFiles)
       {
-          var locale = parsedFile.SourceFile.Locale ?? normalizedDefaultLocale;
+         var locale = parsedFile.SourceFile.Locale ?? normalizedDefaultLocale;
          var origin = Push.ProjectManifestScanner.BuildOrigin(parsedFile.SourceFile);
 
          foreach (var entry in parsedFile.Entries)
@@ -58,8 +58,8 @@ internal sealed class ProjectTranslationStateBuilder
                translations.TryAdd(knownLocale, null);
 
             translations[locale] = entry.Value;
-           }
-       }
+         }
+      }
 
       var localeValueCounts = locales.ToDictionary(
           locale => locale,
@@ -68,7 +68,8 @@ internal sealed class ProjectTranslationStateBuilder
       );
 
       var resultItems = items.OrderBy(static x => x.Key, StringComparer.Ordinal)
-         .Select(x => new ProjectTranslationStateItem {
+         .Select(x => new ProjectTranslationStateItem
+         {
             Origin = origins[x.Key],
             Key = x.Key[(origins[x.Key].Length + 2)..],
             Translations = x.Value
@@ -76,19 +77,21 @@ internal sealed class ProjectTranslationStateBuilder
          .ToArray();
 
       return (
-         new ProjectTranslationState {
-             DefaultLocale = normalizedDefaultLocale,
-             Locales = locales,
-             Items = resultItems
-          },
-         new MigrationReport {
+         new ProjectTranslationState
+         {
+            DefaultLocale = normalizedDefaultLocale,
+            Locales = locales,
+            Items = resultItems
+         },
+         new MigrationReport
+         {
             SourceFiles = parsedFiles.Select(static x => x.SourceFile.RelativePath).ToArray(),
             Warnings = warnings,
             DefaultLocale = normalizedDefaultLocale,
-             Locales = locales,
-             LocaleValueCounts = localeValueCounts,
-             KeyCount = resultItems.Length
-          }
+            Locales = locales,
+            LocaleValueCounts = localeValueCounts,
+            KeyCount = resultItems.Length
+         }
        );
    }
 }

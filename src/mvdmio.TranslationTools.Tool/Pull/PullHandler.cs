@@ -1,8 +1,8 @@
-using System.Text;
-using System.Xml.Linq;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Scaffolding;
+using System.Text;
+using System.Xml.Linq;
 
 namespace mvdmio.TranslationTools.Tool.Pull;
 
@@ -116,7 +116,8 @@ internal sealed class PullHandler
             ? projectContext.RootNamespace
             : projectContext.RootNamespace + "." + relativeOutputDirectory.Replace(Path.DirectorySeparatorChar, '.').Replace(Path.AltDirectorySeparatorChar, '.');
 
-      return new TranslationPullRequest {
+      return new TranslationPullRequest
+      {
          ApiKey = config.ApiKey,
          ProjectDirectory = projectContext.ProjectDirectory,
          OutputPath = outputPath,
@@ -163,9 +164,11 @@ internal sealed class PullHandler
       IReadOnlyDictionary<string, TranslationItemResponse[]> localeItems
    )
    {
-      return new TranslationSnapshotFile {
+      return new TranslationSnapshotFile
+      {
          SchemaVersion = 1,
-         Project = new TranslationSnapshotProject {
+         Project = new TranslationSnapshotProject
+         {
             DefaultLocale = defaultLocale,
             Locales = locales.OrderBy(static x => x, StringComparer.Ordinal).ToArray()
          },
@@ -176,7 +179,8 @@ internal sealed class PullHandler
                static x => (IReadOnlyCollection<TranslationSnapshotItemFile>)x.Value
                   .OrderBy(static item => item.Origin, StringComparer.OrdinalIgnoreCase)
                   .ThenBy(static item => item.Key, StringComparer.Ordinal)
-                  .Select(static item => new TranslationSnapshotItemFile {
+                  .Select(static item => new TranslationSnapshotItemFile
+                  {
                      Origin = item.Origin,
                      Key = item.Key,
                      Value = item.Value
@@ -227,16 +231,17 @@ internal sealed class PullHandler
          var item = pair.Value;
          var effectiveKey = TrimSharedKeyPrefix(item.Key, sharedKeyPrefix);
          var propertyName = pair.Key;
-         definitions[propertyName] = new ManifestPropertyDefinition {
-             PropertyName = propertyName,
-             Key = item.Key,
-             EmitExplicitKey = !string.IsNullOrWhiteSpace(sharedKeyPrefix) || !string.Equals(propertyName, effectiveKey, StringComparison.Ordinal),
-             DefaultValue = defaultValues.GetValueOrDefault(item.Key)
-          };
-       }
+         definitions[propertyName] = new ManifestPropertyDefinition
+         {
+            PropertyName = propertyName,
+            Key = item.Key,
+            EmitExplicitKey = !string.IsNullOrWhiteSpace(sharedKeyPrefix) || !string.Equals(propertyName, effectiveKey, StringComparison.Ordinal),
+            DefaultValue = defaultValues.GetValueOrDefault(item.Key)
+         };
+      }
 
       return definitions.Values.ToArray();
-    }
+   }
 
    private static string TrimSharedKeyPrefix(string key, string? sharedKeyPrefix)
    {

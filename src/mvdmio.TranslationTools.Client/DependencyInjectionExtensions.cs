@@ -1,15 +1,15 @@
 using JetBrains.Annotations;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using mvdmio.TranslationTools.Client.Internal;
 using System;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
-using mvdmio.TranslationTools.Client.Internal;
 
 namespace mvdmio.TranslationTools.Client;
 
@@ -19,7 +19,7 @@ namespace mvdmio.TranslationTools.Client;
 [PublicAPI]
 public static class DependencyInjectionExtensions
 {
-   private const string HTTP_CLIENT_NAME = nameof(Internal.TranslationToolsClientRuntime);
+   private const string HTTP_CLIENT_NAME = nameof(TranslationToolsClient);
 
    /// <summary>
    /// Register the TranslationTools client and configure its options.
@@ -39,13 +39,14 @@ public static class DependencyInjectionExtensions
          );
 
       services.AddHttpClient(HTTP_CLIENT_NAME);
-      services.TryAddSingleton<Internal.TranslationToolsClientRuntime>(static serviceProvider => {
-          var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-          var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
-          var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
-          return new Internal.TranslationToolsClientRuntime(httpClient, clientOptions);
-       });
-      services.TryAddSingleton<ITranslationToolsClient>(provider => provider.GetRequiredService<Internal.TranslationToolsClientRuntime>());
+      services.TryAddSingleton<TranslationToolsClient>(static serviceProvider =>
+      {
+         var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+         var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
+         var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
+         return new TranslationToolsClient(httpClient, clientOptions);
+      });
+      services.TryAddSingleton<ITranslationToolsClient>(provider => provider.GetRequiredService<TranslationToolsClient>());
       services.TryAddSingleton<TranslationToolsLiveUpdateService>();
 
       return services;
@@ -56,10 +57,9 @@ public static class DependencyInjectionExtensions
    /// </summary>
    public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)
    {
-      TranslationToolsClient.SetServiceProvider(app.Services);
-
       using var scope = app.Services.CreateScope();
       var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
+      Translations.SetClient(client);
 
       await client.Initialize(cancellationToken);
 

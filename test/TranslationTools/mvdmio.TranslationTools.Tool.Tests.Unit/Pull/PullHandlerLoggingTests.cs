@@ -14,7 +14,8 @@ public class PullHandlerLoggingTests
       var handler = new PullHandler(new TranslationApiService(), new TranslationSnapshotFileWriter(), new TestPullFileSystem(), reporter);
 
       await handler.HandleAsync(
-         new ToolConfiguration {
+         new ToolConfiguration
+         {
             ApiKey = null,
             DefaultLocale = "en"
          },
@@ -38,7 +39,8 @@ public class PullHandlerLoggingTests
          File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project><PropertyGroup><RootNamespace>Demo</RootNamespace></PropertyGroup></Project>");
 
          await handler.HandleAsync(
-            new ToolConfiguration {
+            new ToolConfiguration
+            {
                ConfigDirectory = projectDirectory,
                ApiKey = "api-key",
                DefaultLocale = null

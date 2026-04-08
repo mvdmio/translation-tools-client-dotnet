@@ -1,8 +1,8 @@
-using System.Globalization;
-using System.Net;
 using AwesomeAssertions;
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
+using System.Globalization;
+using System.Net;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
@@ -56,9 +56,9 @@ public class TranslationToolsLiveUpdateMessageProcessorTests
       client.TryGetCached("Button.Save", new CultureInfo("en")).Should().BeNull();
    }
 
-   private static TranslationToolsClientRuntime CreateClient()
+   private static TranslationToolsClient CreateClient()
    {
-      return new TranslationToolsClientRuntime(
+      return new TranslationToolsClient(
          new HttpClient(new EmptySuccessHandler()),
          Options.Create(new TranslationToolsClientOptions
          {

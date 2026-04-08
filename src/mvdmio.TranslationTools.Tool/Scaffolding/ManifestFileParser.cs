@@ -15,7 +15,8 @@ internal sealed class ManifestFileParser
 
       if (classDeclaration is null)
       {
-         return new ManifestParseResult {
+         return new ManifestParseResult
+         {
             ClassDeclaration = null,
             Properties = []
          };
@@ -29,7 +30,8 @@ internal sealed class ManifestFileParser
          .Cast<ManifestPropertyDefinition>()
          .ToArray();
 
-      return new ManifestParseResult {
+      return new ManifestParseResult
+      {
          ClassDeclaration = classDeclaration,
          Properties = properties
       };
@@ -73,7 +75,8 @@ internal sealed class ManifestFileParser
          break;
       }
 
-      return new ManifestPropertyDefinition {
+      return new ManifestPropertyDefinition
+      {
          PropertyName = propertyName,
          Key = explicitKey ?? propertyName,
          EmitExplicitKey = explicitKey is not null,

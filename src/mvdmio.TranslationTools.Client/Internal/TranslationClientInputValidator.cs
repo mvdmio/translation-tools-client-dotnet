@@ -30,8 +30,8 @@ internal static partial class TranslationClientInputValidator
          throw new ArgumentException("Translation origin is required.", nameof(origin));
 
       var normalized = origin.Trim().Replace("\\", "/");
-      if (!normalized.StartsWith("/", StringComparison.Ordinal) || !normalized.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
-         throw new ArgumentException("Translation origin must start with '/' and end with '.resx'.", nameof(origin));
+      if (!normalized.StartsWith('/') || !normalized.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
+         throw new ArgumentException($"Translation origin must start with '/' and end with '.resx'. Actual: {normalized}", nameof(origin));
 
       return normalized;
    }

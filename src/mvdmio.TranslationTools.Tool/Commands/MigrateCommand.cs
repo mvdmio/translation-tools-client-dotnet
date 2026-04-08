@@ -10,7 +10,8 @@ internal static class MigrateCommand
       var handler = new MigrateHandler();
       var command = new Command("migrate", "Import .resx translation files into TranslationTools and regenerate the manifest");
 
-      command.SetAction(async (_, cancellationToken) => {
+      command.SetAction(async (_, cancellationToken) =>
+      {
          await handler.HandleAsync(cancellationToken);
       });
 
