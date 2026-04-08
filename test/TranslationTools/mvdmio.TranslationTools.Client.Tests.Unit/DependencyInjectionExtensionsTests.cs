@@ -72,7 +72,7 @@ public class DependencyInjectionExtensionsTests
 
       public Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
       {
-         return Task.FromResult(TranslationLocaleSnapshot.FromItems(locale.Name, []));
+         return Task.FromResult(new TranslationLocaleSnapshot(locale.Name, new Dictionary<TranslationRef, string?>()));
       }
    }
 }

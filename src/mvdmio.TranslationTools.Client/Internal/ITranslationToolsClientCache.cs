@@ -5,14 +5,19 @@ namespace mvdmio.TranslationTools.Client.Internal;
 
 internal interface ITranslationToolsClientCache
 {
-   TranslationToolsClientCacheEntry<T>? Get<T>(string key)
-      where T : class;
+   TranslationToolsClientCacheEntry<TranslationItemResponse>? Get(string locale, TranslationRef translation);
 
-   ValueTask<TranslationToolsClientCacheEntry<T>?> GetAsync<T>(string key, CancellationToken cancellationToken)
-      where T : class;
+   TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>? GetLocale(string locale);
 
-   ValueTask SetAsync<T>(string key, TranslationToolsClientCacheEntry<T> value, CancellationToken cancellationToken)
-      where T : class;
+   ValueTask<TranslationToolsClientCacheEntry<TranslationItemResponse>?> GetAsync(string locale, TranslationRef translation, CancellationToken cancellationToken);
 
-   ValueTask RemoveAsync(string key, CancellationToken cancellationToken);
+   ValueTask<TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>?> GetLocaleAsync(string locale, CancellationToken cancellationToken);
+
+   ValueTask SetAsync(string locale, TranslationToolsClientCacheEntry<TranslationItemResponse> value, CancellationToken cancellationToken);
+
+   ValueTask SetLocaleAsync(string locale, TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> value, CancellationToken cancellationToken);
+
+   ValueTask RemoveAsync(string locale, TranslationRef translation, CancellationToken cancellationToken);
+
+   ValueTask RemoveLocaleAsync(string locale, CancellationToken cancellationToken);
 }

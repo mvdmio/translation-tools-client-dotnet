@@ -30,7 +30,7 @@ public class TranslationToolsClientBehaviorTests
       var locale = await client.GetLocaleAsync(new CultureInfo("en"), TestContext.Current.CancellationToken);
 
       locale.Contains(new TranslationRef("/Feature/Shared.resx", "Button.Save")).Should().BeTrue();
-      locale["Button.Cancel"].Should().Be("Cancel");
+      locale.Values[new TranslationRef("/Localizations.resx", "Button.Cancel")].Should().Be("Cancel");
    }
 
    [Fact]
@@ -56,7 +56,7 @@ public class TranslationToolsClientBehaviorTests
 
       var locale = await client.GetLocaleAsync(new CultureInfo("en"), TestContext.Current.CancellationToken);
 
-      locale["Button.Save"].Should().Be("Save now");
+      locale.Values[new TranslationRef("/Localizations.resx", "Button.Save")].Should().Be("Save now");
       client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en"))!.Value.Should().Be("Save now");
    }
 
@@ -80,8 +80,8 @@ public class TranslationToolsClientBehaviorTests
 
       client.TryGetCached(translation, new CultureInfo("en")).Should().BeNull();
       var locale = await client.GetLocaleAsync(new CultureInfo("en"), TestContext.Current.CancellationToken);
-      locale.ContainsKey("Button.Save").Should().BeFalse();
-      locale.ContainsKey("Button.Cancel").Should().BeTrue();
+      locale.Values.ContainsKey(new TranslationRef("/Localizations.resx", "Button.Save")).Should().BeFalse();
+      locale.Values.ContainsKey(new TranslationRef("/Localizations.resx", "Button.Cancel")).Should().BeTrue();
    }
 
    [Fact]
@@ -104,7 +104,7 @@ public class TranslationToolsClientBehaviorTests
 
       var locale = await client.GetLocaleAsync(new CultureInfo("en"), TestContext.Current.CancellationToken);
 
-      locale.Should().BeEmpty();
+      locale.Values.Should().BeEmpty();
    }
 
    private static TranslationToolsClient CreateClient()

@@ -2,7 +2,7 @@
 
 Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
 
-Current client package version: `2.3.1`.
+Current client package version: `2.3.2`.
 
 GitHub Actions release automation now uses a single workflow that builds and tests the full solution before publishing both the client and tool NuGet packages together.
 
@@ -76,7 +76,9 @@ Generated `.g.cs` files are now emitted to the consuming project's `obj/Generate
 
 Published packages now include Source Link and symbol package metadata so debuggers can step into the client library source as well.
 
-`TranslationLocaleSnapshot` now derives its legacy string-key lookup surface directly from ordered snapshot items instead of maintaining a separate legacy index.
+`TranslationLocaleSnapshot` is a plain locale DTO with `Locale` plus an origin-aware `Values` dictionary keyed by `TranslationRef`.
+
+The client cache now owns both locale snapshots and per-locale translation item dictionaries, so item lookups are resolved by locale plus translation identity instead of by a separate client-side in-memory index.
 
 Example `Localizations.resx`:
 
@@ -111,7 +113,7 @@ Live update cache support:
 - Current WebSocket message contract is origin-aware:
   - `{ "type": "connected" }`
   - `{ "type": "translation-updated", "origin": "/Localizations.resx", "locale": "en", "key": "home.title", "value": "Hello" }`
-- Current live transport applies single-item cache updates only.
+- Current live transport applies single-item cache updates only, and those updates now flow through the shared locale-aware cache state so `GetAsync(...)` and `GetLocaleAsync(...)` stay aligned.
 - Current runtime still accepts missing `origin` as legacy `/Localizations.resx` compatibility.
 
 ## CLI quick start

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -26,11 +25,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    private readonly IOptions<TranslationToolsClientOptions> _options;
    private readonly ITranslationToolsClientCache _cache;
    private readonly SemaphoreSlim _initializeLock = new(1, 1);
-   private readonly ConcurrentDictionary<string, ConcurrentDictionary<TranslationRef, byte>> _localeKeys = new(StringComparer.Ordinal);
 
    private TranslationToolsClientOptions Options => _options.Value;
-
-   internal string DefaultLocale => Options.DefaultLocale;
 
    /// <summary>
    /// Create a client using cache services registered in the container.
@@ -114,19 +110,11 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    }
 
    /// <summary>
-   /// Try to get a cached translation using <see cref="CultureInfo.CurrentUICulture"/>.
-   /// </summary>
-   internal TranslationItemResponse? TryGetCached(TranslationRef translation)
-   {
-      return TryGetCached(translation, CultureInfo.CurrentUICulture);
-   }
-
-   /// <summary>
    /// Try to get a cached translation for a specific locale.
    /// </summary>
    internal TranslationItemResponse? TryGetCached(TranslationRef translation, CultureInfo locale)
    {
-      return _cache.Get<TranslationItemResponse>(BuildTranslationCacheKey(locale.Name, translation))?.Value;
+      return _cache.Get(locale.Name, translation)?.Value;
    }
 
    internal void InvalidateLocale(CultureInfo locale)
@@ -145,14 +133,11 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
       return StoreLocaleAsync(
          locale.Name,
-         values.Select(static item => new TranslationItemResponse
-         {
+         values.Select(static item => new TranslationItemResponse {
             Origin = item.Key.Origin,
             Key = item.Key.Key,
             Value = item.Value
-         }
-            )
-            .ToArray(),
+         }).ToArray(),
          cancellationToken
       );
    }
@@ -168,16 +153,6 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
             Value = value
          },
          updateLocaleCache: true,
-         cancellationToken
-      );
-   }
-
-   internal Task ApplyUpdateAsync(TranslationItemResponse item, CultureInfo locale, CancellationToken cancellationToken = default)
-   {
-      return ApplyUpdateAsync(
-         new TranslationRef(item.Origin, item.Key),
-         item.Value,
-         locale,
          cancellationToken
       );
    }
@@ -220,104 +195,47 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    private ValueTask<TranslationToolsClientCacheEntry<TranslationItemResponse>?> GetCachedTranslationAsync(string locale, TranslationRef translation, CancellationToken cancellationToken)
    {
-      return _cache.GetAsync<TranslationItemResponse>(BuildTranslationCacheKey(locale, translation), cancellationToken);
+      return _cache.GetAsync(locale, translation, cancellationToken);
    }
 
    private ValueTask<TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>?> GetCachedLocaleAsync(string locale, CancellationToken cancellationToken)
    {
-      return _cache.GetAsync<TranslationLocaleSnapshot>(BuildLocaleCacheKey(locale), cancellationToken);
+      return _cache.GetLocaleAsync(locale, cancellationToken);
    }
 
    private async Task<TranslationLocaleSnapshot> StoreLocaleAsync(string locale, TranslationItemResponse[] fetched, CancellationToken cancellationToken)
    {
-      var stored = TranslationLocaleSnapshot.FromItems(locale, fetched);
-      await ReplaceLocaleItemsAsync(locale, stored.Items, cancellationToken);
-      await _cache.SetAsync(BuildLocaleCacheKey(locale), new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> { Value = stored }, cancellationToken);
+      var stored = new TranslationLocaleSnapshot(
+         locale,
+         fetched.ToDictionary(static item => new TranslationRef(item.Origin, item.Key), static item => item.Value)
+      );
+
+      await _cache.SetLocaleAsync(
+         locale,
+         new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> {
+            Value = stored
+         },
+         cancellationToken
+      );
 
       return stored;
    }
 
-   private async Task ReplaceLocaleItemsAsync(string locale, IReadOnlyCollection<TranslationItemResponse> items, CancellationToken cancellationToken)
-   {
-      var localeKeyIndex = _localeKeys.GetOrAdd(locale, static _ => new ConcurrentDictionary<TranslationRef, byte>());
-      var nextKeys = new HashSet<TranslationRef>();
-
-      foreach (var item in items)
-      {
-         var translation = item;
-         var translationRef = new TranslationRef(translation.Origin, translation.Key);
-
-         await _cache.SetAsync(BuildTranslationCacheKey(locale, translationRef), new TranslationToolsClientCacheEntry<TranslationItemResponse> { Value = translation }, cancellationToken);
-
-         localeKeyIndex[translationRef] = 0;
-         nextKeys.Add(translationRef);
-      }
-
-      foreach (var staleKey in localeKeyIndex.Keys.Where(key => !nextKeys.Contains(key)).ToArray())
-      {
-         await _cache.RemoveAsync(BuildTranslationCacheKey(locale, staleKey), cancellationToken);
-         localeKeyIndex.TryRemove(staleKey, out _);
-      }
-
-      if (localeKeyIndex.IsEmpty)
-         _localeKeys.TryRemove(locale, out _);
-   }
-
    private async Task<TranslationItemResponse> StoreTranslationUpdateAsync(string locale, TranslationItemResponse item, bool updateLocaleCache, CancellationToken cancellationToken)
    {
-      var translationRef = new TranslationRef(item.Origin, item.Key);
-
-      await _cache.SetAsync(BuildTranslationCacheKey(locale, translationRef), new TranslationToolsClientCacheEntry<TranslationItemResponse> { Value = item }, cancellationToken);
-
-      _localeKeys.GetOrAdd(locale, static _ => new ConcurrentDictionary<TranslationRef, byte>())[translationRef] = 0;
-
-      if (updateLocaleCache)
-         await UpdateLocaleCacheEntryAsync(locale, item, cancellationToken);
+      await _cache.SetAsync(locale, new TranslationToolsClientCacheEntry<TranslationItemResponse> { Value = item }, cancellationToken);
 
       return item;
    }
 
-   private async Task UpdateLocaleCacheEntryAsync(string locale, TranslationItemResponse item, CancellationToken cancellationToken)
-   {
-      var cachedLocale = await GetCachedLocaleAsync(locale, cancellationToken);
-      if (cachedLocale is null)
-         return;
-
-      var updated = cachedLocale.Value.Items.Where(existing => !string.Equals(existing.Origin, item.Origin, StringComparison.OrdinalIgnoreCase) || !string.Equals(existing.Key, item.Key, StringComparison.Ordinal)).Append(item).ToArray();
-
-      await _cache.SetAsync(BuildLocaleCacheKey(locale), new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> { Value = TranslationLocaleSnapshot.FromItems(locale, updated) }, cancellationToken);
-   }
-
    private async Task InvalidateLocaleAsync(string locale, CancellationToken cancellationToken)
    {
-      await _cache.RemoveAsync(BuildLocaleCacheKey(locale), cancellationToken);
-
-      if (!_localeKeys.TryRemove(locale, out var localeKeyIndex))
-         return;
-
-      foreach (var translation in localeKeyIndex.Keys)
-         await _cache.RemoveAsync(BuildTranslationCacheKey(locale, translation), cancellationToken);
+      await _cache.RemoveLocaleAsync(locale, cancellationToken);
    }
 
    private async Task InvalidateAsync(TranslationRef translation, string locale, CancellationToken cancellationToken)
    {
-      await _cache.RemoveAsync(BuildTranslationCacheKey(locale, translation), cancellationToken);
-
-      if (_localeKeys.TryGetValue(locale, out var localeKeyIndex))
-      {
-         localeKeyIndex.TryRemove(translation, out _);
-
-         if (localeKeyIndex.IsEmpty)
-            _localeKeys.TryRemove(locale, out _);
-      }
-
-      var cachedLocale = await GetCachedLocaleAsync(locale, cancellationToken);
-      if (cachedLocale is null || !cachedLocale.Value.Contains(translation))
-         return;
-
-      var updated = cachedLocale.Value.Items.Where(existing => !string.Equals(existing.Origin, translation.Origin, StringComparison.OrdinalIgnoreCase) || !string.Equals(existing.Key, translation.Key, StringComparison.Ordinal)).ToArray();
-
-      await _cache.SetAsync(BuildLocaleCacheKey(locale), new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> { Value = TranslationLocaleSnapshot.FromItems(locale, updated) }, cancellationToken);
+      await _cache.RemoveAsync(locale, translation, cancellationToken);
    }
 
    private CultureInfo[] GetSupportedLocales()
@@ -325,7 +243,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (Options.SupportedLocales.Length == 0)
          return [CultureInfo.CurrentUICulture];
 
-      return Options.SupportedLocales.Where(x => !string.IsNullOrWhiteSpace(x.Name)).GroupBy(x => x.Name, StringComparer.Ordinal).Select(x => x.First()).ToArray();
+      return Options.SupportedLocales;
    }
 
    private static async Task<T?> DeserializeAsync<T>(HttpContent content) where T : class
@@ -334,13 +252,4 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions);
    }
 
-   private static string BuildTranslationCacheKey(string locale, TranslationRef translation)
-   {
-      return $"translationtools:item:{translation.Origin.ToLowerInvariant()}:{locale}:{translation.Key}";
-   }
-
-   private static string BuildLocaleCacheKey(string locale)
-   {
-      return $"translationtools:locale:{locale}";
-   }
 }

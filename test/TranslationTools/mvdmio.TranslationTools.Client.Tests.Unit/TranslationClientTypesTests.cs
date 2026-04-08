@@ -25,41 +25,24 @@ public class TranslationClientTypesTests
    }
 
    [Fact]
-   public void TranslationLocaleSnapshot_ShouldExposeLegacyLookupOnlyForDefaultOrigin()
+   public void TranslationLocaleSnapshot_ShouldExposeOnlyOriginAwareLookup()
    {
-      var snapshot = TranslationLocaleSnapshot.FromItems(
+      var snapshot = new TranslationLocaleSnapshot(
          "EN",
-         [
-            new TranslationItemResponse
-            {
-               Origin = "/Feature/Shared.resx",
-               Key = "Button.Save",
-               Value = "Feature save"
-            },
-            new TranslationItemResponse
-            {
-               Origin = "/Localizations.resx",
-               Key = "Button.Save",
-               Value = "Default save"
-            },
-            new TranslationItemResponse
-            {
-               Origin = "/Localizations.resx",
-               Key = "Button.Cancel",
-               Value = null
-            }
-         ]
+         new Dictionary<TranslationRef, string?>
+         {
+            [new TranslationRef("/Feature/Shared.resx", "Button.Save")] = "Feature save",
+            [new TranslationRef("/Localizations.resx", "Button.Save")] = "Default save",
+            [new TranslationRef("/Localizations.resx", "Button.Cancel")] = null
+         }
       );
 
       snapshot.Locale.Name.Should().Be("en");
-      snapshot.Contains(new TranslationRef("/Feature/Shared.resx", "Button.Save")).Should().BeTrue();
-      snapshot[new TranslationRef("/Feature/Shared.resx", "Button.Save")].Should().Be("Feature save");
-      snapshot.ContainsKey("Button.Save").Should().BeTrue();
-      snapshot["Button.Save"].Should().Be("Default save");
-      snapshot.TryGetValue("Button.Cancel", out var cancelValue).Should().BeTrue();
+      snapshot.Values.ContainsKey(new TranslationRef("/Feature/Shared.resx", "Button.Save")).Should().BeTrue();
+      snapshot.Values[new TranslationRef("/Feature/Shared.resx", "Button.Save")].Should().Be("Feature save");
+      snapshot.Values[new TranslationRef("/Localizations.resx", "Button.Save")].Should().Be("Default save");
+      snapshot.TryGetValue(new TranslationRef("/Localizations.resx", "Button.Cancel"), out var cancelValue).Should().BeTrue();
       cancelValue.Should().BeNull();
-      snapshot.Keys.Should().Equal("Button.Cancel", "Button.Save");
-      snapshot.Values.Should().Equal((string?)null, "Default save");
-      snapshot.Count.Should().Be(2);
+      snapshot.Values.Count.Should().Be(3);
    }
 }
