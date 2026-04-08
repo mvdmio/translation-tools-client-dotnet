@@ -34,7 +34,7 @@ public class TranslationToolsLiveUpdateMessageProcessorTests
          TestContext.Current.CancellationToken
       );
 
-      client.TryGetCached("Button.Save", new CultureInfo("en")).Should().BeNull();
+      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en")).Should().BeNull();
    }
 
    [Fact]
@@ -53,7 +53,7 @@ public class TranslationToolsLiveUpdateMessageProcessorTests
          TestContext.Current.CancellationToken
       );
 
-      client.TryGetCached("Button.Save", new CultureInfo("en")).Should().BeNull();
+      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en")).Should().BeNull();
    }
 
    private static TranslationToolsClient CreateClient()

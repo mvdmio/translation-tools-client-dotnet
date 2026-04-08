@@ -129,11 +129,6 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return _cache.Get<TranslationItemResponse>(BuildTranslationCacheKey(locale.Name, translation))?.Value;
    }
 
-   internal TranslationItemResponse? TryGetCached(string key, CultureInfo locale)
-   {
-      return TryGetCached(new TranslationRef("/Localizations.resx", key), locale);
-   }
-
    internal void InvalidateLocale(CultureInfo locale)
    {
       InvalidateLocaleAsync(locale.Name, CancellationToken.None).GetAwaiter().GetResult();
@@ -160,11 +155,6 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
             .ToArray(),
          cancellationToken
       );
-   }
-
-   internal Task ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default)
-   {
-      return ApplyLocaleUpdateAsync(locale, values.ToDictionary(x => new TranslationRef("/Localizations.resx", x.Key), x => x.Value), cancellationToken);
    }
 
    internal Task ApplyUpdateAsync(TranslationRef translation, string? value, CultureInfo locale, CancellationToken cancellationToken = default)
@@ -346,10 +336,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    private static string BuildTranslationCacheKey(string locale, TranslationRef translation)
    {
-      if (string.Equals(translation.Origin, "/Localizations.resx", StringComparison.OrdinalIgnoreCase))
-         return $"translationtools:item:{locale}:{translation.Key}";
-
-      return $"translationtools:item:{locale}:{translation.Origin.ToLowerInvariant()}:{translation.Key}";
+      return $"translationtools:item:{translation.Origin.ToLowerInvariant()}:{locale}:{translation.Key}";
    }
 
    private static string BuildLocaleCacheKey(string locale)

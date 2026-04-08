@@ -25,7 +25,7 @@ public class TranslationToolsClientBehaviorTests
       );
 
       client.TryGetCached(new TranslationRef("/Feature/Shared.resx", "Button.Save"), new CultureInfo("en"))!.Value.Should().Be("Feature save");
-      client.TryGetCached("Button.Cancel", new CultureInfo("en"))!.Value.Should().Be("Cancel");
+      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Cancel"), new CultureInfo("en"))!.Value.Should().Be("Cancel");
 
       var locale = await client.GetLocaleAsync(new CultureInfo("en"), TestContext.Current.CancellationToken);
 
@@ -40,9 +40,9 @@ public class TranslationToolsClientBehaviorTests
 
       await client.ApplyLocaleUpdateAsync(
          new CultureInfo("en"),
-         new Dictionary<string, string?>
+         new Dictionary<TranslationRef, string?>
          {
-            ["Button.Save"] = "Save"
+            [new TranslationRef("/Localizations.resx", "Button.Save")] = "Save"
          },
          TestContext.Current.CancellationToken
       );
@@ -57,7 +57,7 @@ public class TranslationToolsClientBehaviorTests
       var locale = await client.GetLocaleAsync(new CultureInfo("en"), TestContext.Current.CancellationToken);
 
       locale["Button.Save"].Should().Be("Save now");
-      client.TryGetCached("Button.Save", new CultureInfo("en"))!.Value.Should().Be("Save now");
+      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en"))!.Value.Should().Be("Save now");
    }
 
    [Fact]
@@ -91,16 +91,16 @@ public class TranslationToolsClientBehaviorTests
 
       await client.ApplyLocaleUpdateAsync(
          new CultureInfo("en"),
-         new Dictionary<string, string?>
+         new Dictionary<TranslationRef, string?>
          {
-            ["Button.Save"] = "Save"
+            [new TranslationRef("/Localizations.resx", "Button.Save")] = "Save"
          },
          TestContext.Current.CancellationToken
       );
 
       client.InvalidateLocale(new CultureInfo("en"));
 
-      client.TryGetCached("Button.Save", new CultureInfo("en")).Should().BeNull();
+      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en")).Should().BeNull();
 
       var locale = await client.GetLocaleAsync(new CultureInfo("en"), TestContext.Current.CancellationToken);
 

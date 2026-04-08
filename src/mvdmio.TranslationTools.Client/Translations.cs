@@ -31,13 +31,6 @@ public static class Translations
    public static string Get(TranslationRef translation, CultureInfo locale, string? defaultValue = null)
    {
       var client = ResolveClient();
-
-      if (client is TranslationToolsClient translationToolsClient)
-      {
-         var cached = translationToolsClient.TryGetCached(translation, locale);
-         return cached?.Value ?? defaultValue ?? translation.Key;
-      }
-
       var item = client.Get(translation, locale);
       return item.Value ?? defaultValue ?? translation.Key;
    }
@@ -56,13 +49,6 @@ public static class Translations
    public static async Task<string> GetAsync(TranslationRef translation, CultureInfo locale, string? defaultValue = null, CancellationToken cancellationToken = default)
    {
       var client = ResolveClient();
-
-      if (client is TranslationToolsClient translationToolsClient)
-      {
-         var item = await translationToolsClient.GetAsync(translation, locale, defaultValue, cancellationToken);
-         return item.Value ?? defaultValue ?? translation.Key;
-      }
-
       var response = await client.GetAsync(translation, locale, cancellationToken);
       return response.Value ?? defaultValue ?? translation.Key;
    }
