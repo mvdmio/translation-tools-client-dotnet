@@ -35,11 +35,12 @@ internal sealed class PushHandler
          return;
       }
 
-      var projectDirectory = ResolveProjectDirectory(config);
+      var projectContext = ToolProjectResolver.Resolve(config);
+      var projectDirectory = projectContext.ProjectDirectory;
       if (string.IsNullOrWhiteSpace(config.DefaultLocale))
          throw new InvalidOperationException("defaultLocale is required in .mvdmio-translations.yml.");
 
-      var scanResult = _projectManifestScanner.ScanProject(projectDirectory, config.DefaultLocale);
+      var scanResult = _projectManifestScanner.ScanProject(projectContext.ProjectName, projectDirectory, config.DefaultLocale);
 
       _reporter.WriteInfo($"Scanning .resx translations in {projectDirectory}...");
       _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation values to {ToolConfiguration.DEFAULT_BASE_URL}...");

@@ -38,5 +38,14 @@ internal static class TranslationGeneratorDiagnostics
       category: "mvdmio.TranslationTools.Client",
       defaultSeverity: DiagnosticSeverity.Error,
       isEnabledByDefault: true
+    );
+
+   public static readonly DiagnosticDescriptor InvalidProjectName = new(
+      id: "TTCLIENTGEN005",
+      title: "Invalid project name",
+      messageFormat: "Project '{0}' cannot be used in translation origins. Project names must be non-empty and must not contain ':'.",
+      category: "mvdmio.TranslationTools.Client",
+      defaultSeverity: DiagnosticSeverity.Error,
+      isEnabledByDefault: true
    );
 }

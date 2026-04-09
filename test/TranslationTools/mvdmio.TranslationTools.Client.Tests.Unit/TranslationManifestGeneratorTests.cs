@@ -28,7 +28,7 @@ public class TranslationManifestGeneratorTests
       result.GeneratedSource.Should().Contain($"[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"{expectedGeneratorVersion}\")]");
       result.GeneratedSource.Should().Contain("namespace GeneratorTests.src.Demo;");
       result.GeneratedSource.Should().Contain("public static partial class Localizations");
-      result.GeneratedSource.Should().Contain("private const string Origin = \"/src/Demo/Localizations.resx\";");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"GeneratorTests:/src/Demo/Localizations.resx\";");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Hello = new(Origin, \"Button.Hello\");");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Save = new(Origin, \"Button.Save\");");
       result.GeneratedSource.Should().Contain("Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue)");
@@ -93,6 +93,7 @@ public class TranslationManifestGeneratorTests
          globalOptions: new Dictionary<string, string>(StringComparer.Ordinal)
          {
             ["build_property.MSBuildProjectDirectory"] = "D:\\Repo\\src\\Libraries\\mvdmio.Localization",
+            ["build_property.MSBuildProjectName"] = "mvdmio.Localization",
             ["build_property.RootNamespace"] = "mvdmio.Localization"
          }
       );
@@ -101,7 +102,7 @@ public class TranslationManifestGeneratorTests
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
       result.GeneratedSource.Should().Contain("namespace mvdmio.Localization;");
       result.GeneratedSource.Should().NotContain("namespace mvdmio.Localization.D.Repo");
-      result.GeneratedSource.Should().Contain("private const string Origin = \"/Localizations.resx\";");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"mvdmio.Localization:/Localizations.resx\";");
       result.GeneratedSource.Should().NotContain("\"/D:/Repo/");
       result.GeneratedSource.Should().Contain("public static partial class Localizations");
    }
@@ -117,6 +118,7 @@ public class TranslationManifestGeneratorTests
          globalOptions: new Dictionary<string, string>(StringComparer.Ordinal)
          {
             ["build_property.MSBuildProjectDirectory"] = "D:\\Repo\\src\\Libraries\\mvdmio.Localization",
+            ["build_property.MSBuildProjectName"] = "mvdmio.Localization",
             ["build_property.RootNamespace"] = "mvdmio.Localization"
          }
       );
@@ -125,7 +127,7 @@ public class TranslationManifestGeneratorTests
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
       result.GeneratedSource.Should().Contain("namespace mvdmio.Localization.Resources.Shared;");
       result.GeneratedSource.Should().NotContain("namespace mvdmio.Localization.D.Repo");
-      result.GeneratedSource.Should().Contain("private const string Origin = \"/Resources/Shared/Localizations.resx\";");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"mvdmio.Localization:/Resources/Shared/Localizations.resx\";");
       result.GeneratedSource.Should().NotContain("\"/D:/Repo/");
       result.GeneratedSource.Should().Contain("public static partial class Localizations");
    }
@@ -141,6 +143,7 @@ public class TranslationManifestGeneratorTests
          globalOptions: new Dictionary<string, string>(StringComparer.Ordinal)
          {
             ["build_property.MSBuildProjectDirectory"] = "D:\\Repo\\src\\Fixture.App",
+            ["build_property.MSBuildProjectName"] = "Fixture.App",
             ["build_property.RootNamespace"] = "Fixture.App"
          }
       );
@@ -148,8 +151,28 @@ public class TranslationManifestGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
       result.GeneratedSource.Should().Contain("namespace Fixture.App.Resources.Shared;");
-      result.GeneratedSource.Should().Contain("private const string Origin = \"/Resources/Shared/Errors.resx\";");
+      result.GeneratedSource.Should().Contain("private const string Origin = \"Fixture.App:/Resources/Shared/Errors.resx\";");
       result.GeneratedSource.Should().Contain("public static partial class Errors");
+   }
+
+   [Fact]
+   public void ShouldReportDiagnosticAndSkipGenerationWhenProjectNameIsInvalid()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Button.Save", "Save")))
+         ],
+         globalOptions: new Dictionary<string, string>(StringComparer.Ordinal)
+         {
+            ["build_property.MSBuildProjectDirectory"] = "D:\\Project",
+            ["build_property.MSBuildProjectName"] = "Invalid:Project",
+            ["build_property.RootNamespace"] = "GeneratorTests"
+         }
+      );
+
+      result.GeneratorDiagnostics.Should().ContainSingle(x => x.Id == "TTCLIENTGEN005");
+      result.GeneratedSource.Should().BeEmpty();
    }
 
    [Fact]
@@ -210,6 +233,7 @@ public class TranslationManifestGeneratorTests
       var analyzerConfig = new TestAnalyzerConfigOptionsProvider(globalOptions ?? new Dictionary<string, string>(StringComparer.Ordinal)
       {
          ["build_property.MSBuildProjectDirectory"] = "D:\\Project",
+         ["build_property.MSBuildProjectName"] = "GeneratorTests",
          ["build_property.RootNamespace"] = "GeneratorTests"
       });
       GeneratorDriver driver = CSharpGeneratorDriver.Create(

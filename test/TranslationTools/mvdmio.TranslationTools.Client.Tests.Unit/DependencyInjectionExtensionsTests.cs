@@ -43,7 +43,7 @@ public class DependencyInjectionExtensionsTests
 
       await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
 
-      var value = await Translations.GetAsync(new TranslationRef("/Localizations.resx", "Button.Save"), cancellationToken: TestContext.Current.CancellationToken);
+      var value = await Translations.GetAsync(new TranslationRef("Fixture.App:/Localizations.resx", "Button.Save"), cancellationToken: TestContext.Current.CancellationToken);
 
       value.Should().Be("translated:Button.Save");
    }

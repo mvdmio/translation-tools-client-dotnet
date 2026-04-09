@@ -2,6 +2,7 @@ namespace mvdmio.TranslationTools.Tool.Configuration;
 
 internal sealed class ToolProjectContext
 {
+   public required string ProjectName { get; init; }
    public required string ProjectDirectory { get; init; }
    public required string ProjectFilePath { get; init; }
 }
@@ -19,6 +20,7 @@ internal static class ToolProjectResolver
 
       return new ToolProjectContext
       {
+         ProjectName = Path.GetFileNameWithoutExtension(projectFilePath),
          ProjectDirectory = projectDirectory,
          ProjectFilePath = projectFilePath
       };

@@ -60,6 +60,7 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
          state.Items.Clear();
 
          foreach (var item in value.Value.Values)
+         {
             state.Items[item.Key] = new TranslationToolsClientCacheEntry<TranslationItemResponse>
             {
                Value = new TranslationItemResponse
@@ -69,6 +70,7 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
                   Value = item.Value
                }
             };
+         }
 
          state.Locale = value;
       }

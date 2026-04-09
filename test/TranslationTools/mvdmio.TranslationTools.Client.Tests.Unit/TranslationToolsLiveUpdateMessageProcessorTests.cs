@@ -16,11 +16,11 @@ public class TranslationToolsLiveUpdateMessageProcessorTests
 
       await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
          client,
-         """{"type":"translation-updated","origin":"/Localizations.resx","locale":"en","key":"Button.Save","value":"Save now"}""",
+         """{"type":"translation-updated","origin":"Fixture.App:/Localizations.resx","locale":"en","key":"Button.Save","value":"Save now"}""",
          TestContext.Current.CancellationToken
       );
 
-      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en"))!.Value.Should().Be("Save now");
+      client.TryGetCached(new TranslationRef("Fixture.App:/Localizations.resx", "Button.Save"), new CultureInfo("en"))!.Value.Should().Be("Save now");
    }
 
    [Fact]
@@ -48,7 +48,7 @@ public class TranslationToolsLiveUpdateMessageProcessorTests
          TestContext.Current.CancellationToken
       );
 
-      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en")).Should().BeNull();
+      client.TryGetCached(new TranslationRef("Fixture.App:/Localizations.resx", "Button.Save"), new CultureInfo("en")).Should().BeNull();
    }
 
    [Fact]
@@ -63,11 +63,11 @@ public class TranslationToolsLiveUpdateMessageProcessorTests
       );
       await TranslationToolsLiveUpdateMessageProcessor.ProcessAsync(
          client,
-         """{"type":"translation-updated","origin":"/Localizations.resx","locale":"bad-locale-@@","key":"Button.Save","value":"Save now"}""",
+         """{"type":"translation-updated","origin":"Fixture.App:/Localizations.resx","locale":"bad-locale-@@","key":"Button.Save","value":"Save now"}""",
          TestContext.Current.CancellationToken
       );
 
-      client.TryGetCached(new TranslationRef("/Localizations.resx", "Button.Save"), new CultureInfo("en")).Should().BeNull();
+      client.TryGetCached(new TranslationRef("Fixture.App:/Localizations.resx", "Button.Save"), new CultureInfo("en")).Should().BeNull();
    }
 
    private static TranslationToolsClient CreateClient()

@@ -47,11 +47,11 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
       {
          if (_backgroundTask is not null)
          {
-            _logger.LogDebug("TranslationTools live updates already started.");
+            _logger.LogDebug("TranslationTools live updates already started");
             return;
          }
 
-         _logger.LogInformation("Starting TranslationTools live updates.");
+         _logger.LogInformation("Starting TranslationTools live updates");
          _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
          _backgroundTask = Task.Run(() => RunAsync(_cancellationTokenSource.Token), CancellationToken.None);
       }
@@ -64,7 +64,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
    public void Dispose()
    {
       if (_backgroundTask is not null)
-         _logger.LogDebug("Stopping TranslationTools live updates.");
+         _logger.LogDebug("Stopping TranslationTools live updates");
 
       _cancellationTokenSource?.Cancel();
       _cancellationTokenSource?.Dispose();
@@ -85,18 +85,18 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
             baseUri = BaseUri;
             httpClient.BaseAddress = baseUri;
 
-            _logger.LogDebug("Requesting TranslationTools live update socket token from {BaseUrl}.", baseUri);
+            _logger.LogDebug("Requesting TranslationTools live update socket token from {BaseUrl}", baseUri);
             var socketToken = await GetSocketTokenAsync(httpClient, cancellationToken);
             using var webSocket = new ClientWebSocket();
-            _logger.LogDebug("Connecting TranslationTools live update websocket to {BaseUrl}.", baseUri);
-             await webSocket.ConnectAsync(BuildSocketUri(baseUri, socketToken.Token), cancellationToken);
-            _logger.LogInformation("Connected TranslationTools live update websocket to {BaseUrl}.", baseUri);
+            _logger.LogDebug("Connecting TranslationTools live update websocket to {BaseUrl}", baseUri);
+            await webSocket.ConnectAsync(BuildSocketUri(baseUri, socketToken.Token), cancellationToken);
+            _logger.LogInformation("Connected TranslationTools live update websocket to {BaseUrl}", baseUri);
             await ReceiveLoopAsync(webSocket, cancellationToken);
 
             if (!cancellationToken.IsCancellationRequested)
             {
                _logger.LogInformation(
-                  "TranslationTools live update websocket disconnected from {BaseUrl}. Retrying in {ReconnectDelay}.",
+                  "TranslationTools live update websocket disconnected from {BaseUrl}. Retrying in {ReconnectDelay}",
                   baseUri,
                   ReconnectDelay
                );
@@ -110,7 +110,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          {
             _logger.LogWarning(
                exception,
-               "Failed to fetch TranslationTools live update socket token from {BaseUrl}. Retrying in {ReconnectDelay}.",
+               "Failed to fetch TranslationTools live update socket token from {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
                ReconnectDelay
             );
@@ -119,7 +119,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          {
             _logger.LogWarning(
                exception,
-               "TranslationTools live update websocket failed for {BaseUrl}. Retrying in {ReconnectDelay}.",
+               "TranslationTools live update websocket failed for {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
                ReconnectDelay
             );
@@ -128,7 +128,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          {
             _logger.LogWarning(
                exception,
-               "Failed to deserialize the TranslationTools live update socket token response from {BaseUrl}. Retrying in {ReconnectDelay}.",
+               "Failed to deserialize the TranslationTools live update socket token response from {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
                ReconnectDelay
             );
@@ -137,7 +137,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          {
             _logger.LogError(
                exception,
-               "Unexpected TranslationTools live update failure for {BaseUrl}. Retrying in {ReconnectDelay}.",
+               "Unexpected TranslationTools live update failure for {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
                ReconnectDelay
             );
@@ -153,7 +153,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          }
       }
 
-      _logger.LogInformation("TranslationTools live updates stopped.");
+      _logger.LogInformation("TranslationTools live updates stopped");
    }
 
    private async Task ReceiveLoopAsync(ClientWebSocket webSocket, CancellationToken cancellationToken)
@@ -173,7 +173,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
             if (result.MessageType == WebSocketMessageType.Close)
             {
                _logger.LogInformation(
-                  "TranslationTools live update websocket received a close frame. Status: {CloseStatus}; Description: {CloseStatusDescription}.",
+                  "TranslationTools live update websocket received a close frame. Status: {CloseStatus}; Description: {CloseStatusDescription}",
                   webSocket.CloseStatus,
                   webSocket.CloseStatusDescription
                );
@@ -185,7 +185,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
 
          if (result.MessageType != WebSocketMessageType.Text)
          {
-            _logger.LogDebug("Ignoring non-text TranslationTools live update websocket message of type {MessageType}.", result.MessageType);
+            _logger.LogDebug("Ignoring non-text TranslationTools live update websocket message of type {MessageType}", result.MessageType);
             continue;
          }
 
@@ -207,19 +207,19 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
              ?? throw new InvalidOperationException("Socket token response body was empty.");
    }
 
-    private static Uri BuildSocketUri(Uri baseUri, string socketToken)
-    {
-       var builder = new UriBuilder(baseUri)
-       {
-          Scheme = baseUri.Scheme switch
-          {
-             "http" => "ws",
-             "https" => "wss",
-             _ => throw new InvalidOperationException($"Unsupported TranslationTools base URI scheme '{baseUri.Scheme}'.")
-          },
-          Path = "/ws/translations",
-          Query = $"token={Uri.EscapeDataString(socketToken)}"
-       };
+   private static Uri BuildSocketUri(Uri baseUri, string socketToken)
+   {
+      var builder = new UriBuilder(baseUri)
+      {
+         Scheme = baseUri.Scheme switch
+         {
+            "http" => "ws",
+            "https" => "wss",
+            _ => throw new InvalidOperationException($"Unsupported TranslationTools base URI scheme '{baseUri.Scheme}'.")
+         },
+         Path = "/ws/translations",
+         Query = $"token={Uri.EscapeDataString(socketToken)}"
+      };
 
       return builder.Uri;
    }

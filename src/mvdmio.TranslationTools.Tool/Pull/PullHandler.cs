@@ -71,7 +71,15 @@ internal sealed class PullHandler
 
       var allItems = localeItems
          .SelectMany(static pair => pair.Value.Select(item => (Locale: pair.Key, Item: item)))
-         .GroupBy(static x => (Origin: NormalizeOrigin(x.Item.Origin), Locale: x.Locale), static x => x.Item)
+         .Select(static item => new {
+            item.Locale,
+            ParsedOrigin = TranslationOrigin.TryParse(item.Item.Origin, out var projectName, out var resourcePath)
+               ? new ParsedTranslationOrigin(projectName, resourcePath)
+               : null,
+            Item = item.Item
+         })
+         .Where(item => item.ParsedOrigin is not null && string.Equals(item.ParsedOrigin.ProjectName, request.ProjectName, StringComparison.Ordinal))
+         .GroupBy(item => (Origin: item.ParsedOrigin!.ResourcePath, Locale: item.Locale), item => item.Item)
          .ToArray();
 
       foreach (var group in allItems)
@@ -101,13 +109,14 @@ internal sealed class PullHandler
       return new TranslationPullRequest
       {
          ApiKey = config.ApiKey,
+         ProjectName = projectContext.ProjectName,
          ProjectDirectory = projectContext.ProjectDirectory
       };
    }
 
    private static string BuildFilePath(string projectDirectory, string origin, string locale, string defaultLocale)
    {
-      var normalizedOrigin = NormalizeOrigin(origin).TrimStart('/');
+      var normalizedOrigin = origin.Trim().Replace('\\', '/').TrimStart('/');
       var basePath = Path.Combine(projectDirectory, normalizedOrigin.Replace('/', Path.DirectorySeparatorChar));
 
       if (string.Equals(locale, defaultLocale, StringComparison.Ordinal))
@@ -135,9 +144,30 @@ internal sealed class PullHandler
       return builder.ToString();
    }
 
-   private static string NormalizeOrigin(string origin)
+   private sealed record ParsedTranslationOrigin(string ProjectName, string ResourcePath);
+
+   private static class TranslationOrigin
    {
-      return origin.Trim().Replace('\\', '/');
+      public static bool TryParse(string origin, out string projectName, out string resourcePath)
+      {
+         projectName = string.Empty;
+         resourcePath = string.Empty;
+
+         if (string.IsNullOrWhiteSpace(origin))
+            return false;
+
+         var separatorIndex = origin.IndexOf(':');
+         if (separatorIndex <= 0 || separatorIndex != origin.LastIndexOf(':'))
+            return false;
+
+         projectName = origin[..separatorIndex].Trim();
+         resourcePath = origin[(separatorIndex + 1)..].Trim().Replace('\\', '/');
+
+         return !string.IsNullOrWhiteSpace(projectName)
+            && !projectName.Contains(':')
+            && resourcePath.StartsWith('/')
+            && resourcePath.EndsWith(".resx", StringComparison.OrdinalIgnoreCase);
+      }
    }
 }
 

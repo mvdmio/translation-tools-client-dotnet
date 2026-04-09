@@ -214,7 +214,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
       await _cache.SetLocaleAsync(
          locale,
-         new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> {
+         new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>
+         {
             Value = stored
          },
          cancellationToken

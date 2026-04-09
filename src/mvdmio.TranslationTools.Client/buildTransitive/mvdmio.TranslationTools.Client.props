@@ -1,5 +1,13 @@
 <Project>
    <ItemGroup>
+      <CompilerVisibleProperty Include="MSBuildProjectDirectory" />
+      <CompilerVisibleProperty Include="ProjectDir" />
+      <CompilerVisibleProperty Include="RootNamespace" />
+      <CompilerVisibleProperty Include="MSBuildProjectName" />
+      <CompilerVisibleProperty Include="ProjectName" />
+      <CompilerVisibleProperty Include="MSBuildProjectFile" />
+      <CompilerVisibleProperty Include="ProjectFileName" />
+      <CompilerVisibleProperty Include="MSBuildProjectFullPath" />
       <AdditionalFiles Include="$(MSBuildProjectDirectory)\**\*.resx" Exclude="$(MSBuildProjectDirectory)\bin\**;$(MSBuildProjectDirectory)\obj\**" />
    </ItemGroup>
 </Project>

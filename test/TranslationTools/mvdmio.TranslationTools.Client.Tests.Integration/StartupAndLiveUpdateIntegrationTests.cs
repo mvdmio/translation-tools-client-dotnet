@@ -13,6 +13,8 @@ namespace mvdmio.TranslationTools.Client.Tests.Integration;
 [Collection(IntegrationTestCollection.Name)]
 public sealed class StartupAndLiveUpdateIntegrationTests
 {
+   private const string ProjectOriginPrefix = "mvdmio.TranslationTools.Client.Tests.Integration:";
+
    [Fact]
    public async Task InitializeTranslationToolsClientAsync_ShouldHydrateAllConfiguredLocales_AndAllowLocaleSpecificReads()
    {
@@ -21,13 +23,13 @@ public sealed class StartupAndLiveUpdateIntegrationTests
          {
             ["en"] = new Dictionary<TranslationRef, string?>
             {
-               [new TranslationRef("/Localizations.resx", "Button.Save")] = "Save",
-               [new TranslationRef("/Resources/Shared/Errors.resx", "404.title")] = "Not found"
+               [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Save",
+               [new TranslationRef(ProjectOriginPrefix + "/Resources/Shared/Errors.resx", "404.title")] = "Not found"
             },
             ["nl"] = new Dictionary<TranslationRef, string?>
             {
-               [new TranslationRef("/Localizations.resx", "Button.Save")] = "Opslaan",
-               [new TranslationRef("/Resources/Shared/Errors.resx", "404.title")] = "Niet gevonden"
+               [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Opslaan",
+               [new TranslationRef(ProjectOriginPrefix + "/Resources/Shared/Errors.resx", "404.title")] = "Niet gevonden"
             }
          },
          TestContext.Current.CancellationToken
@@ -66,8 +68,8 @@ public sealed class StartupAndLiveUpdateIntegrationTests
          dutch.Values[Localizations.Keys.Button_Save].Should().Be("Opslaan");
          dutch.Values[Errors.Keys._404_title].Should().Be("Niet gevonden");
 
-         Localizations.Keys.Button_Save.Origin.Should().Be("/Localizations.resx");
-         Errors.Keys._404_title.Origin.Should().Be("/Resources/Shared/Errors.resx");
+         Localizations.Keys.Button_Save.Origin.Should().Be(ProjectOriginPrefix + "/Localizations.resx");
+         Errors.Keys._404_title.Origin.Should().Be(ProjectOriginPrefix + "/Resources/Shared/Errors.resx");
          Localizations.Button_Save.Should().Be("Save");
          (await Localizations.GetAsync("Button.Save", new CultureInfo("nl"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Opslaan");
          (await Errors.GetAsync("404.title", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Not found");
@@ -87,8 +89,8 @@ public sealed class StartupAndLiveUpdateIntegrationTests
          {
             ["en"] = new Dictionary<TranslationRef, string?>
             {
-               [new TranslationRef("/Localizations.resx", "Button.Save")] = "Save from API",
-               [new TranslationRef("/Resources/Shared/Errors.resx", "404.title")] = "Not found from API"
+               [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Save from API",
+               [new TranslationRef(ProjectOriginPrefix + "/Resources/Shared/Errors.resx", "404.title")] = "Not found from API"
             }
          },
          TestContext.Current.CancellationToken
@@ -128,15 +130,15 @@ public sealed class StartupAndLiveUpdateIntegrationTests
 
          locale.Values[Localizations.Keys.Button_Save].Should().Be("Save from API");
          locale.Values[Errors.Keys._404_title].Should().Be("Not found from API");
-         Localizations.Keys.Button_Save.Origin.Should().Be("/Localizations.resx");
-         Errors.Keys._404_title.Origin.Should().Be("/Resources/Shared/Errors.resx");
+         Localizations.Keys.Button_Save.Origin.Should().Be(ProjectOriginPrefix + "/Localizations.resx");
+         Errors.Keys._404_title.Origin.Should().Be(ProjectOriginPrefix + "/Resources/Shared/Errors.resx");
          Localizations.Button_Save.Should().Be("Save from API");
          (await Errors.GetAsync("404.title", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Not found from API");
          (await Localizations.GetAsync("Button.Save", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Save from API");
          (await Errors.GetAsync("404.title", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Not found from API");
 
          await server.SendLiveUpdateAsync(
-            """{"type":"translation-updated","origin":"/Localizations.resx","locale":"en","key":"Button.Save","value":"Save live"}""",
+            """{"type":"translation-updated","origin":"mvdmio.TranslationTools.Client.Tests.Integration:/Localizations.resx","locale":"en","key":"Button.Save","value":"Save live"}""",
             TestContext.Current.CancellationToken
          );
 

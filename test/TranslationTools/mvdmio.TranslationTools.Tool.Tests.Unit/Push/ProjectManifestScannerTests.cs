@@ -7,6 +7,8 @@ namespace mvdmio.TranslationTools.Tool.Tests.Unit.Push;
 
 public class ProjectManifestScannerTests
 {
+   private const string ProjectName = "Demo";
+
    [Fact]
    public void ScanProject_ShouldIncludeMissingLocaleKeysWithNullValues()
    {
@@ -36,15 +38,17 @@ public class ProjectManifestScannerTests
             """
          );
 
-         var result = new ProjectManifestScanner().ScanProject(projectDirectory, "en");
+         File.WriteAllText(Path.Combine(projectDirectory, ProjectName + ".csproj"), "<Project />");
+
+         var result = new ProjectManifestScanner().ScanProject(ProjectName, projectDirectory, "en");
 
          result.Items.Should().HaveCount(6);
-         result.Items.Should().ContainSingle(static x => x.Key == "A" && x.Locale == "en" && x.Value == "Alpha");
-         result.Items.Should().ContainSingle(static x => x.Key == "B" && x.Locale == "en" && x.Value == "Beta");
-         result.Items.Should().ContainSingle(static x => x.Key == "C" && x.Locale == "en" && x.Value == "Gamma");
-         result.Items.Should().ContainSingle(static x => x.Key == "A" && x.Locale == "nl" && x.Value == "Alfa");
-         result.Items.Should().ContainSingle(static x => x.Key == "B" && x.Locale == "nl" && x.Value == null);
-         result.Items.Should().ContainSingle(static x => x.Key == "C" && x.Locale == "nl" && x.Value == null);
+         result.Items.Should().ContainSingle(x => x.Origin == ProjectName + ":/Localizations.resx" && x.Key == "A" && x.Locale == "en" && x.Value == "Alpha");
+         result.Items.Should().ContainSingle(x => x.Origin == ProjectName + ":/Localizations.resx" && x.Key == "B" && x.Locale == "en" && x.Value == "Beta");
+         result.Items.Should().ContainSingle(x => x.Origin == ProjectName + ":/Localizations.resx" && x.Key == "C" && x.Locale == "en" && x.Value == "Gamma");
+         result.Items.Should().ContainSingle(x => x.Origin == ProjectName + ":/Localizations.resx" && x.Key == "A" && x.Locale == "nl" && x.Value == "Alfa");
+         result.Items.Should().ContainSingle(x => x.Origin == ProjectName + ":/Localizations.resx" && x.Key == "B" && x.Locale == "nl" && x.Value == null);
+         result.Items.Should().ContainSingle(x => x.Origin == ProjectName + ":/Localizations.resx" && x.Key == "C" && x.Locale == "nl" && x.Value == null);
       }
       finally
       {
@@ -59,7 +63,7 @@ public class ProjectManifestScannerTests
 
       try
       {
-         var act = () => new ProjectManifestScanner().ScanProject(projectDirectory, "en");
+         var act = () => new ProjectManifestScanner().ScanProject(ProjectName, projectDirectory, "en");
 
          act.Should().Throw<InvalidOperationException>().WithMessage($"*No .resx locale files found in project '{projectDirectory}'.*");
       }
@@ -73,6 +77,7 @@ public class ProjectManifestScannerTests
    public void BuildOrigin_ShouldConvertResourceSetPathToResxOrigin()
    {
       ProjectManifestScanner.BuildOrigin(
+         ProjectName,
          new ResxMigrationSourceFile
          {
             FilePath = "ignored",
@@ -81,7 +86,7 @@ public class ProjectManifestScannerTests
             ResourceSetName = "Resources.Shared.Messages",
             Locale = null
          }
-      ).Should().Be("/Resources/Shared/Messages.resx");
+      ).Should().Be("Demo:/Resources/Shared/Messages.resx");
    }
 
    private static string CreateProjectDirectory()

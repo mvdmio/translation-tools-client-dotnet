@@ -18,7 +18,7 @@ internal sealed class ProjectManifestScanner
       _parser = parser;
    }
 
-   public ProjectManifestScanResult ScanProject(string projectDirectory, string defaultLocale)
+   public ProjectManifestScanResult ScanProject(string projectName, string projectDirectory, string defaultLocale)
    {
       var normalizedDefaultLocale = ResxMigrationScanner.NormalizeLocale(defaultLocale);
       var scanResult = _scanner.ScanProject(projectDirectory);
@@ -28,8 +28,8 @@ internal sealed class ProjectManifestScanner
          .ToArray();
 
       var items = parsedFiles
-         .GroupBy(static parsedFile => parsedFile.SourceFile.ResourceSetName, StringComparer.Ordinal)
-         .SelectMany(resourceSet => BuildResourceSetItems(resourceSet, normalizedDefaultLocale))
+          .GroupBy(static parsedFile => parsedFile.SourceFile.ResourceSetName, StringComparer.Ordinal)
+         .SelectMany(resourceSet => BuildResourceSetItems(projectName, resourceSet, normalizedDefaultLocale))
          .OrderBy(static item => item.Origin, StringComparer.OrdinalIgnoreCase)
          .ThenBy(static item => item.Key, StringComparer.Ordinal)
          .ThenBy(static item => item.Locale, StringComparer.Ordinal)
@@ -42,9 +42,10 @@ internal sealed class ProjectManifestScanner
    }
 
    private static IReadOnlyCollection<ProjectTranslationPushItem> BuildResourceSetItems(
+      string projectName,
       IGrouping<string, ResxParsedFile> resourceSet,
       string defaultLocale
-   )
+    )
    {
       var filesByLocale = resourceSet
          .ToDictionary(
@@ -64,7 +65,7 @@ internal sealed class ProjectManifestScanner
             pair => keys.Select(
                key => new ProjectTranslationPushItem
                {
-                  Origin = BuildOrigin(pair.Value.SourceFile),
+                  Origin = BuildOrigin(projectName, pair.Value.SourceFile),
                   Locale = pair.Key,
                   Key = key,
                   Value = pair.Value.Entries.FirstOrDefault(entry => entry.Key == key)?.Value
@@ -74,10 +75,10 @@ internal sealed class ProjectManifestScanner
          .ToArray();
    }
 
-   internal static string BuildOrigin(ResxMigrationSourceFile sourceFile)
+   internal static string BuildOrigin(string projectName, ResxMigrationSourceFile sourceFile)
    {
       var resourceSetPath = sourceFile.ResourceSetPath.Replace('\\', '/');
-      return "/" + resourceSetPath + ".resx";
+      return projectName + ":/" + resourceSetPath + ".resx";
    }
 }
 

@@ -9,7 +9,7 @@ namespace mvdmio.TranslationTools.Tool.Tests.Unit.Pull;
 public class PullHandlerResxWritingTests
 {
    [Fact]
-   public async Task HandleAsync_ShouldWriteOnlyResxFiles()
+   public async Task HandleAsync_ShouldWriteOnlyMatchingProjectResxFiles()
    {
       var fileSystem = new RecordingPullFileSystem();
       var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -35,6 +35,7 @@ public class PullHandlerResxWritingTests
          fileSystem.Writes.Keys.Should().OnlyContain(static path => path.EndsWith(".resx", StringComparison.OrdinalIgnoreCase));
          fileSystem.Writes.Keys.Should().Contain(Path.Combine(projectDirectory, "Localizations.resx"));
          fileSystem.Writes.Keys.Should().Contain(Path.Combine(projectDirectory, "Localizations.nl.resx"));
+         fileSystem.Writes.Keys.Should().NotContain(Path.Combine(projectDirectory, "Ignored.resx"));
       }
       finally
       {
@@ -61,18 +62,30 @@ public class PullHandlerResxWritingTests
             [
                new TranslationItemResponse
                {
-                  Origin = "/Localizations.resx",
+                  Origin = "Demo:/Localizations.resx",
                   Key = "Button.Save",
                   Value = "Save"
+               },
+               new TranslationItemResponse
+               {
+                  Origin = "OtherProject:/Ignored.resx",
+                  Key = "Ignored.Key",
+                  Value = "Ignored"
                }
             ],
             "nl" =>
             [
                new TranslationItemResponse
                {
-                  Origin = "/Localizations.resx",
+                  Origin = "Demo:/Localizations.resx",
                   Key = "Button.Save",
                   Value = "Opslaan"
+               },
+               new TranslationItemResponse
+               {
+                  Origin = "OtherProject:/Ignored.resx",
+                  Key = "Ignored.Key",
+                  Value = "Genegeerd"
                }
             ],
             _ => []

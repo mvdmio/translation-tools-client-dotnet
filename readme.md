@@ -48,6 +48,16 @@ var item = await client.GetAsync(Localizations.Keys.Button_Save, new CultureInfo
 var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 ```
 
+Generated and runtime translation identities now use project-qualified origins in the format `<project-name>:/<project-relative-resx-path>`.
+
+Example:
+
+```text
+mvdmio.TranslationTools.Client:/Localizations.resx
+```
+
+This avoids collisions when multiple projects in the same TranslationTools project contain the same relative `.resx` path. If you construct `TranslationRef` values manually, use the project-qualified format.
+
 Package docs: `src/mvdmio.TranslationTools.Client/Readme.md`
 
 ### `mvdmio.TranslationTools.Tool`
@@ -80,6 +90,8 @@ defaultLocale: en
 - `translations init` creates `.mvdmio-translations.yml`
 - `translations pull` downloads remote translations into local `.resx` files
 - `translations push` uploads local `.resx` values to TranslationTools
+
+`translations pull` remains project-scoped. It only writes `.resx` files for the current `.csproj` name and skips origins for other projects.
 
 Package docs: `src/mvdmio.TranslationTools.Tool/README.md`
 

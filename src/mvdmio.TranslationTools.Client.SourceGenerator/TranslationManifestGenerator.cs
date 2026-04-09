@@ -14,9 +14,9 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
 {
    public void Initialize(IncrementalGeneratorInitializationContext context)
    {
-      var analyzerOptions = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => new GeneratorOptions
-      {
+      var analyzerOptions = context.AnalyzerConfigOptionsProvider.Select(static (provider, _) => new GeneratorOptions {
          ProjectDirectory = GetProjectDirectory(provider.GlobalOptions),
+         ProjectName = GetProjectName(provider.GlobalOptions),
          RootNamespace = GetGlobalOption(provider.GlobalOptions, "build_property.RootNamespace")
       });
 
@@ -63,7 +63,19 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          return new TranslationManifestResult();
 
       var relativePath = BuildProjectRelativePath(file.Path, options.ProjectDirectory);
-      var origin = BuildOrigin(relativePath);
+      if (!IsValidProjectName(options.ProjectName))
+      {
+         return new TranslationManifestResult
+         {
+            Diagnostics = ImmutableArray.Create(Diagnostic.Create(
+               TranslationGeneratorDiagnostics.InvalidProjectName,
+               Location.None,
+               options.ProjectName
+            ))
+         };
+      }
+
+      var origin = BuildOrigin(options.ProjectName, relativePath);
       var typeName = BuildTypeName(file.Path);
       var @namespace = BuildNamespace(relativePath, options.RootNamespace);
 
@@ -96,16 +108,17 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          : model.Namespace + "." + model.TypeName + ".Translations";
    }
 
-   private static string BuildOrigin(string relativePath)
+   private static string BuildOrigin(string projectName, string relativePath)
    {
       var normalizedRelativePath = NormalizePath(relativePath);
       var fileName = GetFileName(normalizedRelativePath);
       var directory = GetDirectoryName(normalizedRelativePath);
       var baseFileName = TryGetLocaleSuffix(fileName, out var trimmedFileName) ? trimmedFileName : fileName;
-
-      return string.IsNullOrWhiteSpace(directory)
+      var resourcePath = string.IsNullOrWhiteSpace(directory)
          ? "/" + baseFileName
          : "/" + directory + "/" + baseFileName;
+
+      return projectName + ":" + resourcePath;
    }
 
    private static string BuildTypeName(string path)
@@ -193,6 +206,14 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          : normalizedPath;
    }
 
+   private static string GetFileNameWithoutExtension(string path)
+   {
+      var fileName = GetFileName(path);
+      return string.IsNullOrWhiteSpace(fileName)
+         ? string.Empty
+         : Path.GetFileNameWithoutExtension(fileName);
+   }
+
    private static string GetDirectoryName(string path)
    {
       var normalizedPath = NormalizePath(path).TrimEnd('/');
@@ -217,6 +238,32 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          return projectDirectory;
 
       return GetGlobalOption(options, "build_property.ProjectDir");
+   }
+
+   private static string GetProjectName(AnalyzerConfigOptions options)
+   {
+      var projectName = GetGlobalOption(options, "build_property.MSBuildProjectName");
+      if (!string.IsNullOrWhiteSpace(projectName))
+         return projectName;
+
+      projectName = GetGlobalOption(options, "build_property.ProjectName");
+      if (!string.IsNullOrWhiteSpace(projectName))
+         return projectName;
+
+      projectName = GetFileNameWithoutExtension(GetGlobalOption(options, "build_property.MSBuildProjectFile"));
+      if (!string.IsNullOrWhiteSpace(projectName))
+         return projectName;
+
+      projectName = GetFileNameWithoutExtension(GetGlobalOption(options, "build_property.ProjectFileName"));
+      if (!string.IsNullOrWhiteSpace(projectName))
+         return projectName;
+
+      return GetFileNameWithoutExtension(GetGlobalOption(options, "build_property.MSBuildProjectFullPath"));
+   }
+
+   private static bool IsValidProjectName(string projectName)
+   {
+      return !string.IsNullOrWhiteSpace(projectName) && !projectName.Contains(':');
    }
 
    private static string SanitizeIdentifier(string value)
@@ -264,6 +311,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
    private sealed class GeneratorOptions
    {
       public string ProjectDirectory { get; set; } = string.Empty;
+      public string ProjectName { get; set; } = string.Empty;
       public string RootNamespace { get; set; } = string.Empty;
    }
 }

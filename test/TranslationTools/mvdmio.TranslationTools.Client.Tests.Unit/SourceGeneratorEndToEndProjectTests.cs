@@ -12,6 +12,8 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
 public class SourceGeneratorEndToEndProjectTests
 {
+   private const string ProjectOriginPrefix = "SourceGeneratorEndToEnd:";
+
    [Fact]
    public void FixtureProject_ShouldEmitGeneratedFilesToDefaultObjGeneratedDirectory()
    {
@@ -56,8 +58,8 @@ public class SourceGeneratorEndToEndProjectTests
          new System.Globalization.CultureInfo("en"),
          new Dictionary<TranslationRef, string?>
          {
-            [new("/Localizations.resx", "Button.Save")] = "Cached save",
-            [new("/Resources/Shared/Errors.resx", "404.title")] = "Cached not found"
+            [new(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Cached save",
+            [new(ProjectOriginPrefix + "/Resources/Shared/Errors.resx", "404.title")] = "Cached not found"
          },
          TestContext.Current.CancellationToken
       );
@@ -69,14 +71,14 @@ public class SourceGeneratorEndToEndProjectTests
          CultureInfo.CurrentUICulture = new CultureInfo("en");
          Translations.SetClient(provider.GetRequiredService<ITranslationToolsClient>());
 
-         Localizations.Keys.Button_Save.Origin.Should().Be("/Localizations.resx");
+         Localizations.Keys.Button_Save.Origin.Should().Be(ProjectOriginPrefix + "/Localizations.resx");
          Localizations.Keys.Button_Save.Key.Should().Be("Button.Save");
-         Localizations.Keys.Action_Save.Origin.Should().Be("/Localizations.resx");
+         Localizations.Keys.Action_Save.Origin.Should().Be(ProjectOriginPrefix + "/Localizations.resx");
          Localizations.Keys.Action_Save.Key.Should().Be("Action-Save");
 
-         Errors.Keys._404_title.Origin.Should().Be("/Resources/Shared/Errors.resx");
+         Errors.Keys._404_title.Origin.Should().Be(ProjectOriginPrefix + "/Resources/Shared/Errors.resx");
          Errors.Keys._404_title.Key.Should().Be("404.title");
-         Errors.Keys.Status_Code.Origin.Should().Be("/Resources/Shared/Errors.resx");
+         Errors.Keys.Status_Code.Origin.Should().Be(ProjectOriginPrefix + "/Resources/Shared/Errors.resx");
          Errors.Keys.Status_Code.Key.Should().Be("Status.Code");
 
          Localizations.Button_Save.Should().Be("Cached save");
@@ -88,11 +90,11 @@ public class SourceGeneratorEndToEndProjectTests
          result.AsyncValue.Should().Be("Cached not found");
 
          var saveKey = result.SaveKey;
-         saveKey.Origin.Should().Be("/Localizations.resx");
+         saveKey.Origin.Should().Be(ProjectOriginPrefix + "/Localizations.resx");
          saveKey.Key.Should().Be("Button.Save");
 
          var errorKey = result.ErrorKey;
-         errorKey.Origin.Should().Be("/Resources/Shared/Errors.resx");
+         errorKey.Origin.Should().Be(ProjectOriginPrefix + "/Resources/Shared/Errors.resx");
          errorKey.Key.Should().Be("404.title");
       }
       finally
