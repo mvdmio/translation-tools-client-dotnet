@@ -1,50 +1,32 @@
-# TranslationTools .NET Packages
+# TranslationTools .NET
 
-Public .NET packages for working with the TranslationTools API, origin-aware runtime client APIs, and `.resx`-driven generated localization classes.
-
-Current client package version: `2.3.5`.
-
-GitHub Actions release automation now uses a single workflow that builds and tests the full solution before publishing both the client and tool NuGet packages together.
+`.NET` packages for working with TranslationTools translations in application code and in local `.resx` files.
 
 ## Packages
 
-- `mvdmio.TranslationTools.Client` - API client, DI helpers, embedded snapshot bootstrap, source-generated localization support
-- `mvdmio.TranslationTools.Tool` - .NET tool for initializing config, migrating `.resx` files, pulling remote `.resx` state, and pushing local `.resx` state back to TranslationTools
-- `mvdmio.TranslationTools.Client.SourceGenerator` - bundled with the client package; not shipped as a separate public package
+### `mvdmio.TranslationTools.Client`
 
-## Install
+Use this package in your application when you want to:
 
-### Client package
+- fetch translations from the TranslationTools API
+- use generated strongly typed localization classes from `.resx` files
+- keep local `.resx` resources as a fallback
+- optionally receive live translation updates at runtime
+
+Install:
 
 ```bash
 dotnet add package mvdmio.TranslationTools.Client
 ```
 
-### CLI tool
-
-```bash
-dotnet tool install --global mvdmio.TranslationTools.Tool
-```
-
-Command name: `translations`
-
-## What this repo contains
-
-- `src/mvdmio.TranslationTools.Client` - reusable client library for ASP.NET and other .NET applications
-- `src/mvdmio.TranslationTools.Client.SourceGenerator` - source generator used by the client package for `.resx`-backed properties
-- `src/mvdmio.TranslationTools.Tool` - command-line tool for `.resx` sync workflows
-- `test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit` - unit tests for the client package
-- `test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit` - unit tests for the CLI tool
-
-## Client quick start
-
-Register the client during startup:
+Basic setup:
 
 ```csharp
 using mvdmio.TranslationTools.Client;
 
 builder.Services.AddTranslationToolsClient(options => {
    options.ApiKey = "project-api-key";
+   options.DefaultLocale = "en";
    options.EnableLiveUpdates = true;
 });
 
@@ -52,120 +34,70 @@ var app = builder.Build();
 await app.InitializeTranslationToolsClientAsync();
 ```
 
-Read translations at runtime:
+Use generated translations and the runtime client:
 
 ```csharp
+using System.Globalization;
 using mvdmio.TranslationTools.Client;
 
 var client = app.Services.GetRequiredService<ITranslationToolsClient>();
-var title = Localizations.Button_Save;
-var fetchedTitle = await Localizations.GetAsync("Button.Save");
-var locale = await client.GetLocaleAsync(new System.Globalization.CultureInfo("en"));
-var refValue = await client.GetAsync(Localizations.Keys.Button_Save, new System.Globalization.CultureInfo("en"));
+
+var generated = Localizations.Button_Save;
+var dynamicValue = await Localizations.GetAsync("Button.Save");
+var item = await client.GetAsync(Localizations.Keys.Button_Save, new CultureInfo("en"));
+var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 ```
 
-Source generation now starts from local neutral `.resx` files.
+Package docs: `src/mvdmio.TranslationTools.Client/Readme.md`
 
-Localized `.resx` variants keep their neutral `.resx` file as `DependentUpon`, so IDEs such as Rider continue to nest files like `Localizations.nl.resx` under `Localizations.resx`.
+### `mvdmio.TranslationTools.Tool`
 
-Path handling is separator-agnostic, and Windows-style absolute project paths stay project-relative even when generation runs on Unix-based CI agents.
+Use this .NET tool when you want to sync local `.resx` files with TranslationTools.
 
-Generated `GeneratedCodeAttribute` metadata now uses the source generator assembly version automatically, and shared package/version metadata is centralized so the emitted version stays aligned.
+Install:
 
-Generated `.g.cs` files are now emitted to the consuming project's `obj/Generated` directory by default so package consumers can inspect and step through generated localization code while debugging.
-
-Published packages now include Source Link and symbol package metadata so debuggers can step into the client library source as well.
-
-`TranslationLocaleSnapshot` is a plain locale DTO with `Locale` plus an origin-aware `Values` dictionary keyed by `TranslationRef`.
-
-The client cache now owns both locale snapshots and per-locale translation item dictionaries, so item lookups are resolved by locale plus translation identity instead of by a separate client-side in-memory index.
-
-Example `Localizations.resx`:
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<root>
-  <data name="Button.Save">
-    <value>Save</value>
-  </data>
-  <data name="Button.Cancel">
-    <value>Cancel</value>
-  </data>
-</root>
+```bash
+dotnet tool install --global mvdmio.TranslationTools.Tool
 ```
 
-After generation, consume strongly-typed properties and keys:
+Command name: `translations`
 
-```csharp
-var label = Localizations.Button_Save;
-var key = Localizations.Keys.Button_Save;
-var asyncLabel = await Localizations.GetAsync("Button.Save");
-```
-
-Offline mode details:
-
-- Consumers should inject and use `ITranslationToolsClient` for runtime translation access.
-- Generated `.resx` types use the static `Translations` facade, which receives the `ITranslationToolsClient` instance during `InitializeTranslationToolsClientAsync()`.
-
-Live update cache support:
-
-- Built-in live transport is available behind `EnableLiveUpdates = true`.
-- Current WebSocket message contract is origin-aware:
-  - `{ "type": "connected" }`
-  - `{ "type": "translation-updated", "origin": "/Localizations.resx", "locale": "en", "key": "home.title", "value": "Hello" }`
-- Current live transport applies single-item cache updates only, and those updates now flow through the shared locale-aware cache state so `GetAsync(...)` and `GetLocaleAsync(...)` stay aligned.
-- `translation-updated` messages must include `origin`; missing `origin` is treated as an invalid payload.
-
-## CLI quick start
-
-Initialize configuration:
+Basic workflow:
 
 ```bash
 translations init
-translations migrate
 translations pull
 translations push
 ```
 
-Example `.mvdmio-translations.yml`:
+Example config file:
 
 ```yaml
 apiKey: project-api-key
 defaultLocale: en
 ```
 
-Migrate local `.resx` files into TranslationTools and refresh local files from API state:
+- `translations init` creates `.mvdmio-translations.yml`
+- `translations pull` downloads remote translations into local `.resx` files
+- `translations push` uploads local `.resx` values to TranslationTools
 
-```bash
-translations migrate
-```
+Package docs: `src/mvdmio.TranslationTools.Tool/README.md`
 
-Pull translations into local `.resx` files and refresh the embedded snapshot:
+## Repository contents
 
-```bash
-translations pull
-translations pull --prune
-```
+- `src/mvdmio.TranslationTools.Client` - application client library
+- `src/mvdmio.TranslationTools.Client.SourceGenerator` - source generator shipped with the client package
+- `src/mvdmio.TranslationTools.Tool` - command-line sync tool
+- `test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit` - client unit tests
+- `test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit` - tool unit tests
 
-Push local `.resx` values back to the API:
+## Typical usage
 
-```bash
-translations push
-translations push --prune
-```
-
-Current notes:
-
-- pull/write model is origin-aware and `.resx`-first
-- push scans `.resx` files directly
-- push sends missing keys from sparse locale files as `null` when those keys exist in another locale for the same `.resx` origin
-- current `pull --prune` surface exists, but full remote-aligned deletion is not fully implemented yet
-- current push path still contains a legacy manifest fallback for tests/compatibility when no `.resx` files exist
-
-## Package docs
-
-- Client package README: `src/mvdmio.TranslationTools.Client/Readme.md`
-- Tool package README: `src/mvdmio.TranslationTools.Tool/README.md`
+1. Add `mvdmio.TranslationTools.Client` to your application.
+2. Keep your neutral and localized `.resx` files in the project.
+3. Install `mvdmio.TranslationTools.Tool` if you want to pull or push translations from the command line.
+4. Run `translations pull` to refresh local resources from TranslationTools.
+5. Use generated localization classes or `ITranslationToolsClient` in application code.
 
 ## Build
 
@@ -178,9 +110,3 @@ dotnet build mvdmio.TranslationTools.Client.slnx
 ```bash
 dotnet test mvdmio.TranslationTools.Client.slnx
 ```
-
-Current automated coverage includes source generation, fixture-project end-to-end generated API coverage, tool config resolution, pull/push/migrate helper logic, `.resx` parsing/writing, origin-aware client lookup types, and a real loopback-host integration test for startup hydration plus websocket live-update cache propagation.
-
-Planning notes for broader integration coverage now live under `agents/`, including `agents/end-to-end-tests.md` for startup, hydration, and live-update test design.
-
-That plan assumes any endpoint override used for integration testing stays internal-only and is not exposed as public consumer configuration.

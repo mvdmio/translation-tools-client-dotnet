@@ -1,21 +1,13 @@
-using System.Xml.Linq;
-
 namespace mvdmio.TranslationTools.Tool.Configuration;
 
 internal sealed class ToolProjectContext
 {
    public required string ProjectDirectory { get; init; }
    public required string ProjectFilePath { get; init; }
-   public required string RootNamespace { get; init; }
 }
 
 internal static class ToolProjectResolver
 {
-   public static string GetSnapshotPath(ToolConfiguration config)
-   {
-      return Path.GetFullPath(Path.Combine(config.ConfigDirectory, ToolConfiguration.SNAPSHOT_FILE_NAME));
-   }
-
    public static ToolProjectContext Resolve(ToolConfiguration config)
    {
       var projectFilePath = FindProjectFile(config.ConfigDirectory)
@@ -28,8 +20,7 @@ internal static class ToolProjectResolver
       return new ToolProjectContext
       {
          ProjectDirectory = projectDirectory,
-         ProjectFilePath = projectFilePath,
-         RootNamespace = ReadRootNamespace(projectFilePath)
+         ProjectFilePath = projectFilePath
       };
    }
 
@@ -40,13 +31,4 @@ internal static class ToolProjectResolver
          .FirstOrDefault();
    }
 
-   private static string ReadRootNamespace(string csprojPath)
-   {
-      var document = XDocument.Load(csprojPath);
-      var rootNamespace = document.Descendants("RootNamespace").FirstOrDefault()?.Value;
-
-      return string.IsNullOrWhiteSpace(rootNamespace)
-         ? Path.GetFileNameWithoutExtension(csprojPath)
-         : rootNamespace;
-   }
 }

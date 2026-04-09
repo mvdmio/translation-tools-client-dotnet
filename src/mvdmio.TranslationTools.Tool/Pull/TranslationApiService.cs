@@ -10,7 +10,6 @@ internal interface ITranslationApiService
    Task<ProjectMetadataResponse> FetchProjectMetadataAsync(string apiKey, CancellationToken cancellationToken);
    Task<TranslationItemResponse[]> FetchLocaleAsync(string apiKey, string locale, CancellationToken cancellationToken);
    Task<TranslationPushResponse> PushProjectTranslationsAsync(string apiKey, TranslationPushRequest request, CancellationToken cancellationToken);
-   Task<mvdmio.TranslationTools.Tool.Migrate.ProjectTranslationStateImportResponse> ImportProjectStateAsync(string apiKey, mvdmio.TranslationTools.Tool.Migrate.ProjectTranslationStateImportRequest request, CancellationToken cancellationToken);
 }
 
 internal sealed class TranslationApiService : ITranslationApiService
@@ -37,16 +36,6 @@ internal sealed class TranslationApiService : ITranslationApiService
 
       var result = await response.Content.ReadFromJsonAsync<TranslationPushResponse>(cancellationToken);
       return result ?? throw new InvalidOperationException("Translation push response body was empty.");
-   }
-
-   public async Task<mvdmio.TranslationTools.Tool.Migrate.ProjectTranslationStateImportResponse> ImportProjectStateAsync(string apiKey, mvdmio.TranslationTools.Tool.Migrate.ProjectTranslationStateImportRequest request, CancellationToken cancellationToken)
-   {
-      using var httpClient = CreateClient(apiKey);
-      using var response = await httpClient.PostAsJsonAsync("api/v1/translations/project/import", request, cancellationToken);
-      response.EnsureSuccessStatusCode();
-
-      var result = await response.Content.ReadFromJsonAsync<mvdmio.TranslationTools.Tool.Migrate.ProjectTranslationStateImportResponse>(cancellationToken);
-      return result ?? throw new InvalidOperationException("Translation import response body was empty.");
    }
 
    private static HttpClient CreateClient(string apiKey)

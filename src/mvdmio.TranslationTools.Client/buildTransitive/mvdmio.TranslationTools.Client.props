@@ -1,10 +1,4 @@
 <Project>
-   <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\.mvdmio-translations.snapshot.json')">
-      <EmbeddedResource Include="$(MSBuildProjectDirectory)\.mvdmio-translations.snapshot.json">
-         <LogicalName>$(AssemblyName).mvdmio-translations.snapshot.json</LogicalName>
-      </EmbeddedResource>
-    </ItemGroup>
-
    <ItemGroup>
       <AdditionalFiles Include="$(MSBuildProjectDirectory)\**\*.resx" Exclude="$(MSBuildProjectDirectory)\bin\**;$(MSBuildProjectDirectory)\obj\**" />
    </ItemGroup>

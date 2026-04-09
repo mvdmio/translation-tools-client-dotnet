@@ -11,7 +11,7 @@ public class PullHandlerLoggingTests
    public async Task HandleAsync_ShouldLogMissingApiKey()
    {
       var reporter = new TestPullReporter();
-      var handler = new PullHandler(new TranslationApiService(), new TranslationSnapshotFileWriter(), new TestPullFileSystem(), reporter);
+      var handler = new PullHandler(new TranslationApiService(), new TestPullFileSystem(), reporter);
 
       await handler.HandleAsync(
          new ToolConfiguration
@@ -32,11 +32,11 @@ public class PullHandlerLoggingTests
       var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
       Directory.CreateDirectory(projectDirectory);
       var reporter = new TestPullReporter();
-      var handler = new PullHandler(new TranslationApiService(), new TranslationSnapshotFileWriter(), new TestPullFileSystem(), reporter);
+      var handler = new PullHandler(new TranslationApiService(), new TestPullFileSystem(), reporter);
 
       try
       {
-         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project><PropertyGroup><RootNamespace>Demo</RootNamespace></PropertyGroup></Project>");
+         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
 
          await handler.HandleAsync(
             new ToolConfiguration

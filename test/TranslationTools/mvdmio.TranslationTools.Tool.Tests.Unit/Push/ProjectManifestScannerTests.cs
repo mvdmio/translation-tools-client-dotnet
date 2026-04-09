@@ -38,7 +38,6 @@ public class ProjectManifestScannerTests
 
          var result = new ProjectManifestScanner().ScanProject(projectDirectory, "en");
 
-         result.FoundManifest.Should().BeTrue();
          result.Items.Should().HaveCount(6);
          result.Items.Should().ContainSingle(static x => x.Key == "A" && x.Locale == "en" && x.Value == "Alpha");
          result.Items.Should().ContainSingle(static x => x.Key == "B" && x.Locale == "en" && x.Value == "Beta");
@@ -54,72 +53,15 @@ public class ProjectManifestScannerTests
    }
 
    [Fact]
-   public void ScanProject_ShouldFallbackToManifestFiles_WhenNoResxFilesExist()
+   public void ScanProject_ShouldThrow_WhenNoResxFilesExist()
    {
       var projectDirectory = CreateProjectDirectory();
 
       try
       {
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Localizations.cs"),
-            """
-            namespace Demo;
+         var act = () => new ProjectManifestScanner().ScanProject(projectDirectory, "en");
 
-            public static partial class Localizations
-            {
-               [mvdmio.TranslationTools.Client.Translation(DefaultValue = "Save")]
-               public static partial string Button_Save { get; }
-
-               [mvdmio.TranslationTools.Client.Translation(Key = "Button.Cancel", DefaultValue = "Cancel")]
-               public static partial string CancelLabel { get; }
-            }
-            """
-         );
-
-         var result = new ProjectManifestScanner().ScanProject(projectDirectory);
-
-         result.FoundManifest.Should().BeTrue();
-         result.Items.Should().HaveCount(2);
-         result.Items.Should().ContainSingle(static x => x.Key == "Button_Save" && x.Locale == "en" && x.Origin == "/Localizations.resx" && x.Value == "Save");
-         result.Items.Should().ContainSingle(static x => x.Key == "Button.Cancel" && x.Locale == "en" && x.Origin == "/Localizations.resx" && x.Value == "Cancel");
-      }
-      finally
-      {
-         DeleteDirectory(projectDirectory);
-      }
-   }
-
-   [Fact]
-   public void ScanProject_ShouldThrow_WhenManifestFilesConflictOnDefaultValue()
-   {
-      var projectDirectory = CreateProjectDirectory();
-
-      try
-      {
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "First.cs"),
-            """
-            public static partial class Localizations
-            {
-               [mvdmio.TranslationTools.Client.Translation(DefaultValue = "Save")]
-               public static partial string Button_Save { get; }
-            }
-            """
-         );
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Second.cs"),
-            """
-            public static partial class Localizations
-            {
-               [mvdmio.TranslationTools.Client.Translation(DefaultValue = "Store")]
-               public static partial string Button_Save { get; }
-            }
-            """
-         );
-
-         var act = () => new ProjectManifestScanner().ScanProject(projectDirectory);
-
-         act.Should().Throw<InvalidOperationException>().WithMessage("*Conflicting default values for translation key 'Button_Save'.*");
+         act.Should().Throw<InvalidOperationException>().WithMessage($"*No .resx locale files found in project '{projectDirectory}'.*");
       }
       finally
       {

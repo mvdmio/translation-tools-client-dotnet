@@ -1,6 +1,6 @@
 using AwesomeAssertions;
-using Fixture.App;
-using Fixture.App.Resources.Shared;
+using IntegrationFixture.App;
+using IntegrationFixture.App.Resources.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using mvdmio.TranslationTools.Client;
@@ -66,6 +66,8 @@ public sealed class StartupAndLiveUpdateIntegrationTests
          dutch.Values[Localizations.Keys.Button_Save].Should().Be("Opslaan");
          dutch.Values[Errors.Keys._404_title].Should().Be("Niet gevonden");
 
+         Localizations.Keys.Button_Save.Origin.Should().Be("/Localizations.resx");
+         Errors.Keys._404_title.Origin.Should().Be("/Resources/Shared/Errors.resx");
          Localizations.Button_Save.Should().Be("Save");
          (await Localizations.GetAsync("Button.Save", new CultureInfo("nl"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Opslaan");
          (await Errors.GetAsync("404.title", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Not found");
@@ -126,12 +128,12 @@ public sealed class StartupAndLiveUpdateIntegrationTests
 
          locale.Values[Localizations.Keys.Button_Save].Should().Be("Save from API");
          locale.Values[Errors.Keys._404_title].Should().Be("Not found from API");
+         Localizations.Keys.Button_Save.Origin.Should().Be("/Localizations.resx");
+         Errors.Keys._404_title.Origin.Should().Be("/Resources/Shared/Errors.resx");
          Localizations.Button_Save.Should().Be("Save from API");
          (await Errors.GetAsync("404.title", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Not found from API");
-
-         var fixtureResult = await FixtureUsage.ExerciseAsync(app.Services);
-         fixtureResult.SyncValue.Should().Be("Save from API");
-         fixtureResult.AsyncValue.Should().Be("Not found from API");
+         (await Localizations.GetAsync("Button.Save", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Save from API");
+         (await Errors.GetAsync("404.title", new CultureInfo("en"), cancellationToken: TestContext.Current.CancellationToken)).Should().Be("Not found from API");
 
          await server.SendLiveUpdateAsync(
             """{"type":"translation-updated","origin":"/Localizations.resx","locale":"en","key":"Button.Save","value":"Save live"}""",

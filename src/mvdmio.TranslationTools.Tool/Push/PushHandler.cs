@@ -5,7 +5,7 @@ namespace mvdmio.TranslationTools.Tool.Push;
 
 internal sealed class PushHandler
 {
-   private readonly TranslationApiService _translationApiService;
+   private readonly ITranslationApiService _translationApiService;
    private readonly ProjectManifestScanner _projectManifestScanner;
    private readonly IPushReporter _reporter;
 
@@ -14,7 +14,7 @@ internal sealed class PushHandler
    {
    }
 
-   internal PushHandler(TranslationApiService translationApiService, ProjectManifestScanner projectManifestScanner, IPushReporter reporter)
+   internal PushHandler(ITranslationApiService translationApiService, ProjectManifestScanner projectManifestScanner, IPushReporter reporter)
    {
       _translationApiService = translationApiService;
       _projectManifestScanner = projectManifestScanner;
@@ -40,8 +40,6 @@ internal sealed class PushHandler
          throw new InvalidOperationException("defaultLocale is required in .mvdmio-translations.yml.");
 
       var scanResult = _projectManifestScanner.ScanProject(projectDirectory, config.DefaultLocale);
-      if (!scanResult.FoundManifest)
-         throw new InvalidOperationException($"No .resx translation files found in project '{projectDirectory}'.");
 
       _reporter.WriteInfo($"Scanning .resx translations in {projectDirectory}...");
       _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation values to {ToolConfiguration.DEFAULT_BASE_URL}...");
