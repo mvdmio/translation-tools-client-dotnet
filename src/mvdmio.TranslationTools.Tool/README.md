@@ -47,7 +47,7 @@ translations pull
 translations pull --prune
 ```
 
-Use `--prune` to delete local `.resx` files and entries that no longer exist remotely.
+Use `--prune` for a destructive pull that deletes local `.resx` files and entries that no longer exist remotely.
 
 ### `translations push`
 
@@ -58,7 +58,7 @@ translations push
 translations push --prune
 ```
 
-Use `--prune` to delete remote translations that no longer exist in local `.resx` files.
+Use `--prune` for a destructive push that deletes remote translations that no longer exist in local `.resx` files.
 
 ## Typical workflow
 
