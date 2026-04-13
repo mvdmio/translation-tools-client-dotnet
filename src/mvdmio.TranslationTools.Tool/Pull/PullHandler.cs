@@ -7,6 +7,7 @@ namespace mvdmio.TranslationTools.Tool.Pull;
 
 internal sealed class PullHandler
 {
+   private readonly ResxFileParser _resxFileParser = new();
    private readonly ITranslationApiService _translationApiService;
    private readonly IPullFileSystem _fileSystem;
    private readonly IPullReporter _reporter;
@@ -81,6 +82,7 @@ internal sealed class PullHandler
          .Where(item => item.ParsedOrigin is not null && string.Equals(item.ParsedOrigin.ProjectName, request.ProjectName, StringComparison.Ordinal))
          .GroupBy(item => (Origin: item.ParsedOrigin!.ResourcePath, Locale: item.Locale), item => item.Item)
          .ToArray();
+      var localeChanges = locales.ToDictionary(static locale => locale, static _ => new PullLocaleChangeSummary(), StringComparer.Ordinal);
 
       foreach (var group in allItems)
       {
@@ -89,11 +91,29 @@ internal sealed class PullHandler
          if (!string.IsNullOrWhiteSpace(fileDirectory))
             _fileSystem.CreateDirectory(fileDirectory);
 
-         var content = BuildResx(group.OrderBy(static item => item.Key, StringComparer.Ordinal));
+         var orderedItems = group.OrderBy(static item => item.Key, StringComparer.Ordinal).ToArray();
+         var incomingEntries = orderedItems
+            .Select(static item => new ResxDataEntryModel
+            {
+               Key = item.Key,
+               Value = NormalizeValue(item.Value),
+               Comment = null
+            })
+            .ToArray();
+         var existingFile = await ReadExistingFileAsync(filePath, cancellationToken);
+         localeChanges[group.Key.Locale].Add(CalculateChangeSummary(existingFile.Entries, incomingEntries));
+
+         var content = BuildResx(orderedItems);
          await _fileSystem.WriteAllTextAsync(filePath, content, cancellationToken);
       }
 
       _reporter.WriteInfo($"Updated {allItems.Length} .resx files from {locales.Length} locales.");
+
+      foreach (var locale in locales)
+      {
+         var summary = localeChanges[locale];
+         _reporter.WriteInfo($"Locale '{locale}': +{summary.Added} ~{summary.Updated} -{summary.Deleted}");
+      }
 
       if (prune)
          _reporter.WriteInfo("Prune requested. Remote-aligned file deletion not fully implemented yet.");
@@ -169,6 +189,61 @@ internal sealed class PullHandler
             && resourcePath.EndsWith(".resx", StringComparison.OrdinalIgnoreCase);
       }
    }
+
+   private async Task<ResxFileModel> ReadExistingFileAsync(string filePath, CancellationToken cancellationToken)
+   {
+      if (!_fileSystem.FileExists(filePath))
+      {
+         return new ResxFileModel
+         {
+            FilePath = filePath,
+            Entries = []
+         };
+      }
+
+      var contents = await _fileSystem.ReadAllTextAsync(filePath, cancellationToken);
+      return _resxFileParser.ParseContent(contents, filePath);
+   }
+
+   private static PullFileChangeSummary CalculateChangeSummary(IReadOnlyCollection<ResxDataEntryModel> existingEntries, IReadOnlyCollection<ResxDataEntryModel> incomingEntries)
+   {
+      var existingByKey = existingEntries.ToDictionary(static entry => entry.Key, static entry => NormalizeValue(entry.Value), StringComparer.Ordinal);
+      var incomingByKey = incomingEntries.ToDictionary(static entry => entry.Key, static entry => NormalizeValue(entry.Value), StringComparer.Ordinal);
+
+      return new PullFileChangeSummary
+      {
+         Added = incomingByKey.Keys.Except(existingByKey.Keys, StringComparer.Ordinal).Count(),
+         Updated = incomingByKey.Count(pair => existingByKey.TryGetValue(pair.Key, out var existingValue)
+            && !string.Equals(existingValue, pair.Value, StringComparison.Ordinal)),
+         Deleted = existingByKey.Keys.Except(incomingByKey.Keys, StringComparer.Ordinal).Count()
+      };
+   }
+
+   private static string? NormalizeValue(string? value)
+   {
+      return value == string.Empty ? null : value;
+   }
+}
+
+internal sealed class PullFileChangeSummary
+{
+   public required int Added { get; init; }
+   public required int Updated { get; init; }
+   public required int Deleted { get; init; }
+}
+
+internal sealed class PullLocaleChangeSummary
+{
+   public int Added { get; private set; }
+   public int Updated { get; private set; }
+   public int Deleted { get; private set; }
+
+   public void Add(PullFileChangeSummary summary)
+   {
+      Added += summary.Added;
+      Updated += summary.Updated;
+      Deleted += summary.Deleted;
+   }
 }
 
 internal interface IPullReporter
@@ -193,6 +268,8 @@ internal sealed class ConsolePullReporter : IPullReporter
 internal interface IPullFileSystem
 {
    void CreateDirectory(string path);
+   bool FileExists(string path);
+   Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken);
    Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken);
 }
 
@@ -201,6 +278,16 @@ internal sealed class PullFileSystem : IPullFileSystem
    public void CreateDirectory(string path)
    {
       Directory.CreateDirectory(path);
+   }
+
+   public bool FileExists(string path)
+   {
+      return File.Exists(path);
+   }
+
+   public Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken)
+   {
+      return File.ReadAllTextAsync(path, cancellationToken);
    }
 
    public Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken)

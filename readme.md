@@ -90,8 +90,6 @@ defaultLocale: en
 - `translations pull --prune` also deletes local `.resx` files and entries that no longer exist remotely
 - `translations push --prune` also deletes remote translations that no longer exist in local `.resx` files
 
-`translations pull` remains project-scoped. It only writes `.resx` files for the current `.csproj` name and skips origins for other projects.
-
 Package docs: `src/mvdmio.TranslationTools.Tool/README.md`
 
 ## Repository contents

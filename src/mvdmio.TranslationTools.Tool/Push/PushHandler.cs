@@ -49,6 +49,7 @@ internal sealed class PushHandler
          config.ApiKey,
          new TranslationPushRequest
          {
+            Prune = prune,
             Items = scanResult.Items.Select(
                static x => new TranslationPushItemRequest
                {

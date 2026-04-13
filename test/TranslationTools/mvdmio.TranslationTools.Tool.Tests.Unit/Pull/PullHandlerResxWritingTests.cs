@@ -109,6 +109,16 @@ public class PullHandlerResxWritingTests
       {
       }
 
+      public bool FileExists(string path)
+      {
+         return Writes.ContainsKey(path);
+      }
+
+      public Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken)
+      {
+         return Task.FromResult(Writes[path]);
+      }
+
       public Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken)
       {
          Writes[path] = contents;

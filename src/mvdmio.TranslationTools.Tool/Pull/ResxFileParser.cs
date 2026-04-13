@@ -6,7 +6,12 @@ internal sealed class ResxFileParser
 {
    public ResxFileModel Parse(string filePath)
    {
-      var document = XDocument.Load(filePath, LoadOptions.PreserveWhitespace);
+      return ParseContent(File.ReadAllText(filePath), filePath);
+   }
+
+   public ResxFileModel ParseContent(string contents, string filePath = "")
+   {
+      var document = XDocument.Parse(contents, LoadOptions.PreserveWhitespace);
       var entries = document.Root?
          .Elements("data")
          .Select(element => new ResxDataEntryModel
