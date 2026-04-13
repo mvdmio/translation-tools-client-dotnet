@@ -126,13 +126,13 @@ public class PullHandlerLoggingTests
             [
                new TranslationItemResponse
                {
-                  Origin = "/Localizations.resx",
+                  Origin = "Demo:/Localizations.resx",
                   Key = "Button.Cancel",
                   Value = "Cancel"
                },
                new TranslationItemResponse
                {
-                  Origin = "/Localizations.resx",
+                  Origin = "Demo:/Localizations.resx",
                   Key = "Button.Save",
                   Value = "Save"
                }
@@ -141,13 +141,13 @@ public class PullHandlerLoggingTests
             [
                new TranslationItemResponse
                {
-                  Origin = "/Localizations.resx",
+                  Origin = "Demo:/Localizations.resx",
                   Key = "Button.Cancel",
                   Value = "Annuleren"
                },
                new TranslationItemResponse
                {
-                  Origin = "/Localizations.resx",
+                  Origin = "Demo:/Localizations.resx",
                   Key = "Button.Save",
                   Value = "Opslaan"
                }
