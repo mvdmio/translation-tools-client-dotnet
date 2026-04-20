@@ -1,18 +1,18 @@
-using mvdmio.TranslationTools.Tool.Migrate;
+using mvdmio.TranslationTools.Tool.Resx;
 
 namespace mvdmio.TranslationTools.Tool.Push;
 
 internal sealed class ProjectManifestScanner
 {
-   private readonly ResxMigrationScanner _scanner;
+   private readonly ResxScanner _scanner;
    private readonly ResxResourceSetParser _parser;
 
    public ProjectManifestScanner()
-      : this(new ResxMigrationScanner(), new ResxResourceSetParser())
+      : this(new ResxScanner(), new ResxResourceSetParser())
    {
    }
 
-   internal ProjectManifestScanner(ResxMigrationScanner scanner, ResxResourceSetParser parser)
+   internal ProjectManifestScanner(ResxScanner scanner, ResxResourceSetParser parser)
    {
       _scanner = scanner;
       _parser = parser;
@@ -20,7 +20,7 @@ internal sealed class ProjectManifestScanner
 
    public ProjectManifestScanResult ScanProject(string projectName, string projectDirectory, string defaultLocale)
    {
-      var normalizedDefaultLocale = ResxMigrationScanner.NormalizeLocale(defaultLocale);
+      var normalizedDefaultLocale = ResxScanner.NormalizeLocale(defaultLocale);
       var scanResult = _scanner.ScanProject(projectDirectory);
 
       var parsedFiles = scanResult.SourceFiles
@@ -75,7 +75,7 @@ internal sealed class ProjectManifestScanner
          .ToArray();
    }
 
-   internal static string BuildOrigin(string projectName, ResxMigrationSourceFile sourceFile)
+   internal static string BuildOrigin(string projectName, ResxSourceFile sourceFile)
    {
       var resourceSetPath = sourceFile.ResourceSetPath.Replace('\\', '/');
       return projectName + ":/" + resourceSetPath + ".resx";

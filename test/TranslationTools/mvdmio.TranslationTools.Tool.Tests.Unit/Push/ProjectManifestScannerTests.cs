@@ -1,5 +1,5 @@
 using AwesomeAssertions;
-using mvdmio.TranslationTools.Tool.Migrate;
+using mvdmio.TranslationTools.Tool.Resx;
 using mvdmio.TranslationTools.Tool.Push;
 using Xunit;
 
@@ -78,7 +78,7 @@ public class ProjectManifestScannerTests
    {
       ProjectManifestScanner.BuildOrigin(
          ProjectName,
-         new ResxMigrationSourceFile
+         new ResxSourceFile
          {
             FilePath = "ignored",
             RelativePath = Path.Combine("Resources", "Shared", "Messages.resx"),

@@ -1,10 +1,10 @@
 using AwesomeAssertions;
-using mvdmio.TranslationTools.Tool.Migrate;
+using mvdmio.TranslationTools.Tool.Resx;
 using Xunit;
 
-namespace mvdmio.TranslationTools.Tool.Tests.Unit.Migrate;
+namespace mvdmio.TranslationTools.Tool.Tests.Unit.Resx;
 
-public class ResxMigrationScannerTests
+public class ResxScannerTests
 {
    [Fact]
    public void ScanProject_ShouldIgnoreBinAndObjAndNormalizeLocales()
@@ -18,7 +18,7 @@ public class ResxMigrationScannerTests
          WriteResx(Path.Combine(projectDirectory, "bin", "Debug", "Ignored.resx"));
          WriteResx(Path.Combine(projectDirectory, "obj", "Release", "IgnoredToo.resx"));
 
-         var result = new ResxMigrationScanner().ScanProject(projectDirectory);
+         var result = new ResxScanner().ScanProject(projectDirectory);
 
          result.HasBaseFiles.Should().BeTrue();
          result.SourceFiles.Should().HaveCount(2);
@@ -37,7 +37,7 @@ public class ResxMigrationScannerTests
    [Fact]
    public void ValidateSourceFiles_ShouldThrow_WhenResourceSetNamesCollideAcrossDirectories()
    {
-      var act = () => ResxMigrationScanner.ValidateSourceFiles(
+      var act = () => ResxScanner.ValidateSourceFiles(
          [
             CreateSourceFile("Feature\\Errors.resx", "Feature\\Errors", "Feature.Errors", null),
             CreateSourceFile("Feature.Errors.resx", "Feature.Errors", "Feature.Errors", null)
@@ -50,7 +50,7 @@ public class ResxMigrationScannerTests
    [Fact]
    public void ValidateSourceFiles_ShouldThrow_WhenNormalizedLocaleDuplicatesExist()
    {
-      var act = () => ResxMigrationScanner.ValidateSourceFiles(
+      var act = () => ResxScanner.ValidateSourceFiles(
          [
             CreateSourceFile("Messages.en-US.resx", "Messages", "Messages", "en-us"),
             CreateSourceFile("Messages.en-us.resx", "Messages", "Messages", "en-us")
@@ -65,12 +65,12 @@ public class ResxMigrationScannerTests
    [InlineData("nl-NL", "nl-nl")]
    public void NormalizeLocale_ShouldTrimAndLowercase(string input, string expected)
    {
-      ResxMigrationScanner.NormalizeLocale(input).Should().Be(expected);
+      ResxScanner.NormalizeLocale(input).Should().Be(expected);
    }
 
-   private static ResxMigrationSourceFile CreateSourceFile(string relativePath, string resourceSetPath, string resourceSetName, string? locale)
+   private static ResxSourceFile CreateSourceFile(string relativePath, string resourceSetPath, string resourceSetName, string? locale)
    {
-      return new ResxMigrationSourceFile
+      return new ResxSourceFile
       {
          FilePath = relativePath,
          RelativePath = relativePath,

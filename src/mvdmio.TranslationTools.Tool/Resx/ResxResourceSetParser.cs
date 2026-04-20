@@ -1,10 +1,10 @@
 using System.Xml.Linq;
 
-namespace mvdmio.TranslationTools.Tool.Migrate;
+namespace mvdmio.TranslationTools.Tool.Resx;
 
 internal sealed class ResxResourceSetParser
 {
-   public ResxParsedFile Parse(ResxMigrationSourceFile sourceFile)
+   public ResxParsedFile Parse(ResxSourceFile sourceFile)
    {
       var document = XDocument.Load(sourceFile.FilePath, LoadOptions.PreserveWhitespace);
       var entries = document.Root?
@@ -44,7 +44,7 @@ internal sealed class ResxResourceSetParser
 
 internal sealed class ResxParsedFile
 {
-   public required ResxMigrationSourceFile SourceFile { get; init; }
+   public required ResxSourceFile SourceFile { get; init; }
    public required IReadOnlyCollection<ResxParsedEntry> Entries { get; init; }
 }
 

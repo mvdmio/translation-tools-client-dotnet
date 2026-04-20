@@ -1,10 +1,10 @@
 using System.Text.RegularExpressions;
 
-namespace mvdmio.TranslationTools.Tool.Migrate;
+namespace mvdmio.TranslationTools.Tool.Resx;
 
-internal sealed partial class ResxMigrationScanner
+internal sealed partial class ResxScanner
 {
-   public ResxMigrationScanResult ScanProject(string projectDirectory)
+   public ResxScanResult ScanProject(string projectDirectory)
    {
       var files = Directory.EnumerateFiles(projectDirectory, "*.resx", SearchOption.AllDirectories)
          .Where(static path => !IsIgnoredPath(path))
@@ -17,14 +17,14 @@ internal sealed partial class ResxMigrationScanner
 
       ValidateSourceFiles(files);
 
-      return new ResxMigrationScanResult
+      return new ResxScanResult
       {
          SourceFiles = files,
          HasBaseFiles = files.Any(static x => x.Locale is null)
       };
    }
 
-   internal static void ValidateSourceFiles(IReadOnlyCollection<ResxMigrationSourceFile> files)
+   internal static void ValidateSourceFiles(IReadOnlyCollection<ResxSourceFile> files)
    {
       if (files.Count == 0)
          return;
@@ -69,7 +69,7 @@ internal sealed partial class ResxMigrationScanner
          .Any(static segment => string.Equals(segment, "bin", StringComparison.OrdinalIgnoreCase) || string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase));
    }
 
-   private static ResxMigrationSourceFile CreateSourceFile(string projectDirectory, string filePath)
+   private static ResxSourceFile CreateSourceFile(string projectDirectory, string filePath)
    {
       var relativePath = Path.GetRelativePath(projectDirectory, filePath);
       var relativeDirectory = Path.GetDirectoryName(relativePath);
@@ -88,7 +88,7 @@ internal sealed partial class ResxMigrationScanner
          ? baseName
          : Path.Combine(relativeDirectory, baseName);
 
-      return new ResxMigrationSourceFile
+      return new ResxSourceFile
       {
          FilePath = filePath,
          RelativePath = relativePath,
@@ -128,13 +128,13 @@ internal sealed partial class ResxMigrationScanner
    private static partial Regex LocaleSuffixPattern();
 }
 
-internal sealed class ResxMigrationScanResult
+internal sealed class ResxScanResult
 {
-   public required IReadOnlyCollection<ResxMigrationSourceFile> SourceFiles { get; init; }
+   public required IReadOnlyCollection<ResxSourceFile> SourceFiles { get; init; }
    public required bool HasBaseFiles { get; init; }
 }
 
-internal sealed class ResxMigrationSourceFile
+internal sealed class ResxSourceFile
 {
    public required string FilePath { get; init; }
    public required string RelativePath { get; init; }
