@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
 using System.Buffers;
+using System.Linq;
 using System.Net.Http;
 using System.Net.WebSockets;
 using System.Text;
@@ -66,7 +67,34 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
       if (_backgroundTask is not null)
          _logger.LogDebug("Stopping TranslationTools live updates");
 
-      _cancellationTokenSource?.Cancel();
+      try
+      {
+         _cancellationTokenSource?.Cancel();
+      }
+      catch (ObjectDisposedException)
+      {
+         // CancellationTokenSource was already disposed; nothing to cancel.
+      }
+
+      if (_backgroundTask is not null)
+      {
+         try
+         {
+            // Wait for the background loop to observe cancellation and exit before disposing the CTS.
+            // Bounded wait so Dispose can never hang indefinitely.
+            if (!_backgroundTask.Wait(TimeSpan.FromSeconds(5)))
+               _logger.LogWarning("TranslationTools live update background task did not stop within the timeout");
+         }
+         catch (AggregateException exception) when (exception.InnerExceptions.All(e => e is OperationCanceledException))
+         {
+            // Expected when the task observes cancellation.
+         }
+         catch (Exception exception)
+         {
+            _logger.LogWarning(exception, "TranslationTools live update background task threw during shutdown");
+         }
+      }
+
       _cancellationTokenSource?.Dispose();
       _startLock.Dispose();
    }
@@ -117,7 +145,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
          }
          catch (WebSocketException exception)
          {
-            _logger.LogWarning(
+            _logger.LogInformation(
                exception,
                "TranslationTools live update websocket failed for {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
