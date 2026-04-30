@@ -109,6 +109,37 @@ public class TranslationToolsClientBehaviorTests
       locale.Values.Should().BeEmpty();
    }
 
+   [Fact]
+   public async Task GetAsync_ShouldIncludeLocaleValuesQueryStringWhenProvided()
+   {
+      var capturingHandler = new CapturingHandler("""{"origin":"Fixture.App:/Localizations.resx","key":"Button.Save","value":"Save","fallbackValue":null,"locale":"en"}""");
+      using var client = new TranslationToolsClient(
+         new HttpClient(capturingHandler),
+         Options.Create(new TranslationToolsClientOptions
+         {
+            ApiKey = "api-key"
+         }),
+         new LocalTranslationToolsClientCache()
+      );
+
+      var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
+      var localeValues = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+      {
+         ["en"] = "Save",
+         ["nl"] = "Opslaan",
+         ["de"] = "Speichern"
+      };
+
+      await client.GetAsync(translation, new CultureInfo("en"), defaultValue: "Save", localeValues, TestContext.Current.CancellationToken);
+
+      capturingHandler.LastRequestUri.Should().NotBeNull();
+      var query = capturingHandler.LastRequestUri!.Query;
+      query.Should().Contain("defaultValue=Save");
+      query.Should().Contain("localeValues[en]=Save");
+      query.Should().Contain("localeValues[nl]=Opslaan");
+      query.Should().Contain("localeValues[de]=Speichern");
+   }
+
    private static TranslationToolsClient CreateClient()
    {
       return new TranslationToolsClient(
@@ -128,6 +159,27 @@ public class TranslationToolsClientBehaviorTests
          return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
          {
             Content = new StringContent("[]")
+         });
+      }
+   }
+
+   private sealed class CapturingHandler : HttpMessageHandler
+   {
+      private readonly string _responseBody;
+
+      public CapturingHandler(string responseBody)
+      {
+         _responseBody = responseBody;
+      }
+
+      public Uri? LastRequestUri { get; private set; }
+
+      protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+      {
+         LastRequestUri = request.RequestUri;
+         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+         {
+            Content = new StringContent(_responseBody, System.Text.Encoding.UTF8, "application/json")
          });
       }
    }

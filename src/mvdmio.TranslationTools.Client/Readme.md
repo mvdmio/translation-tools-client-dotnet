@@ -79,6 +79,14 @@ var asyncText = await Localizations.GetAsync("Button.Save");
 var dutch = await Localizations.GetAsync("Button.Save", new CultureInfo("nl-NL"));
 ```
 
+## Per-locale seeding from sibling `.resx` files
+
+When the source generator finds locale-specific sibling files next to a neutral `.resx` (for example `Localizations.resx`, `Localizations.nl.resx`, `Localizations.de.resx`), it embeds the per-locale values in the generated class.
+
+When generated members hit the API for a key the server does not yet have, the client sends every known locale value via the `localeValues` query parameter. The server seeds any missing locale rows from those values, so all locales become populated on first access instead of only the requested locale.
+
+Existing non-empty translations on the server are never overwritten by this seeding path.
+
 ## Local fallback
 
 Generated localization access works well with local `.resx` files in your project. A common workflow is:

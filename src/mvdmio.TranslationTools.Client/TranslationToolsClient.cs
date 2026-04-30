@@ -76,10 +76,16 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    /// <inheritdoc />
    public Task<TranslationItemResponse> GetAsync(TranslationRef translation, CultureInfo locale, CancellationToken cancellationToken = default)
    {
-      return GetAsync(translation, locale, defaultValue: null, cancellationToken);
+      return GetAsync(translation, locale, defaultValue: null, localeValues: null, cancellationToken);
    }
 
-   internal async Task<TranslationItemResponse> GetAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, CancellationToken cancellationToken = default)
+   /// <inheritdoc />
+   public Task<TranslationItemResponse> GetAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken = default)
+   {
+      return GetInternalAsync(translation, locale, defaultValue, localeValues, cancellationToken);
+   }
+
+   internal async Task<TranslationItemResponse> GetInternalAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken = default)
    {
       var localeName = locale.Name;
 
@@ -87,7 +93,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (cached is not null)
          return cached.Value;
 
-      var fetched = await FetchTranslationAsync(localeName, translation, defaultValue, cancellationToken);
+      var fetched = await FetchTranslationAsync(localeName, translation, defaultValue, localeValues, cancellationToken);
       var stored = await StoreTranslationAsync(localeName, translation, fetched, cancellationToken);
       return stored;
    }
@@ -172,11 +178,27 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return await FetchAsync(request, static content => DeserializeAsync<TranslationItemResponse[]>(content), cancellationToken);
    }
 
-   private async Task<TranslationItemResponse> FetchTranslationAsync(string locale, TranslationRef translation, string? defaultValue, CancellationToken cancellationToken)
+   private async Task<TranslationItemResponse> FetchTranslationAsync(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken)
    {
       var url = $"api/v1/translations/{Uri.EscapeDataString(translation.Origin)}/{Uri.EscapeDataString(locale)}/{Uri.EscapeDataString(translation.Key)}";
+
+      var query = new List<string>();
       if (defaultValue is not null)
-         url += $"?defaultValue={Uri.EscapeDataString(defaultValue)}";
+         query.Add($"defaultValue={Uri.EscapeDataString(defaultValue)}");
+
+      if (localeValues is { Count: > 0 })
+      {
+         foreach (var pair in localeValues)
+         {
+            if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrEmpty(pair.Value))
+               continue;
+
+            query.Add($"localeValues[{Uri.EscapeDataString(pair.Key)}]={Uri.EscapeDataString(pair.Value!)}");
+         }
+      }
+
+      if (query.Count > 0)
+         url += "?" + string.Join("&", query);
 
       using var request = new HttpRequestMessage(HttpMethod.Get, url);
       return await FetchAsync(request, static content => DeserializeAsync<TranslationItemResponse>(content), cancellationToken);

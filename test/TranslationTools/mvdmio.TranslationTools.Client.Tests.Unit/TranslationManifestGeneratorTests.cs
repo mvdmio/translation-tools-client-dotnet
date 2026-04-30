@@ -31,26 +31,34 @@ public class TranslationManifestGeneratorTests
       result.GeneratedSource.Should().Contain("private const string Origin = \"GeneratorTests:/src/Demo/Localizations.resx\";");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Hello = new(Origin, \"Button.Hello\");");
       result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Button_Save = new(Origin, \"Button.Save\");");
-      result.GeneratedSource.Should().Contain("Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue)");
-      result.GeneratedSource.Should().Contain("Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken)");
+      result.GeneratedSource.Should().Contain("Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, GetLocaleValues(key))");
+      result.GeneratedSource.Should().Contain("Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, GetLocaleValues(key), cancellationToken)");
       result.GeneratedSource.Should().Contain("get => Get(\"Button.Hello\", \"Hello\");");
       result.GeneratedSource.Should().Contain("get => Get(\"Button.Save\");");
    }
 
    [Fact]
-   public void ShouldIgnoreLocalizedResxVariants()
+   public void ShouldIncludeLocalizedResxValuesInLookupTable()
    {
       var result = RunGenerator(
          source: "namespace Demo; public sealed class Marker;",
          additionalFiles: [
             ("src/Demo/Localizations.resx", Resx(("Button.Save", "Save"))),
-            ("src/Demo/Localizations.nl.resx", Resx(("Button.Save", "Opslaan")))
+            ("src/Demo/Localizations.nl.resx", Resx(("Button.Save", "Opslaan"))),
+            ("src/Demo/Localizations.de.resx", Resx(("Button.Save", "Speichern")))
          ]
       );
 
       result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
       result.GeneratedSource.Should().Contain("Button_Save");
-      result.GeneratedSource.Should().NotContain("Opslaan");
+      // Neutral default value still present in property getter.
+      result.GeneratedSource.Should().Contain("get => Get(\"Button.Save\", \"Save\");");
+      // Locale values included in lookup table.
+      result.GeneratedSource.Should().Contain("[\"nl\"] = \"Opslaan\"");
+      result.GeneratedSource.Should().Contain("[\"de\"] = \"Speichern\"");
+      // Only one generated class for the neutral file.
+      result.GeneratedSource.Split("public static partial class Localizations").Length.Should().Be(2);
    }
 
    [Fact]
@@ -200,7 +208,17 @@ public class TranslationManifestGeneratorTests
                    return defaultValue ?? translation.Key;
                 }
 
+                public static string Get(TranslationRef translation, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues)
+                {
+                   return defaultValue ?? translation.Key;
+                }
+
                 public static string Get(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue = null)
+                {
+                   return defaultValue ?? translation.Key;
+                }
+
+                public static string Get(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues)
                 {
                    return defaultValue ?? translation.Key;
                 }
@@ -210,7 +228,17 @@ public class TranslationManifestGeneratorTests
                    return System.Threading.Tasks.Task.FromResult(defaultValue ?? translation.Key);
                 }
 
+                public static System.Threading.Tasks.Task<string> GetAsync(TranslationRef translation, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues, System.Threading.CancellationToken cancellationToken = default)
+                {
+                   return System.Threading.Tasks.Task.FromResult(defaultValue ?? translation.Key);
+                }
+
                 public static System.Threading.Tasks.Task<string> GetAsync(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue = null, System.Threading.CancellationToken cancellationToken = default)
+                {
+                   return System.Threading.Tasks.Task.FromResult(defaultValue ?? translation.Key);
+                }
+
+                public static System.Threading.Tasks.Task<string> GetAsync(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues, System.Threading.CancellationToken cancellationToken = default)
                 {
                    return System.Threading.Tasks.Task.FromResult(defaultValue ?? translation.Key);
                 }

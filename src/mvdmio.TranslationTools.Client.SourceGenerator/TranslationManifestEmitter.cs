@@ -38,13 +38,49 @@ internal static class TranslationManifestEmitter
       builder.Append(ToStringLiteral(model.Origin));
       builder.AppendLine(";");
       builder.AppendLine();
+
+      // Per-key locale value lookup table.
+      builder.AppendLine("   private static readonly global::System.Collections.Generic.IReadOnlyDictionary<string, global::System.Collections.Generic.IReadOnlyDictionary<string, string?>> _localeValuesByKey = BuildLocaleValuesByKey();");
+      builder.AppendLine();
+      builder.AppendLine("   private static global::System.Collections.Generic.IReadOnlyDictionary<string, global::System.Collections.Generic.IReadOnlyDictionary<string, string?>> BuildLocaleValuesByKey()");
+      builder.AppendLine("   {");
+      builder.AppendLine("      var result = new global::System.Collections.Generic.Dictionary<string, global::System.Collections.Generic.IReadOnlyDictionary<string, string?>>(global::System.StringComparer.Ordinal);");
+
+      foreach (var property in model.Properties)
+      {
+         if (property.LocaleValues.Length == 0)
+            continue;
+
+         builder.Append("      result[");
+         builder.Append(ToStringLiteral(property.Key));
+         builder.AppendLine("] = new global::System.Collections.Generic.Dictionary<string, string?>(global::System.StringComparer.OrdinalIgnoreCase) {");
+         foreach (var localeValue in property.LocaleValues)
+         {
+            builder.Append("         [");
+            builder.Append(ToStringLiteral(localeValue.Locale));
+            builder.Append("] = ");
+            builder.Append(ToStringLiteral(localeValue.Value));
+            builder.AppendLine(",");
+         }
+         builder.AppendLine("      };");
+      }
+
+      builder.AppendLine("      return result;");
+      builder.AppendLine("   }");
+      builder.AppendLine();
+      builder.AppendLine("   private static global::System.Collections.Generic.IReadOnlyDictionary<string, string?>? GetLocaleValues(string key)");
+      builder.AppendLine("   {");
+      builder.AppendLine("      return _localeValuesByKey.TryGetValue(key, out var values) ? values : null;");
+      builder.AppendLine("   }");
+      builder.AppendLine();
+
       builder.AppendLine("   public static string Get(string key, string? defaultValue = null)");
       builder.AppendLine("   {");
 
       if (model.UsesCultureOverride)
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue);");
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, GetLocaleValues(key));");
       else
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue);");
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.Get(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, GetLocaleValues(key));");
 
       builder.AppendLine("   }");
       builder.AppendLine();
@@ -52,15 +88,15 @@ internal static class TranslationManifestEmitter
       builder.AppendLine("   {");
 
       if (model.UsesCultureOverride)
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, cancellationToken);");
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, defaultValue, GetLocaleValues(key), cancellationToken);");
       else
-         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, cancellationToken);");
+         builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), defaultValue, GetLocaleValues(key), cancellationToken);");
 
       builder.AppendLine("   }");
       builder.AppendLine();
       builder.AppendLine("   public static global::System.Threading.Tasks.Task<string> GetAsync(string key, global::System.Globalization.CultureInfo locale, string? defaultValue = null, global::System.Threading.CancellationToken cancellationToken = default)");
       builder.AppendLine("   {");
-      builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), locale, defaultValue, cancellationToken);");
+      builder.AppendLine("      return global::mvdmio.TranslationTools.Client.Translations.GetAsync(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, key), locale, defaultValue, GetLocaleValues(key), cancellationToken);");
 
       builder.AppendLine("   }");
       builder.AppendLine();

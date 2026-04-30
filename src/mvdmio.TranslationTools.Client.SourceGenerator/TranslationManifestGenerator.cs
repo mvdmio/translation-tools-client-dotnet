@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
@@ -20,10 +21,13 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          RootNamespace = GetGlobalOption(provider.GlobalOptions, "build_property.RootNamespace")
       });
 
-      var manifests = context.AdditionalTextsProvider
+      var allResxFiles = context.AdditionalTextsProvider
          .Where(file => file.Path.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
+         .Collect();
+
+      var manifests = allResxFiles
          .Combine(analyzerOptions)
-         .Select(static (input, cancellationToken) => BuildManifest(input.Left, input.Right, cancellationToken));
+         .SelectMany(static (input, cancellationToken) => BuildManifests(input.Left, input.Right, cancellationToken));
 
       context.RegisterSourceOutput(manifests, static (productionContext, result) =>
       {
@@ -40,29 +44,98 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       });
    }
 
-   private static TranslationManifestResult BuildManifest(AdditionalText file, GeneratorOptions options, CancellationToken cancellationToken)
+   private static ImmutableArray<TranslationManifestResult> BuildManifests(ImmutableArray<AdditionalText> files, GeneratorOptions options, CancellationToken cancellationToken)
    {
-      var text = file.GetText(cancellationToken)?.ToString();
+      if (files.IsDefaultOrEmpty)
+         return ImmutableArray<TranslationManifestResult>.Empty;
+
+      // Group files by base resx (neutral) path. Locale-suffixed files share the same base file name.
+      var groups = new Dictionary<string, GroupBuilder>(StringComparer.OrdinalIgnoreCase);
+
+      foreach (var file in files)
+      {
+         cancellationToken.ThrowIfCancellationRequested();
+
+         var directory = GetDirectoryName(NormalizePath(file.Path));
+         var fileName = GetFileName(file.Path);
+         string baseFileName;
+         string? localeSuffix;
+
+         if (TryGetLocaleSuffix(file.Path, out var trimmedFileName, out var suffix))
+         {
+            baseFileName = trimmedFileName!;
+            localeSuffix = suffix;
+         }
+         else
+         {
+            baseFileName = fileName;
+            localeSuffix = null;
+         }
+
+         var groupKey = (string.IsNullOrEmpty(directory) ? string.Empty : directory + "/") + baseFileName;
+
+         if (!groups.TryGetValue(groupKey, out var group))
+         {
+            group = new GroupBuilder { GroupKey = groupKey };
+            groups[groupKey] = group;
+         }
+
+         if (localeSuffix is null)
+            group.NeutralFile = file;
+         else
+            group.LocaleFiles.Add((localeSuffix!, file));
+      }
+
+      var results = new List<TranslationManifestResult>(groups.Count);
+
+      foreach (var group in groups.Values)
+      {
+         if (group.NeutralFile is null)
+            continue;
+
+         var result = BuildManifest(group, options, cancellationToken);
+         if (result is not null)
+            results.Add(result);
+      }
+
+      return results.ToImmutableArray();
+   }
+
+   private static TranslationManifestResult? BuildManifest(GroupBuilder group, GeneratorOptions options, CancellationToken cancellationToken)
+   {
+      var neutralFile = group.NeutralFile!;
+      var text = neutralFile.GetText(cancellationToken)?.ToString();
       if (string.IsNullOrWhiteSpace(text))
-         return new TranslationManifestResult();
+         return null;
 
-      if (TryGetLocaleSuffix(file.Path, out _))
-         return new TranslationManifestResult();
+      var entries = ReadResxEntries(text!);
+      if (entries.Count == 0)
+         return null;
 
-      var document = XDocument.Parse(text, LoadOptions.PreserveWhitespace);
-      var entries = document.Root?
-         .Elements("data")
-         .Select(static element => (
-            Key: ((string?)element.Attribute("name") ?? string.Empty).Trim(),
-            Value: NormalizeValue(element.Element("value")?.Value)
-         ))
-         .Where(static entry => !string.IsNullOrWhiteSpace(entry.Key))
-         .ToArray() ?? new (string Key, string? Value)[0];
+      // Read locale resx values into a map: key -> (locale -> value)
+      var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+      foreach (var (locale, file) in group.LocaleFiles)
+      {
+         var localeText = file.GetText(cancellationToken)?.ToString();
+         if (string.IsNullOrWhiteSpace(localeText))
+            continue;
 
-      if (entries.Length == 0)
-         return new TranslationManifestResult();
+         foreach (var entry in ReadResxEntries(localeText!))
+         {
+            if (string.IsNullOrEmpty(entry.Value))
+               continue;
 
-      var relativePath = BuildProjectRelativePath(file.Path, options.ProjectDirectory);
+            if (!localeValuesByKey.TryGetValue(entry.Key, out var perLocale))
+            {
+               perLocale = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+               localeValuesByKey[entry.Key] = perLocale;
+            }
+
+            perLocale[locale] = entry.Value!;
+         }
+      }
+
+      var relativePath = BuildProjectRelativePath(neutralFile.Path, options.ProjectDirectory);
       if (!IsValidProjectName(options.ProjectName))
       {
          return new TranslationManifestResult
@@ -76,7 +149,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       }
 
       var origin = BuildOrigin(options.ProjectName, relativePath);
-      var typeName = BuildTypeName(file.Path);
+      var typeName = BuildTypeName(neutralFile.Path);
       var @namespace = BuildNamespace(relativePath, options.RootNamespace);
 
       return new TranslationManifestResult
@@ -89,16 +162,43 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
             Accessibility = "public",
             Properties = entries
                 .GroupBy(entry => SanitizeIdentifier(entry.Key), StringComparer.Ordinal)
-                .Select(group => group.First())
+                .Select(g => g.First())
                 .Select(entry => new TranslationManifestPropertyModel
                 {
                    Name = SanitizeIdentifier(entry.Key),
                    Key = entry.Key,
-                   DefaultValue = entry.Value
+                   DefaultValue = entry.Value,
+                   LocaleValues = BuildLocaleValues(entry.Key, localeValuesByKey)
                 })
                .ToImmutableArray()
          }
       };
+   }
+
+   private static ImmutableArray<TranslationManifestLocaleValueModel> BuildLocaleValues(string key, Dictionary<string, Dictionary<string, string>> localeValuesByKey)
+   {
+      var result = ImmutableArray.CreateBuilder<TranslationManifestLocaleValueModel>();
+
+      if (localeValuesByKey.TryGetValue(key, out var perLocale))
+      {
+         foreach (var pair in perLocale.OrderBy(static p => p.Key, StringComparer.OrdinalIgnoreCase))
+            result.Add(new TranslationManifestLocaleValueModel { Locale = pair.Key, Value = pair.Value });
+      }
+
+      return result.ToImmutable();
+   }
+
+   private static List<(string Key, string? Value)> ReadResxEntries(string text)
+   {
+      var document = XDocument.Parse(text, LoadOptions.PreserveWhitespace);
+      return document.Root?
+         .Elements("data")
+         .Select(static element => (
+            Key: ((string?)element.Attribute("name") ?? string.Empty).Trim(),
+            Value: NormalizeValue(element.Element("value")?.Value)
+         ))
+         .Where(static entry => !string.IsNullOrWhiteSpace(entry.Key))
+         .ToList() ?? new List<(string Key, string? Value)>();
    }
 
    private static string BuildHintName(TranslationManifestModel model)
@@ -113,7 +213,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       var normalizedRelativePath = NormalizePath(relativePath);
       var fileName = GetFileName(normalizedRelativePath);
       var directory = GetDirectoryName(normalizedRelativePath);
-      var baseFileName = TryGetLocaleSuffix(fileName, out var trimmedFileName) ? trimmedFileName : fileName;
+      var baseFileName = TryGetLocaleSuffix(fileName, out var trimmedFileName, out _) ? trimmedFileName : fileName;
       var resourcePath = string.IsNullOrWhiteSpace(directory)
          ? "/" + baseFileName
          : "/" + directory + "/" + baseFileName;
@@ -124,7 +224,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
    private static string BuildTypeName(string path)
    {
       var fileName = GetFileName(path);
-      var baseFileName = TryGetLocaleSuffix(fileName, out var trimmedFileName) ? trimmedFileName : fileName;
+      var baseFileName = TryGetLocaleSuffix(fileName, out var trimmedFileName, out _) ? trimmedFileName : fileName;
       return Path.GetFileNameWithoutExtension(baseFileName).Replace(".", string.Empty);
    }
 
@@ -282,13 +382,14 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       return identifier;
    }
 
-   private static bool TryGetLocaleSuffix(string path, out string? baseFileName)
+   private static bool TryGetLocaleSuffix(string path, out string? baseFileName, out string? localeSuffix)
    {
       var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(path);
       var separatorIndex = fileNameWithoutExtension.LastIndexOf('.');
       if (separatorIndex <= 0)
       {
          baseFileName = null;
+         localeSuffix = null;
          return false;
       }
 
@@ -296,10 +397,12 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       if (!suffix.All(static character => char.IsLetterOrDigit(character) || character == '-'))
       {
          baseFileName = null;
+         localeSuffix = null;
          return false;
       }
 
       baseFileName = fileNameWithoutExtension.Substring(0, separatorIndex) + ".resx";
+      localeSuffix = suffix;
       return true;
    }
 
@@ -313,5 +416,12 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       public string ProjectDirectory { get; set; } = string.Empty;
       public string ProjectName { get; set; } = string.Empty;
       public string RootNamespace { get; set; } = string.Empty;
+   }
+
+   private sealed class GroupBuilder
+   {
+      public string GroupKey { get; set; } = string.Empty;
+      public AdditionalText? NeutralFile { get; set; }
+      public List<(string Locale, AdditionalText File)> LocaleFiles { get; } = new();
    }
 }

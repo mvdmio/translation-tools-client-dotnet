@@ -18,6 +18,13 @@ internal sealed class TranslationManifestPropertyModel
    public string Name { get; set; } = string.Empty;
    public string Key { get; set; } = string.Empty;
    public string? DefaultValue { get; set; }
+   public ImmutableArray<TranslationManifestLocaleValueModel> LocaleValues { get; set; } = ImmutableArray<TranslationManifestLocaleValueModel>.Empty;
+}
+
+internal sealed class TranslationManifestLocaleValueModel
+{
+   public string Locale { get; set; } = string.Empty;
+   public string Value { get; set; } = string.Empty;
 }
 
 internal sealed class TranslationManifestResult

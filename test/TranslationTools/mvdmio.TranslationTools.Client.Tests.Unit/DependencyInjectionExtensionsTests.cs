@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using System.Collections.Generic;
 using System.Globalization;
 using Xunit;
 
@@ -68,6 +69,11 @@ public class DependencyInjectionExtensionsTests
             Key = translation.Key,
             Value = $"translated:{translation.Key}"
          });
+      }
+
+      public Task<TranslationItemResponse> GetAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken = default)
+      {
+         return GetAsync(translation, locale, cancellationToken);
       }
 
       public Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
