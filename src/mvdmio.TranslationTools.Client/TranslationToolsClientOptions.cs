@@ -51,4 +51,11 @@ public sealed class TranslationToolsClientOptions
    /// </summary>
    public TimeSpan HeartbeatInterval { get; set; } = TimeSpan.FromHours(1);
 
+   /// <summary>
+   /// Placeholder substitution failure behavior. Default (<c>false</c>) is warn + degrade: an unresolved
+   /// placeholder is left as its raw <c>{token}</c> and a warning is logged. When <c>true</c>, an unresolved
+   /// placeholder throws <see cref="PlaceholderSubstitutionException"/> instead.
+   /// </summary>
+   public bool ThrowOnPlaceholderError { get; set; }
+
 }

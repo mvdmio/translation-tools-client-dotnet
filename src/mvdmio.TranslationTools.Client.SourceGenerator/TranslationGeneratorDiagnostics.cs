@@ -48,4 +48,13 @@ internal static class TranslationGeneratorDiagnostics
       defaultSeverity: DiagnosticSeverity.Error,
       isEnabledByDefault: true
    );
+
+   public static readonly DiagnosticDescriptor CollidingPlaceholderParameter = new(
+      id: "TTCLIENTGEN006",
+      title: "Colliding placeholder parameter",
+      messageFormat: "Placeholder tokens '{1}' and '{2}' in key '{3}' both map to generated parameter '{0}'.",
+      category: "mvdmio.TranslationTools.Client",
+      defaultSeverity: DiagnosticSeverity.Error,
+      isEnabledByDefault: true
+   );
 }

@@ -25,9 +25,18 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          .Where(file => file.Path.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
          .Collect();
 
+      var declaredGlobals = context.SyntaxProvider
+         .ForAttributeWithMetadataName(
+            "mvdmio.TranslationTools.Client.GlobalPlaceholderAttribute",
+            predicate: static (_, _) => true,
+            transform: static (ctx, _) => ResolveGlobalNames(ctx))
+         .SelectMany(static (names, _) => names)
+         .Collect();
+
       var manifests = allResxFiles
          .Combine(analyzerOptions)
-         .SelectMany(static (input, cancellationToken) => BuildManifests(input.Left, input.Right, cancellationToken));
+         .Combine(declaredGlobals)
+         .SelectMany(static (input, cancellationToken) => BuildManifests(input.Left.Left, input.Left.Right, input.Right, cancellationToken));
 
       context.RegisterSourceOutput(manifests, static (productionContext, result) =>
       {
@@ -44,10 +53,49 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       });
    }
 
-   private static ImmutableArray<TranslationManifestResult> BuildManifests(ImmutableArray<AdditionalText> files, GeneratorOptions options, CancellationToken cancellationToken)
+   private static ImmutableArray<string> ResolveGlobalNames(Microsoft.CodeAnalysis.GeneratorAttributeSyntaxContext context)
+   {
+      var builder = ImmutableArray.CreateBuilder<string>();
+
+      if (context.TargetSymbol is not IPropertySymbol property)
+         return builder.ToImmutable();
+
+      foreach (var attribute in context.Attributes)
+      {
+         string? overrideName = null;
+         if (attribute.ConstructorArguments.Length > 0)
+         {
+            var arg = attribute.ConstructorArguments[0];
+            if (arg.Value is string s && !string.IsNullOrWhiteSpace(s))
+               overrideName = s;
+         }
+
+         builder.Add(!string.IsNullOrWhiteSpace(overrideName) ? overrideName! : CamelCase(property.Name));
+      }
+
+      return builder.ToImmutable();
+   }
+
+   private static string CamelCase(string value)
+   {
+      if (string.IsNullOrEmpty(value))
+         return value;
+
+      if (char.IsLower(value[0]))
+         return value;
+
+      return char.ToLowerInvariant(value[0]) + value.Substring(1);
+   }
+
+   private static ImmutableArray<TranslationManifestResult> BuildManifests(ImmutableArray<AdditionalText> files, GeneratorOptions options, ImmutableArray<string> declaredGlobals, CancellationToken cancellationToken)
    {
       if (files.IsDefaultOrEmpty)
          return ImmutableArray<TranslationManifestResult>.Empty;
+
+      var globalNames = new HashSet<string>(declaredGlobals.IsDefault ? Enumerable.Empty<string>() : declaredGlobals, StringComparer.Ordinal);
+      var declaredGlobalsOrdered = declaredGlobals.IsDefault
+         ? ImmutableArray<string>.Empty
+         : declaredGlobals.Distinct(StringComparer.Ordinal).ToImmutableArray();
 
       // Group files by base resx (neutral) path. Locale-suffixed files share the same base file name.
       var groups = new Dictionary<string, GroupBuilder>(StringComparer.OrdinalIgnoreCase);
@@ -93,7 +141,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          if (group.NeutralFile is null)
             continue;
 
-         var result = BuildManifest(group, options, cancellationToken);
+         var result = BuildManifest(group, options, globalNames, declaredGlobalsOrdered, cancellationToken);
          if (result is not null)
             results.Add(result);
       }
@@ -101,7 +149,7 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       return results.ToImmutableArray();
    }
 
-   private static TranslationManifestResult? BuildManifest(GroupBuilder group, GeneratorOptions options, CancellationToken cancellationToken)
+   private static TranslationManifestResult? BuildManifest(GroupBuilder group, GeneratorOptions options, HashSet<string> globalNames, ImmutableArray<string> declaredGlobalsOrdered, CancellationToken cancellationToken)
    {
       var neutralFile = group.NeutralFile!;
       var text = neutralFile.GetText(cancellationToken)?.ToString();
@@ -152,27 +200,67 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
       var typeName = BuildTypeName(neutralFile.Path);
       var @namespace = BuildNamespace(relativePath, options.RootNamespace);
 
+      var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+      var properties = ImmutableArray.CreateBuilder<TranslationManifestPropertyModel>();
+
+      foreach (var entry in entries.GroupBy(e => SanitizeIdentifier(e.Key), StringComparer.Ordinal).Select(g => g.First()))
+      {
+         // All tokens in the default-locale value, first-seen order.
+         var allTokens = PlaceholderTokenParser.TokenNames(entry.Value);
+
+         // Key-scoped tokens = value tokens excluding declared globals (these become required parameters).
+         var keyScopedTokens = allTokens
+            .Where(token => !globalNames.Contains(token))
+            .ToImmutableArray();
+
+         if (!TryDetectParameterCollision(entry.Key, keyScopedTokens, diagnostics))
+            continue;
+
+         properties.Add(new TranslationManifestPropertyModel
+         {
+            Name = SanitizeIdentifier(entry.Key),
+            Key = entry.Key,
+            DefaultValue = entry.Value,
+            LocaleValues = BuildLocaleValues(entry.Key, localeValuesByKey),
+            Tokens = keyScopedTokens,
+            HasTokens = allTokens.Count > 0
+         });
+      }
+
       return new TranslationManifestResult
       {
+         Diagnostics = diagnostics.ToImmutable(),
          Model = new TranslationManifestModel
          {
             Namespace = @namespace,
             TypeName = typeName,
             Origin = origin,
             Accessibility = "public",
-            Properties = entries
-                .GroupBy(entry => SanitizeIdentifier(entry.Key), StringComparer.Ordinal)
-                .Select(g => g.First())
-                .Select(entry => new TranslationManifestPropertyModel
-                {
-                   Name = SanitizeIdentifier(entry.Key),
-                   Key = entry.Key,
-                   DefaultValue = entry.Value,
-                   LocaleValues = BuildLocaleValues(entry.Key, localeValuesByKey)
-                })
-               .ToImmutableArray()
+            DeclaredGlobalNames = declaredGlobalsOrdered,
+            Properties = properties.ToImmutable()
          }
       };
+   }
+
+   /// <summary>
+   /// Detect distinct tokens in one key whose generated parameter identifiers coalesce. Token grammar yields
+   /// valid identifiers, so collisions are rare (keyword escaping is distinct), but guard defensively.
+   /// </summary>
+   private static bool TryDetectParameterCollision(string key, ImmutableArray<string> tokens, ImmutableArray<Diagnostic>.Builder diagnostics)
+   {
+      var collision = PlaceholderParameterNaming.FindCollision(tokens);
+      if (collision is null)
+         return true;
+
+      diagnostics.Add(Diagnostic.Create(
+         TranslationGeneratorDiagnostics.CollidingPlaceholderParameter,
+         Location.None,
+         collision.Value.Parameter,
+         collision.Value.First,
+         collision.Value.Second,
+         key
+      ));
+      return false;
    }
 
    private static ImmutableArray<TranslationManifestLocaleValueModel> BuildLocaleValues(string key, Dictionary<string, Dictionary<string, string>> localeValuesByKey)

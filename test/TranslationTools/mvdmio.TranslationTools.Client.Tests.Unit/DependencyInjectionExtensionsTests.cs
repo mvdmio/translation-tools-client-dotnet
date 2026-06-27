@@ -8,6 +8,7 @@ using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
+[Collection("PlaceholderRuntime")]
 public class DependencyInjectionExtensionsTests
 {
    [Fact]

@@ -160,6 +160,30 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return string.IsNullOrWhiteSpace(Options.Environment) ? null : Options.Environment!.Trim();
    }
 
+   /// <summary>
+   /// Push the declared global placeholder names for this deployment's Environment.
+   /// Globals-only push: empty items (keys untouched), non-null globals (full-replaced for this Environment).
+   /// </summary>
+   internal async Task PushGlobalsAsync(string[] globals, CancellationToken cancellationToken = default)
+   {
+      var payload = new ProjectGlobalsPushRequest
+      {
+         Items = Array.Empty<object>(),
+         Environment = NormalizedEnvironment(),
+         Globals = globals
+      };
+
+      var json = JsonSerializer.Serialize(payload, _serializerOptions);
+
+      using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/translations/project")
+      {
+         Content = new StringContent(json, Encoding.UTF8, "application/json")
+      };
+
+      using var response = await _client.SendAsync(request, cancellationToken);
+      response.EnsureSuccessStatusCode();
+   }
+
    private static string ResolveClientVersion()
    {
       var assembly = typeof(TranslationToolsClient).Assembly;
