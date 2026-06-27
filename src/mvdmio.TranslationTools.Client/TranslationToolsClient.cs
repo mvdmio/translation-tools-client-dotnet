@@ -404,10 +404,14 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    private CultureInfo[] GetSupportedLocales()
    {
-      if (Options.SupportedLocales.Length == 0)
-         return [CultureInfo.CurrentUICulture];
+      var configured = Options.SupportedLocales.Length == 0
+         ? new[] { CultureInfo.CurrentUICulture }
+         : Options.SupportedLocales;
 
-      return Options.SupportedLocales;
+      // Skip the invariant culture (empty name): it has no locale to prefetch and would
+      // fail locale normalization. This keeps Initialize() from throwing when the process
+      // runs under the invariant culture (common on CI runners and globalization-invariant hosts).
+      return configured.Where(static locale => !string.IsNullOrWhiteSpace(locale.Name)).ToArray();
    }
 
    private static async Task<T?> DeserializeAsync<T>(HttpContent content) where T : class

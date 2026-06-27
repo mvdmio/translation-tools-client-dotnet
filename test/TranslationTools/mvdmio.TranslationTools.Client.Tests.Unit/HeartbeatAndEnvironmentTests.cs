@@ -107,6 +107,32 @@ public class HeartbeatAndEnvironmentTests
    }
 
    [Fact]
+   public async Task Initialize_ShouldNotThrow_WhenCurrentCultureIsInvariant_AndNoSupportedLocalesConfigured()
+   {
+      // CI runners often run under the invariant culture (empty Name). With no SupportedLocales
+      // configured, Initialize() falls back to CurrentUICulture; an empty locale name must not
+      // reach locale normalization (which rejects it) and crash startup.
+      var originalCulture = CultureInfo.CurrentUICulture;
+      try
+      {
+         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+         var handler = new RecordingHandler();
+         using var client = CreateClient(handler, environment: null, enableHeartbeat: false);
+
+         var init = async () => await client.Initialize(TestContext.Current.CancellationToken);
+         await init.Should().NotThrowAsync();
+
+         // The invariant culture is skipped, so no locale pull is attempted on init.
+         handler.LastGetPath.Should().BeNull();
+      }
+      finally
+      {
+         CultureInfo.CurrentUICulture = originalCulture;
+      }
+   }
+
+   [Fact]
    public void FileClientIdStore_ShouldReturnSameGuid_AcrossInstances()
    {
       var directory = Path.Combine(Path.GetTempPath(), "tt-client-id-" + Guid.NewGuid().ToString("N"));
