@@ -2,9 +2,12 @@ using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,10 +24,19 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       PropertyNameCaseInsensitive = true
    };
 
+   private const string PlatformName = "dotnet";
+
+   private static readonly string _clientVersion = ResolveClientVersion();
+
    private readonly HttpClient _client;
    private readonly IOptions<TranslationToolsClientOptions> _options;
    private readonly ITranslationToolsClientCache _cache;
+   private readonly TimeProvider _timeProvider;
+   private readonly Guid _clientId;
    private readonly SemaphoreSlim _initializeLock = new(1, 1);
+
+   private CancellationTokenSource? _heartbeatCts;
+   private int _heartbeatStarted;
 
    private TranslationToolsClientOptions Options => _options.Value;
 
@@ -38,11 +50,18 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    {
    }
 
-   internal TranslationToolsClient(HttpClient client, IOptions<TranslationToolsClientOptions> options, ITranslationToolsClientCache cache)
+   internal TranslationToolsClient(
+      HttpClient client,
+      IOptions<TranslationToolsClientOptions> options,
+      ITranslationToolsClientCache cache,
+      TimeProvider? timeProvider = null,
+      IClientIdStore? clientIdStore = null)
    {
       _client = client;
       _options = options;
       _cache = cache;
+      _timeProvider = timeProvider ?? TimeProvider.System;
+      _clientId = (clientIdStore ?? new FileClientIdStore()).GetOrCreateClientId();
 
       if (string.IsNullOrWhiteSpace(Options.ApiKey))
          throw new ArgumentException("ApiKey is required.", nameof(options));
@@ -65,6 +84,102 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       {
          _initializeLock.Release();
       }
+
+      StartHeartbeat();
+   }
+
+   private void StartHeartbeat()
+   {
+      if (!Options.EnableHeartbeat)
+         return;
+
+      if (Interlocked.CompareExchange(ref _heartbeatStarted, 1, 0) != 0)
+         return;
+
+      _heartbeatCts = new CancellationTokenSource();
+      var token = _heartbeatCts.Token;
+      _ = Task.Run(() => HeartbeatLoopAsync(token), CancellationToken.None);
+   }
+
+   private async Task HeartbeatLoopAsync(CancellationToken cancellationToken)
+   {
+      try
+      {
+         await SafeSendHeartbeatAsync(cancellationToken);
+
+         using var timer = new PeriodicTimer(Options.HeartbeatInterval, _timeProvider);
+         while (await timer.WaitForNextTickAsync(cancellationToken))
+            await SafeSendHeartbeatAsync(cancellationToken);
+      }
+      catch (OperationCanceledException)
+      {
+         // Heartbeat loop cancelled during shutdown; nothing to do.
+      }
+   }
+
+   private async Task SafeSendHeartbeatAsync(CancellationToken cancellationToken)
+   {
+      try
+      {
+         await SendHeartbeatAsync(cancellationToken);
+      }
+      catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+      {
+         throw;
+      }
+      catch (Exception exception)
+      {
+         // A failed heartbeat must never bubble into app code; best-effort log and retry next tick.
+         Trace.WriteLine($"TranslationTools heartbeat failed: {exception}");
+      }
+   }
+
+   internal async Task SendHeartbeatAsync(CancellationToken cancellationToken = default)
+   {
+      var payload = new HeartbeatRequest
+      {
+         ClientId = _clientId,
+         Environment = NormalizedEnvironment(),
+         Platform = PlatformName,
+         Version = _clientVersion
+      };
+
+      var json = JsonSerializer.Serialize(payload, _serializerOptions);
+
+      using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/translations/heartbeat")
+      {
+         Content = new StringContent(json, Encoding.UTF8, "application/json")
+      };
+
+      using var response = await _client.SendAsync(request, cancellationToken);
+      response.EnsureSuccessStatusCode();
+   }
+
+   private string? NormalizedEnvironment()
+   {
+      return string.IsNullOrWhiteSpace(Options.Environment) ? null : Options.Environment!.Trim();
+   }
+
+   private static string ResolveClientVersion()
+   {
+      var assembly = typeof(TranslationToolsClient).Assembly;
+
+      var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+      if (!string.IsNullOrWhiteSpace(informational))
+      {
+         var plusIndex = informational.IndexOf('+');
+         return plusIndex >= 0 ? informational[..plusIndex] : informational;
+      }
+
+      return assembly.GetName().Version?.ToString() ?? "unknown";
+   }
+
+   private sealed class HeartbeatRequest
+   {
+      public Guid ClientId { get; init; }
+      public string? Environment { get; init; }
+      public required string Platform { get; init; }
+      public required string Version { get; init; }
    }
 
    /// <inheritdoc />
@@ -168,19 +283,43 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    /// <inheritdoc />
    public void Dispose()
    {
+      if (_heartbeatCts is not null)
+      {
+         try
+         {
+            _heartbeatCts.Cancel();
+         }
+         catch (ObjectDisposedException)
+         {
+            // Already disposed; nothing to cancel.
+         }
+
+         _heartbeatCts.Dispose();
+      }
+
       _client.Dispose();
       _initializeLock.Dispose();
    }
 
    private async Task<TranslationItemResponse[]> FetchLocaleAsync(string locale, CancellationToken cancellationToken)
    {
-      using var request = new HttpRequestMessage(HttpMethod.Get, $"api/v1/translations/{Uri.EscapeDataString(locale)}");
+      var url = $"api/v1/translations/{Uri.EscapeDataString(locale)}";
+
+      var environment = NormalizedEnvironment();
+      if (environment is not null)
+         url += $"/{Uri.EscapeDataString(environment)}";
+
+      using var request = new HttpRequestMessage(HttpMethod.Get, url);
       return await FetchAsync(request, static content => DeserializeAsync<TranslationItemResponse[]>(content), cancellationToken);
    }
 
    private async Task<TranslationItemResponse> FetchTranslationAsync(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken)
    {
       var url = $"api/v1/translations/{Uri.EscapeDataString(translation.Origin)}/{Uri.EscapeDataString(locale)}/{Uri.EscapeDataString(translation.Key)}";
+
+      var environment = NormalizedEnvironment();
+      if (environment is not null)
+         url += $"/{Uri.EscapeDataString(environment)}";
 
       var query = new List<string>();
       if (defaultValue is not null)

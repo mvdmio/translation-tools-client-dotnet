@@ -50,6 +50,7 @@ internal sealed class PushHandler
          new TranslationPushRequest
          {
             Prune = prune,
+            Environment = config.Environment,
             Items = scanResult.Items.Select(
                static x => new TranslationPushItemRequest
                {

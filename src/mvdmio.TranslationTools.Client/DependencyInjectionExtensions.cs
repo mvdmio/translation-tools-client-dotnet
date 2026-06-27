@@ -39,12 +39,15 @@ public static class DependencyInjectionExtensions
          );
 
       services.AddHttpClient(HTTP_CLIENT_NAME);
+      services.TryAddSingleton<IClientIdStore, FileClientIdStore>();
       services.TryAddSingleton<TranslationToolsClient>(static serviceProvider =>
       {
          var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
          var httpClient = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
          var clientOptions = serviceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>();
-         var client = new TranslationToolsClient(httpClient, clientOptions);
+         var clientIdStore = serviceProvider.GetRequiredService<IClientIdStore>();
+         var timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
+         var client = new TranslationToolsClient(httpClient, clientOptions, new LocalTranslationToolsClientCache(), timeProvider, clientIdStore);
          Translations.SetClient(client);
          return client;
       });

@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 
 namespace mvdmio.TranslationTools.Client;
@@ -30,5 +31,24 @@ public sealed class TranslationToolsClientOptions
    /// Enable built-in WebSocket live updates.
    /// </summary>
    public bool EnableLiveUpdates { get; set; }
+
+   /// <summary>
+   /// Optional deployment environment name (e.g. "production", "staging").
+   /// When set (non-blank), it is appended as the final path segment on translation
+   /// pull requests and carried in the heartbeat body, so the server scopes the keys
+   /// it serves to this deployment's Environment. Sent as-is; the server lowercases it.
+   /// </summary>
+   public string? Environment { get; set; }
+
+   /// <summary>
+   /// Enable the periodic heartbeat that reports client presence to the server.
+   /// Enabled by default; set to <c>false</c> to opt out of heartbeat/client tracking.
+   /// </summary>
+   public bool EnableHeartbeat { get; set; } = true;
+
+   /// <summary>
+   /// Interval between heartbeat reports. Defaults to one hour.
+   /// </summary>
+   public TimeSpan HeartbeatInterval { get; set; } = TimeSpan.FromHours(1);
 
 }

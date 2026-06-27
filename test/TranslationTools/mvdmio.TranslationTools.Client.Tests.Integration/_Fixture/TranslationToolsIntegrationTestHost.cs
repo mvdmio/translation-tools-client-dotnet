@@ -23,17 +23,29 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public string? LastAuthorizationHeader { get; private set; }
 
+   public string? LastEnvironment { get; private set; }
+
    public int LocaleRequestCount => _localeRequestCount;
 
    public int SocketTokenRequestCount => _socketTokenRequestCount;
+
+   public int HeartbeatRequestCount => _heartbeatRequestCount;
+
+   public string? LastHeartbeatAuthorizationHeader { get; private set; }
+
+   public HeartbeatBody? LastHeartbeatBody { get; private set; }
 
    public required IReadOnlyDictionary<string, IReadOnlyDictionary<TranslationRef, string?>> Locales { get; init; }
 
    public string BaseUrl { get; private set; } = string.Empty;
 
+   public int HeartbeatStatusCode { get; set; } = StatusCodes.Status200OK;
+
    private int _localeRequestCount;
 
    private int _socketTokenRequestCount;
+
+   private int _heartbeatRequestCount;
 
    public static async Task<TranslationToolsIntegrationTestHost> StartAsync(IReadOnlyDictionary<string, IReadOnlyDictionary<TranslationRef, string?>> locales, CancellationToken cancellationToken)
    {
@@ -48,9 +60,10 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
       var app = builder.Build();
       app.UseWebSockets();
 
-      app.MapGet("/api/v1/translations/{locale}", async (HttpContext context, string locale) =>
+      IResult ServeLocale(HttpContext context, string locale, string? environment)
       {
          host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
+         host.LastEnvironment = environment;
          Interlocked.Increment(ref host._localeRequestCount);
 
          if (!host.Locales.TryGetValue(locale, out var values))
@@ -64,13 +77,27 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          });
 
          return Results.Json(payload, SerializerOptions);
-      });
+      }
+
+      app.MapGet("/api/v1/translations/{locale}", (HttpContext context, string locale) => ServeLocale(context, locale, environment: null));
+      app.MapGet("/api/v1/translations/{locale}/{environment}", (HttpContext context, string locale, string environment) => ServeLocale(context, locale, environment));
 
       app.MapGet("/api/v1/translations/socket-token", (HttpContext context) =>
       {
          host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
          Interlocked.Increment(ref host._socketTokenRequestCount);
          return Results.Json(new { token = SocketToken }, SerializerOptions);
+      });
+
+      app.MapPost("/api/v1/translations/heartbeat", async (HttpContext context) =>
+      {
+         host.LastHeartbeatAuthorizationHeader = context.Request.Headers.Authorization.ToString();
+
+         var body = await context.Request.ReadFromJsonAsync<HeartbeatBody>(SerializerOptions);
+         host.LastHeartbeatBody = body;
+         Interlocked.Increment(ref host._heartbeatRequestCount);
+
+         return Results.StatusCode(host.HeartbeatStatusCode);
       });
 
       app.MapGet("/ws/translations", async context =>
@@ -130,10 +157,22 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
       if (_webSocketConnected.Task.IsCompletedSuccessfully)
       {
          var webSocket = await _webSocketConnected.Task;
-         if (webSocket.State == WebSocketState.Open)
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", CancellationToken.None);
+         try
+         {
+            if (webSocket.State == WebSocketState.Open)
+               await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disposing", CancellationToken.None);
 
-         webSocket.Dispose();
+            webSocket.Dispose();
+         }
+         catch (ObjectDisposedException)
+         {
+            // The underlying HttpContext may already be torn down by the time we dispose the
+            // server-side socket; closing it then aborts a disposed context. Safe to ignore.
+         }
+         catch (WebSocketException)
+         {
+            // Socket already aborted during shutdown; nothing further to clean up.
+         }
       }
 
       if (_app is not null)
@@ -144,4 +183,6 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
       _disposeCancellationTokenSource.Dispose();
    }
+
+   public sealed record HeartbeatBody(string? ClientId, string? Environment, string? Platform, string? Version);
 }
