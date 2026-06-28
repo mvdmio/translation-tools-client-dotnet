@@ -10,6 +10,7 @@ Use this package in your application when you want to:
 
 - fetch translations from the TranslationTools API
 - use generated strongly typed localization classes from `.resx` files
+- substitute `{token}` placeholders, including ambient global placeholders
 - keep local `.resx` resources as a fallback
 - optionally receive live translation updates at runtime
 
@@ -28,11 +29,14 @@ builder.Services.AddTranslationToolsClient(options => {
    options.ApiKey = "project-api-key";
    options.DefaultLocale = "en";
    options.EnableLiveUpdates = true;
+   options.Environment = "production"; // optional: scope translations to a deployment environment
 });
 
 var app = builder.Build();
 await app.InitializeTranslationToolsClientAsync();
 ```
+
+Set `Environment` to scope the translations this deployment fetches to a named environment (e.g. `production`, `staging`). It should match the `environment` declared by `mvdmio.TranslationTools.Tool` when keys were pushed. See the [package docs](src/mvdmio.TranslationTools.Client/Readme.md) for details.
 
 Use generated translations and the runtime client:
 
