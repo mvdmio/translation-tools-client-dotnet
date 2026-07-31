@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
@@ -257,9 +258,11 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (cached is not null)
          return cached.Value;
 
-      var fetched = await FetchTranslationAsync(localeName, translation, defaultValue, localeValues, cancellationToken);
-      var stored = await StoreTranslationAsync(localeName, translation, fetched, cancellationToken);
-      return stored;
+      var (fetched, degraded) = await FetchTranslationOrFallbackAsync(localeName, translation, defaultValue, localeValues, cancellationToken);
+      if (degraded)
+         return fetched;
+
+      return await StoreTranslationAsync(localeName, translation, fetched, cancellationToken);
    }
 
    /// <inheritdoc />
@@ -362,7 +365,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return await FetchAsync(request, static content => DeserializeAsync<TranslationItemResponse[]>(content), cancellationToken);
    }
 
-   private async Task<TranslationItemResponse> FetchTranslationAsync(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken)
+   private HttpRequestMessage BuildTranslationRequest(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues)
    {
       var url = $"api/v1/translations/{Uri.EscapeDataString(translation.Origin)}/{Uri.EscapeDataString(locale)}/{Uri.EscapeDataString(translation.Key)}";
 
@@ -388,8 +391,95 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (query.Count > 0)
          url += "?" + string.Join("&", query);
 
-      using var request = new HttpRequestMessage(HttpMethod.Get, url);
-      return await FetchAsync(request, static content => DeserializeAsync<TranslationItemResponse>(content), cancellationToken);
+      return new HttpRequestMessage(HttpMethod.Get, url);
+   }
+
+   /// <summary>
+   /// Fetches a single translation. Never throws (other than for the caller's own cancellation):
+   /// an unsuccessful response, a transport exception, and an undeserialisable body are all logged
+   /// and answered with the local fallback instead. Degraded results are never cached, so the next
+   /// call retries the service.
+   /// </summary>
+   private async Task<(TranslationItemResponse Value, bool Degraded)> FetchTranslationOrFallbackAsync(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken)
+   {
+      using var request = BuildTranslationRequest(locale, translation, defaultValue, localeValues);
+
+      HttpResponseMessage response;
+      try
+      {
+         response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+      }
+      catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+      {
+         throw;
+      }
+      catch (Exception exception)
+      {
+         LogDegradedLookup(translation, locale, LogLevel.Warning, "the service could not answer", exception);
+         return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+      }
+
+      using (response)
+      {
+         if (!response.IsSuccessStatusCode)
+         {
+            var level = response.StatusCode == HttpStatusCode.Unauthorized ? LogLevel.Error : LogLevel.Warning;
+            var reason = response.StatusCode == HttpStatusCode.NotFound
+               ? "the service has no value for this key"
+               : "the service could not answer";
+
+            LogDegradedLookup(translation, locale, level, reason, exception: null);
+            return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+         }
+
+         TranslationItemResponse? deserialized;
+         try
+         {
+            deserialized = await DeserializeAsync<TranslationItemResponse>(response.Content);
+         }
+         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+         {
+            throw;
+         }
+         catch (Exception exception)
+         {
+            LogDegradedLookup(translation, locale, LogLevel.Warning, "the service could not answer", exception);
+            return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+         }
+
+         if (deserialized is null)
+         {
+            LogDegradedLookup(translation, locale, LogLevel.Warning, "the service could not answer", exception: null);
+            return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+         }
+
+         return (deserialized, false);
+      }
+   }
+
+   /// <summary>
+   /// Builds the local fallback for a degraded lookup: the dictionary entry for the effective
+   /// locale, matched on its exact name, then the supplied neutral value.
+   /// </summary>
+   private static TranslationItemResponse BuildLocalFallback(TranslationRef translation, string locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues)
+   {
+      string? value = null;
+      if (localeValues is not null && localeValues.TryGetValue(locale, out var localValue) && !string.IsNullOrEmpty(localValue))
+         value = localValue;
+
+      value ??= defaultValue;
+
+      return new TranslationItemResponse
+      {
+         Origin = translation.Origin,
+         Key = translation.Key,
+         Value = value
+      };
+   }
+
+   private void LogDegradedLookup(TranslationRef translation, string effectiveLocale, LogLevel level, string reason, Exception? exception)
+   {
+      _logger?.Log(level, exception, "Translation lookup for key '{Key}' in locale '{Locale}' degraded to local fallback: {Reason}.", translation.Key, effectiveLocale, reason);
    }
 
    private async Task<T> FetchAsync<T>(HttpRequestMessage request, Func<HttpContent, Task<T?>> deserialize, CancellationToken cancellationToken) where T : class
