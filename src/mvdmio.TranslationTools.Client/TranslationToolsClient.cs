@@ -415,8 +415,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       }
       catch (Exception exception)
       {
-         LogDegradedLookup(translation, locale, LogLevel.Warning, "the service could not answer", exception);
-         return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+         return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service could not answer", exception);
       }
 
       using (response)
@@ -428,8 +427,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
                ? "the service has no value for this key"
                : "the service could not answer";
 
-            LogDegradedLookup(translation, locale, level, reason, exception: null);
-            return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+            return HandleDegradedLookup(translation, locale, defaultValue, localeValues, level, reason, exception: null);
          }
 
          TranslationItemResponse? deserialized;
@@ -443,18 +441,31 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
          }
          catch (Exception exception)
          {
-            LogDegradedLookup(translation, locale, LogLevel.Warning, "the service could not answer", exception);
-            return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+            return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service could not answer", exception);
          }
 
          if (deserialized is null)
          {
-            LogDegradedLookup(translation, locale, LogLevel.Warning, "the service could not answer", exception: null);
-            return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
+            return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service could not answer", exception: null);
          }
 
          return (deserialized, false);
       }
+   }
+
+   /// <summary>
+   /// Handles a classified lookup failure: with <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/>
+   /// set, rethrows as <see cref="TranslationLookupException"/> instead of degrading. Otherwise logs at the
+   /// classified level and returns the local fallback. A caller's own cancellation never reaches here; it is
+   /// rethrown by its callers before classification runs.
+   /// </summary>
+   private (TranslationItemResponse Value, bool Degraded) HandleDegradedLookup(TranslationRef translation, string locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, LogLevel level, string reason, Exception? exception)
+   {
+      if (Options.ThrowOnLookupError)
+         throw new TranslationLookupException($"Translation lookup for key '{translation.Key}' in locale '{locale}' failed: {reason}.", exception);
+
+      LogDegradedLookup(translation, locale, level, reason, exception);
+      return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
    }
 
    /// <summary>

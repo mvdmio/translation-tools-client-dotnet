@@ -58,4 +58,11 @@ public sealed class TranslationToolsClientOptions
    /// </summary>
    public bool ThrowOnPlaceholderError { get; set; }
 
+   /// <summary>
+   /// Translation lookup failure behavior. Default (<c>false</c>) is warn/error + degrade: a failed
+   /// single-key lookup is logged and answered with the local fallback. When <c>true</c>, a failed
+   /// single-key lookup throws <see cref="TranslationLookupException"/> instead.
+   /// </summary>
+   public bool ThrowOnLookupError { get; set; }
+
 }

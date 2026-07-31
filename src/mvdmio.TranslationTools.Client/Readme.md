@@ -47,6 +47,7 @@ await app.InitializeTranslationToolsClientAsync();
 | `EnableHeartbeat` | `bool` | `true` | Periodically reports client presence to the server. See [Heartbeat and client identity](#heartbeat-and-client-identity). |
 | `HeartbeatInterval` | `TimeSpan` | `1 hour` | Interval between heartbeat reports. |
 | `ThrowOnPlaceholderError` | `bool` | `false` | Throw `PlaceholderSubstitutionException` on an unresolved placeholder instead of degrading. See [Placeholders](#placeholders). |
+| `ThrowOnLookupError` | `bool` | `false` | Throw `TranslationLookupException` from a single-key lookup instead of degrading to the local fallback. See [Local fallback](#local-fallback). |
 
 ## Use the client
 
