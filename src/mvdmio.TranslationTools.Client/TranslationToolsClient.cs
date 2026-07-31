@@ -40,6 +40,21 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    private CancellationTokenSource? _heartbeatCts;
    private int _heartbeatStarted;
 
+   /// <summary>
+   /// How long a failure that indicates the service itself is unreachable or broken (a connection
+   /// failure, a timeout, or a 5xx) suppresses further calls for. Not exposed on
+   /// <see cref="TranslationToolsClientOptions"/>: it has neither a length nor a way to disable it.
+   /// </summary>
+   private static readonly TimeSpan LookupSuppressionWindow = TimeSpan.FromMinutes(1);
+
+   /// <summary>
+   /// UTC ticks at which the current suppression window ends, or 0 when no window is open.
+   /// Process-wide for this client instance: shared across every locale and key, because what
+   /// opens it is a statement about the service rather than about one request. Read/written with
+   /// <see cref="Interlocked"/> since lookups can run concurrently.
+   /// </summary>
+   private long _suppressedUntilUtcTicks;
+
    private TranslationToolsClientOptions Options => _options.Value;
 
    private Uri BaseUri => new(Options.BaseUrlOverride);
@@ -355,6 +370,9 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    private async Task<TranslationItemResponse[]> FetchLocaleAsync(string locale, CancellationToken cancellationToken)
    {
+      if (IsLookupSuppressed())
+         throw new TranslationLookupException($"Translation lookup for locale '{locale}' failed: the service is suppressed after a recent failure.");
+
       var url = $"api/v1/translations/{Uri.EscapeDataString(locale)}";
 
       var environment = NormalizedEnvironment();
@@ -408,6 +426,9 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    /// </summary>
    private async Task<(TranslationItemResponse Value, bool Degraded)> FetchTranslationOrFallbackAsync(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken)
    {
+      if (IsLookupSuppressed())
+         return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service is suppressed after a recent failure", exception: null);
+
       using var request = BuildTranslationRequest(locale, translation, defaultValue, localeValues);
 
       using var timeoutCts = new CancellationTokenSource(Options.LookupTimeout, _timeProvider);
@@ -425,6 +446,9 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       }
       catch (Exception exception)
       {
+         // A transport failure or our own timeout is a statement about the service, not this
+         // request: it opens the suppression window so the next lookups skip calling out.
+         SuppressLookupsForOneMinute();
          return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service could not answer", exception);
       }
 
@@ -432,6 +456,9 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       {
          if (!response.IsSuccessStatusCode)
          {
+            if ((int)response.StatusCode >= 500)
+               SuppressLookupsForOneMinute();
+
             var level = response.StatusCode == HttpStatusCode.Unauthorized ? LogLevel.Error : LogLevel.Warning;
             var reason = response.StatusCode == HttpStatusCode.NotFound
                ? "the service has no value for this key"
@@ -501,6 +528,28 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    private void LogDegradedLookup(TranslationRef translation, string effectiveLocale, LogLevel level, string reason, Exception? exception)
    {
       _logger?.Log(level, exception, "Translation lookup for key '{Key}' in locale '{Locale}' degraded to local fallback: {Reason}.", translation.Key, effectiveLocale, reason);
+   }
+
+   /// <summary>
+   /// True while a suppression window opened by a recent connection failure, timeout, or 5xx is
+   /// still open. Tracked against the injected <see cref="TimeProvider"/> so a fake clock can drive
+   /// it in tests. Nothing probes the service in the background to close it early or extend it;
+   /// it simply expires once <see cref="TimeProvider.GetUtcNow"/> passes the recorded instant.
+   /// </summary>
+   private bool IsLookupSuppressed()
+   {
+      var until = Interlocked.Read(ref _suppressedUntilUtcTicks);
+      return until != 0 && _timeProvider.GetUtcNow().UtcTicks < until;
+   }
+
+   /// <summary>
+   /// Opens (or re-opens) the suppression window for <see cref="LookupSuppressionWindow"/> from now,
+   /// as measured by the injected <see cref="TimeProvider"/>.
+   /// </summary>
+   private void SuppressLookupsForOneMinute()
+   {
+      var until = _timeProvider.GetUtcNow().UtcTicks + LookupSuppressionWindow.Ticks;
+      Interlocked.Exchange(ref _suppressedUntilUtcTicks, until);
    }
 
    private async Task<T> FetchAsync<T>(HttpRequestMessage request, Func<HttpContent, Task<T?>> deserialize, CancellationToken cancellationToken) where T : class
