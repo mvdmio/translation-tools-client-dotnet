@@ -221,12 +221,38 @@ Existing non-empty translations on the server are never overwritten by this seed
 
 ## Local fallback
 
-Generated localization access works well with local `.resx` files in your project. A common workflow is:
+A single-key lookup — through a generated localization accessor, `ITranslationToolsClient.GetAsync`, or the fluent builder — never throws. If the service cannot answer (a missing key, an unreachable service, a server error, a timeout, or a rejected API key), the lookup degrades instead: it is logged, and answered from the `.resx` text your project shipped with rather than failing the caller.
 
-1. Keep your neutral and localized `.resx` files in source control.
-2. Use `mvdmio.TranslationTools.Tool` to pull updates from TranslationTools.
-3. Initialize the client during app startup.
-4. Use generated localization members or `ITranslationToolsClient` in application code.
+Before a lookup runs, its locale is resolved to the **effective locale**: a blank locale name (the invariant culture, which is what a scheduled job commonly runs under) is replaced with `DefaultLocale`; any other locale is used as named. The effective locale is what the fallback chain below is matched against.
+
+For a generated accessor, which always supplies the neutral `.resx` value and the per-locale `.resx` dictionary the source generator embeds, the chain is, in order:
+
+1. the value the service returned;
+2. the `.resx` entry for the effective locale, matched on its exact name (`nl-NL` does not match an entry stored under `nl`);
+3. the neutral `.resx` value;
+4. the translation key itself, so the result is never null or empty.
+
+`{token}` placeholders in a fallback value are still substituted. Calling `ITranslationToolsClient` directly with no local text to fall back on returns a response whose value is `null` instead of throwing.
+
+Two safeguards keep a degraded service from turning into a slow one instead of a failing one:
+
+- **Timeout.** A single-key lookup gives up after `LookupTimeout` (5 seconds by default) and degrades, rather than waiting indefinitely.
+- **Suppression.** A failure that says the service itself is unreachable or broken — a connection failure, a timeout, or a `5xx` — suppresses further single-key lookups for one minute; every lookup in that window is answered from local fallback without calling the service. A response the service produced about one request, such as a `401` or a `404`, does not open this window. Nothing probes the service in the background: the first lookup after the window passes is a live call, which either succeeds or reopens the window.
+
+A degraded value is never written to the cache, so the next lookup for that key retries the service rather than repeating stale local text. A rejected API key (`401`) is logged at `Error`; every other degraded lookup is logged at `Warning`, naming the translation key and the effective locale and distinguishing "the service could not answer" from "the service has no value for this key".
+
+A whole-locale lookup (`ITranslationToolsClient.GetLocaleAsync`) is not covered by this fallback: it still throws if the service cannot answer, since there is no per-key neutral value to fall back to.
+
+Set `ThrowOnLookupError = true` to restore the previous behavior and throw `TranslationLookupException` from a single-key lookup instead of degrading:
+
+```csharp
+builder.Services.AddTranslationToolsClient(options => {
+   options.ApiKey = "project-api-key";
+   options.ThrowOnLookupError = true;
+});
+```
+
+A cancellation your own code requested is never treated as a failure; it always propagates as a cancellation, regardless of `ThrowOnLookupError`.
 
 ## Live updates
 
