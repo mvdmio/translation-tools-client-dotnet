@@ -66,6 +66,18 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (string.IsNullOrWhiteSpace(Options.ApiKey))
          throw new ArgumentException("ApiKey is required.", nameof(options));
 
+      if (string.IsNullOrWhiteSpace(Options.DefaultLocale))
+         throw new ArgumentException("DefaultLocale is required.", nameof(options));
+
+      try
+      {
+         _ = new CultureInfo(Options.DefaultLocale);
+      }
+      catch (CultureNotFoundException exception)
+      {
+         throw new ArgumentException($"DefaultLocale '{Options.DefaultLocale}' is not a recognised locale.", nameof(options), exception);
+      }
+
       _client.BaseAddress = BaseUri;
       _client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", Options.ApiKey);
    }
@@ -224,9 +236,19 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return GetInternalAsync(translation, locale, defaultValue, localeValues, cancellationToken);
    }
 
+   /// <summary>
+   /// Resolves the locale a lookup actually runs against. A locale whose name is blank (the
+   /// invariant culture) is replaced by the configured <see cref="TranslationToolsClientOptions.DefaultLocale"/>.
+   /// A locale the caller names is used as named.
+   /// </summary>
+   private string ResolveEffectiveLocale(CultureInfo locale)
+   {
+      return string.IsNullOrWhiteSpace(locale.Name) ? Options.DefaultLocale : locale.Name;
+   }
+
    internal async Task<TranslationItemResponse> GetInternalAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken = default)
    {
-      var localeName = locale.Name;
+      var localeName = ResolveEffectiveLocale(locale);
 
       var cached = await GetCachedTranslationAsync(localeName, translation, cancellationToken);
       if (cached is not null)
@@ -240,7 +262,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    /// <inheritdoc />
    public async Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
    {
-      var localeName = locale.Name;
+      var localeName = ResolveEffectiveLocale(locale);
       var cached = await GetCachedLocaleAsync(localeName, cancellationToken);
       if (cached is not null)
          return cached.Value;
@@ -251,7 +273,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    internal async Task RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
    {
-      var localeName = locale.Name;
+      var localeName = ResolveEffectiveLocale(locale);
       var fetched = await FetchLocaleAsync(localeName, cancellationToken);
       await StoreLocaleAsync(localeName, fetched, cancellationToken);
    }
@@ -261,17 +283,17 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    /// </summary>
    internal TranslationItemResponse? TryGetCached(TranslationRef translation, CultureInfo locale)
    {
-      return _cache.Get(locale.Name, translation)?.Value;
+      return _cache.Get(ResolveEffectiveLocale(locale), translation)?.Value;
    }
 
    internal void InvalidateLocale(CultureInfo locale)
    {
-      InvalidateLocaleAsync(locale.Name, CancellationToken.None).GetAwaiter().GetResult();
+      InvalidateLocaleAsync(ResolveEffectiveLocale(locale), CancellationToken.None).GetAwaiter().GetResult();
    }
 
    internal void Invalidate(TranslationRef translation, CultureInfo locale)
    {
-      InvalidateAsync(translation, locale.Name, CancellationToken.None).GetAwaiter().GetResult();
+      InvalidateAsync(translation, ResolveEffectiveLocale(locale), CancellationToken.None).GetAwaiter().GetResult();
    }
 
    internal Task ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<TranslationRef, string?> values, CancellationToken cancellationToken = default)

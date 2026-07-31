@@ -40,7 +40,7 @@ await app.InitializeTranslationToolsClientAsync();
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `ApiKey` | `string` | _(required)_ | Your TranslationTools project API key, sent as the `Authorization` header. |
-| `DefaultLocale` | `string` | `"en"` | Locale used when no specific locale can be resolved. |
+| `DefaultLocale` | `string` | `"en"` | Substituted for a lookup's locale whenever that locale's name is blank (the invariant culture) before the lookup consults the cache or calls the service, so that background jobs and other invariant-culture callers resolve to a real locale instead of a collapsed request path. Must be blank-free and recognised by the runtime; validated when the client is constructed. |
 | `SupportedLocales` | `CultureInfo[]` | `[]` | Locales preloaded during initialization. When left empty, the app's `RequestLocalizationOptions` cultures are used. |
 | `EnableLiveUpdates` | `bool` | `false` | Enables built-in WebSocket live translation updates. See [Live updates](#live-updates). |
 | `Environment` | `string?` | `null` | Deployment environment name used to scope fetched translations. See [Environment scoping](#environment-scoping). |

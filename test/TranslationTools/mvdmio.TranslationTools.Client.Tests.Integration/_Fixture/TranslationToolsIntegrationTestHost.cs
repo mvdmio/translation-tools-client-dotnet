@@ -27,6 +27,8 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public int LocaleRequestCount => _localeRequestCount;
 
+   public int TranslationRequestCount => _translationRequestCount;
+
    public int SocketTokenRequestCount => _socketTokenRequestCount;
 
    public int HeartbeatRequestCount => _heartbeatRequestCount;
@@ -42,6 +44,8 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
    public int HeartbeatStatusCode { get; set; } = StatusCodes.Status200OK;
 
    private int _localeRequestCount;
+
+   private int _translationRequestCount;
 
    private int _socketTokenRequestCount;
 
@@ -81,6 +85,31 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
       app.MapGet("/api/v1/translations/{locale}", (HttpContext context, string locale) => ServeLocale(context, locale, environment: null));
       app.MapGet("/api/v1/translations/{locale}/{environment}", (HttpContext context, string locale, string environment) => ServeLocale(context, locale, environment));
+
+      IResult ServeTranslation(HttpContext context, string origin, string locale, string key)
+      {
+         host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
+         Interlocked.Increment(ref host._translationRequestCount);
+
+         // ASP.NET Core route binding leaves an escaped '/' (%2F) undecoded within a path
+         // segment to avoid path-traversal ambiguity, even though it decodes other escapes
+         // (like %3A). Fully unescape here to recover the original "<project>:/path.resx" origin.
+         origin = Uri.UnescapeDataString(origin);
+
+         if (host.Locales.TryGetValue(locale, out var values) && values.TryGetValue(new TranslationRef(origin, key), out var value))
+         {
+            return Results.Json(new TranslationItemResponse
+            {
+               Origin = origin,
+               Key = key,
+               Value = value
+            }, SerializerOptions);
+         }
+
+         return Results.NotFound();
+      }
+
+      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}", (HttpContext context, string origin, string locale, string key) => ServeTranslation(context, origin, locale, key));
 
       app.MapGet("/api/v1/translations/socket-token", (HttpContext context) =>
       {

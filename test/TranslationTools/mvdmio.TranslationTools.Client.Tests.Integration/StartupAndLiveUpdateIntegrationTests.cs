@@ -82,6 +82,56 @@ public sealed class StartupAndLiveUpdateIntegrationTests
    }
 
    [Fact]
+   public async Task Lookup_UnderInvariantCulture_ShouldResolveToDefaultLocale_AndReturnServedValue()
+   {
+      // Regression test: a job-like caller running under the invariant culture (empty locale
+      // name) must have its lookup resolve to Options.DefaultLocale end to end, through a
+      // generated accessor, rather than collapsing the request path.
+      await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
+         new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
+         {
+            ["en"] = new Dictionary<TranslationRef, string?>
+            {
+               [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Save from API"
+            }
+         },
+         TestContext.Current.CancellationToken
+      );
+
+      var builder = WebApplication.CreateBuilder();
+      builder.Services.AddTranslationToolsClient(options =>
+      {
+         options.ApiKey = "test-api-key";
+         options.DefaultLocale = "en";
+         options.EnableLiveUpdates = false;
+         options.BaseUrlOverride = server.BaseUrl;
+      });
+
+      await using var app = builder.Build();
+
+      var previousCulture = CultureInfo.CurrentUICulture;
+
+      try
+      {
+         // A job-like caller running entirely under the invariant culture: no locales are
+         // preloaded during Initialize (the invariant culture is dropped from preloading, as
+         // before), so the lookup below is a live call that must resolve to DefaultLocale.
+         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+         await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
+         server.LocaleRequestCount.Should().Be(0);
+
+         var value = await Localizations.GetAsync("Button.Save", cancellationToken: TestContext.Current.CancellationToken);
+
+         value.Should().Be("Save from API");
+      }
+      finally
+      {
+         CultureInfo.CurrentUICulture = previousCulture;
+      }
+   }
+
+   [Fact]
    public async Task InitializeTranslationToolsClientAsync_ShouldHydrateCache_AndApplyLiveUpdatesToGeneratedAccessors()
    {
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
