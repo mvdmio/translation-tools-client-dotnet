@@ -1,8 +1,8 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -32,6 +32,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    private readonly IOptions<TranslationToolsClientOptions> _options;
    private readonly ITranslationToolsClientCache _cache;
    private readonly TimeProvider _timeProvider;
+   private readonly ILogger? _logger;
    private readonly Guid _clientId;
    private readonly SemaphoreSlim _initializeLock = new(1, 1);
 
@@ -45,8 +46,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    /// <summary>
    /// Create a client using cache services registered in the container.
    /// </summary>
-   public TranslationToolsClient(HttpClient client, IOptions<TranslationToolsClientOptions> options)
-      : this(client, options, new LocalTranslationToolsClientCache())
+   public TranslationToolsClient(HttpClient client, IOptions<TranslationToolsClientOptions> options, ILogger<TranslationToolsClient>? logger = null)
+      : this(client, options, new LocalTranslationToolsClientCache(), logger: logger)
    {
    }
 
@@ -55,12 +56,14 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       IOptions<TranslationToolsClientOptions> options,
       ITranslationToolsClientCache cache,
       TimeProvider? timeProvider = null,
-      IClientIdStore? clientIdStore = null)
+      IClientIdStore? clientIdStore = null,
+      ILogger? logger = null)
    {
       _client = client;
       _options = options;
       _cache = cache;
       _timeProvider = timeProvider ?? TimeProvider.System;
+      _logger = logger;
       _clientId = (clientIdStore ?? new FileClientIdStore()).GetOrCreateClientId();
 
       if (string.IsNullOrWhiteSpace(Options.ApiKey))
@@ -142,7 +145,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       catch (Exception exception)
       {
          // A failed heartbeat must never bubble into app code; best-effort log and retry next tick.
-         Trace.WriteLine($"TranslationTools heartbeat failed: {exception}");
+         _logger?.LogWarning(exception, "TranslationTools heartbeat failed.");
       }
    }
 

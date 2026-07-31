@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using mvdmio.TranslationTools.Client.Internal;
@@ -133,6 +134,38 @@ public class HeartbeatAndEnvironmentTests
    }
 
    [Fact]
+   public async Task Heartbeat_FailingEndpoint_ShouldLogThroughSuppliedLogger_InsteadOfThrowing()
+   {
+      var handler = new RecordingHandler { HeartbeatStatusCode = HttpStatusCode.InternalServerError };
+      var time = new FakeTimeProvider();
+      var logger = new FakeLogger();
+      using var client = CreateClient(handler, environment: null, time: time, logger: logger);
+
+      var init = async () => await client.Initialize(TestContext.Current.CancellationToken);
+      await init.Should().NotThrowAsync();
+
+      await WaitForHeartbeatsAsync(handler, 1);
+      await WaitForLogEntryAsync(logger);
+
+      var entry = logger.Entries.Should().ContainSingle().Subject;
+      entry.Level.Should().Be(LogLevel.Warning);
+      entry.Message.Should().Contain("heartbeat");
+   }
+
+   [Fact]
+   public async Task Heartbeat_FailingEndpoint_ShouldNotThrow_WhenNoLoggerSupplied()
+   {
+      var handler = new RecordingHandler { HeartbeatStatusCode = HttpStatusCode.InternalServerError };
+      var time = new FakeTimeProvider();
+      using var client = CreateClient(handler, environment: null, time: time);
+
+      var init = async () => await client.Initialize(TestContext.Current.CancellationToken);
+      await init.Should().NotThrowAsync();
+
+      await WaitForHeartbeatsAsync(handler, 1);
+   }
+
+   [Fact]
    public void FileClientIdStore_ShouldReturnSameGuid_AcrossInstances()
    {
       var directory = Path.Combine(Path.GetTempPath(), "tt-client-id-" + Guid.NewGuid().ToString("N"));
@@ -207,7 +240,8 @@ public class HeartbeatAndEnvironmentTests
       string? environment,
       FakeTimeProvider? time = null,
       bool enableHeartbeat = true,
-      IClientIdStore? store = null)
+      IClientIdStore? store = null,
+      ILogger? logger = null)
    {
       return new TranslationToolsClient(
          new HttpClient(handler),
@@ -220,8 +254,23 @@ public class HeartbeatAndEnvironmentTests
          }),
          new LocalTranslationToolsClientCache(),
          time ?? new FakeTimeProvider(),
-         store ?? new FileClientIdStore(Path.Combine(Path.GetTempPath(), "tt-client-id-" + Guid.NewGuid().ToString("N")))
+         store ?? new FileClientIdStore(Path.Combine(Path.GetTempPath(), "tt-client-id-" + Guid.NewGuid().ToString("N"))),
+         logger
       );
+   }
+
+   private static async Task WaitForLogEntryAsync(FakeLogger logger)
+   {
+      var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+      while (DateTime.UtcNow < deadline)
+      {
+         if (!logger.Entries.IsEmpty)
+            return;
+
+         await Task.Delay(25);
+      }
+
+      throw new Xunit.Sdk.XunitException("Timed out waiting for a log entry.");
    }
 
    private static async Task<int> WaitForHeartbeatsAsync(RecordingHandler handler, int expected)
