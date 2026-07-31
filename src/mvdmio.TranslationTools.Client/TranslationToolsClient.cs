@@ -396,18 +396,28 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    /// <summary>
    /// Fetches a single translation. Never throws (other than for the caller's own cancellation):
-   /// an unsuccessful response, a transport exception, and an undeserialisable body are all logged
-   /// and answered with the local fallback instead. Degraded results are never cached, so the next
-   /// call retries the service.
+   /// an unsuccessful response, a transport exception, a timeout, and an undeserialisable body are
+   /// all logged and answered with the local fallback instead. Degraded results are never cached,
+   /// so the next call retries the service.
+   ///
+   /// Bounded by <see cref="TranslationToolsClientOptions.LookupTimeout"/>, applied as a
+   /// <see cref="TimeProvider"/>-derived cancellation token linked to the caller's own token —
+   /// never by setting <see cref="HttpClient.Timeout"/>, which belongs to the consumer that
+   /// supplied the <see cref="HttpClient"/>. A caller's own cancellation is distinguished from the
+   /// client's timeout and always propagates rather than degrading.
    /// </summary>
    private async Task<(TranslationItemResponse Value, bool Degraded)> FetchTranslationOrFallbackAsync(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken)
    {
       using var request = BuildTranslationRequest(locale, translation, defaultValue, localeValues);
 
+      using var timeoutCts = new CancellationTokenSource(Options.LookupTimeout, _timeProvider);
+      using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+      var boundedToken = linkedCts.Token;
+
       HttpResponseMessage response;
       try
       {
-         response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+         response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, boundedToken);
       }
       catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
       {

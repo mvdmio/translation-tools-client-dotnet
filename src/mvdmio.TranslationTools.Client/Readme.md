@@ -48,6 +48,7 @@ await app.InitializeTranslationToolsClientAsync();
 | `HeartbeatInterval` | `TimeSpan` | `1 hour` | Interval between heartbeat reports. |
 | `ThrowOnPlaceholderError` | `bool` | `false` | Throw `PlaceholderSubstitutionException` on an unresolved placeholder instead of degrading. See [Placeholders](#placeholders). |
 | `ThrowOnLookupError` | `bool` | `false` | Throw `TranslationLookupException` from a single-key lookup instead of degrading to the local fallback. See [Local fallback](#local-fallback). |
+| `LookupTimeout` | `TimeSpan` | `5 seconds` | Upper bound on how long a single-key lookup waits for the service before it degrades (or throws, with `ThrowOnLookupError`). Does not bound a whole-locale lookup, and never changes the `HttpClient`'s own timeout. |
 
 ## Use the client
 

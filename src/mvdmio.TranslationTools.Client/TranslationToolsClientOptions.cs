@@ -65,4 +65,13 @@ public sealed class TranslationToolsClientOptions
    /// </summary>
    public bool ThrowOnLookupError { get; set; }
 
+   /// <summary>
+   /// Upper bound on how long a single-key lookup waits for the service before it degrades to the
+   /// local fallback (or throws, when <see cref="ThrowOnLookupError"/> is set). Defaults to five
+   /// seconds. Applied independently of the caller's own <see cref="System.Threading.CancellationToken"/>,
+   /// and independently of the <see cref="System.Net.Http.HttpClient"/>'s own timeout, which this
+   /// client never modifies. Does not bound a whole-locale lookup.
+   /// </summary>
+   public TimeSpan LookupTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
 }
