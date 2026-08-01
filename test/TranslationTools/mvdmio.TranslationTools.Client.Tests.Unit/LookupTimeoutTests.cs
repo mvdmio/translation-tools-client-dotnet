@@ -71,6 +71,21 @@ public class LookupTimeoutTests
    }
 
    [Fact]
+   public async Task Lookup_HandlerSendsHeadersThenStallsTheBody_ShouldStillTimeout_AndReturnFallback()
+   {
+      var time = new FakeTimeProvider();
+      using var client = CreateClient(new StallingBodyHandler(), time);
+      var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
+
+      var task = client.GetAsync(translation, new CultureInfo("en"), defaultValue: "Save", localeValues: null, TestContext.Current.CancellationToken);
+
+      time.Advance(TimeSpan.FromSeconds(5));
+
+      var response = await task;
+      response.Value.Should().Be("Save");
+   }
+
+   [Fact]
    public async Task Lookup_TimeoutWithThrowOnLookupError_ShouldThrowTranslationLookupException()
    {
       var time = new FakeTimeProvider();
@@ -167,5 +182,51 @@ public class LookupTimeoutTests
          await Task.Delay(Timeout.Infinite, cancellationToken);
          throw new InvalidOperationException("Unreachable: the delay above should have been cancelled.");
       }
+   }
+
+   /// <summary>
+   /// Answers with headers straight away, then never produces a body. The timeout has to cover
+   /// reading the body too, not only getting the headers.
+   /// </summary>
+   private sealed class StallingBodyHandler : HttpMessageHandler
+   {
+      protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+      {
+         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+         {
+            Content = new StreamContent(new StallingStream())
+         });
+      }
+   }
+
+   private sealed class StallingStream : Stream
+   {
+      public override bool CanRead => true;
+      public override bool CanSeek => false;
+      public override bool CanWrite => false;
+      public override long Length => throw new NotSupportedException();
+
+      public override long Position
+      {
+         get => throw new NotSupportedException();
+         set => throw new NotSupportedException();
+      }
+
+      public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+      {
+         await Task.Delay(Timeout.Infinite, cancellationToken);
+         return 0;
+      }
+
+      public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+      {
+         return ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+      }
+
+      public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+      public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+      public override void SetLength(long value) => throw new NotSupportedException();
+      public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+      public override void Flush() { }
    }
 }

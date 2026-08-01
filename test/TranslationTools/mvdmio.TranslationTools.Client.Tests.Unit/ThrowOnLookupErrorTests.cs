@@ -4,6 +4,7 @@ using mvdmio.TranslationTools.Client.Internal;
 using System.Globalization;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
@@ -12,6 +13,10 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 /// With <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/> set, a single-key lookup
 /// rethrows each failure class instead of degrading to the local fallback. Named and shaped after
 /// the existing <c>ThrowOnPlaceholderError</c>.
+///
+/// "Rethrows" is literal: the exception the fetch produced is preserved, so an application opting
+/// back into throwing catches the same types the client raised before the degrade-by-default
+/// contract existed.
 /// </summary>
 public class ThrowOnLookupErrorTests
 {
@@ -21,36 +26,37 @@ public class ThrowOnLookupErrorTests
    [InlineData(HttpStatusCode.Unauthorized)]
    [InlineData(HttpStatusCode.NotFound)]
    [InlineData(HttpStatusCode.InternalServerError)]
-   public async Task Lookup_UnsuccessfulResponse_ShouldThrow_WhenThrowOnLookupErrorIsSet(HttpStatusCode statusCode)
+   public async Task Lookup_UnsuccessfulResponse_ShouldRethrowHttpRequestException_WhenThrowOnLookupErrorIsSet(HttpStatusCode statusCode)
    {
       using var client = CreateClient(new StatusHandler(statusCode));
       var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
 
       var act = async () => await client.GetAsync(translation, new CultureInfo("en"), defaultValue: "Save", localeValues: null, TestContext.Current.CancellationToken);
 
-      await act.Should().ThrowAsync<TranslationLookupException>();
+      var thrown = await act.Should().ThrowAsync<HttpRequestException>();
+      thrown.Which.StatusCode.Should().Be(statusCode);
    }
 
    [Fact]
-   public async Task Lookup_TransportException_ShouldThrow_WhenThrowOnLookupErrorIsSet()
+   public async Task Lookup_TransportException_ShouldRethrowIt_WhenThrowOnLookupErrorIsSet()
    {
       using var client = CreateClient(new ThrowingHandler());
       var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
 
       var act = async () => await client.GetAsync(translation, new CultureInfo("en"), defaultValue: "Save", localeValues: null, TestContext.Current.CancellationToken);
 
-      await act.Should().ThrowAsync<TranslationLookupException>();
+      await act.Should().ThrowAsync<HttpRequestException>().WithMessage("Simulated transport failure.");
    }
 
    [Fact]
-   public async Task Lookup_UndeserialisableBody_ShouldThrow_WhenThrowOnLookupErrorIsSet()
+   public async Task Lookup_UndeserialisableBody_ShouldRethrowJsonException_WhenThrowOnLookupErrorIsSet()
    {
       using var client = CreateClient(new BadJsonHandler());
       var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
 
       var act = async () => await client.GetAsync(translation, new CultureInfo("en"), defaultValue: "Save", localeValues: null, TestContext.Current.CancellationToken);
 
-      await act.Should().ThrowAsync<TranslationLookupException>();
+      await act.Should().ThrowAsync<JsonException>();
    }
 
    [Fact]

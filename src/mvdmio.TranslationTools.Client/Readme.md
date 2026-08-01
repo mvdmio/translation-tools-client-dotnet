@@ -47,7 +47,7 @@ await app.InitializeTranslationToolsClientAsync();
 | `EnableHeartbeat` | `bool` | `true` | Periodically reports client presence to the server. See [Heartbeat and client identity](#heartbeat-and-client-identity). |
 | `HeartbeatInterval` | `TimeSpan` | `1 hour` | Interval between heartbeat reports. |
 | `ThrowOnPlaceholderError` | `bool` | `false` | Throw `PlaceholderSubstitutionException` on an unresolved placeholder instead of degrading. See [Placeholders](#placeholders). |
-| `ThrowOnLookupError` | `bool` | `false` | Throw `TranslationLookupException` from a single-key lookup instead of degrading to the local fallback. See [Local fallback](#local-fallback). |
+| `ThrowOnLookupError` | `bool` | `false` | Let a failed single-key lookup throw instead of degrading to the local fallback. See [Local fallback](#local-fallback). |
 | `LookupTimeout` | `TimeSpan` | `5 seconds` | Upper bound on how long a single-key lookup waits for the service before it degrades (or throws, with `ThrowOnLookupError`). Does not bound a whole-locale lookup, and never changes the `HttpClient`'s own timeout. |
 
 ## Use the client
@@ -239,11 +239,11 @@ Two safeguards keep a degraded service from turning into a slow one instead of a
 - **Timeout.** A single-key lookup gives up after `LookupTimeout` (5 seconds by default) and degrades, rather than waiting indefinitely.
 - **Suppression.** A failure that says the service itself is unreachable or broken — a connection failure, a timeout, or a `5xx` — suppresses further single-key lookups for one minute; every lookup in that window is answered from local fallback without calling the service. A response the service produced about one request, such as a `401` or a `404`, does not open this window. Nothing probes the service in the background: the first lookup after the window passes is a live call, which either succeeds or reopens the window.
 
-A degraded value is never written to the cache, so the next lookup for that key retries the service rather than repeating stale local text. A rejected API key (`401`) is logged at `Error`; every other degraded lookup is logged at `Warning`, naming the translation key and the effective locale and distinguishing "the service could not answer" from "the service has no value for this key".
+A local fallback is never written to the cache, so the next lookup for that key retries the service rather than repeating stale local text. A rejected API key (`401`) is logged at `Error`; every other degraded lookup is logged at `Warning`, naming the translation key and the effective locale and distinguishing "the service could not answer" from "the service has no value for this key".
 
 A whole-locale lookup (`ITranslationToolsClient.GetLocaleAsync`) is not covered by this fallback: it still throws if the service cannot answer, since there is no per-key neutral value to fall back to.
 
-Set `ThrowOnLookupError = true` to restore the previous behavior and throw `TranslationLookupException` from a single-key lookup instead of degrading:
+Set `ThrowOnLookupError = true` to restore the previous behavior and let a single-key lookup throw instead of degrading:
 
 ```csharp
 builder.Services.AddTranslationToolsClient(options => {
@@ -251,6 +251,8 @@ builder.Services.AddTranslationToolsClient(options => {
    options.ThrowOnLookupError = true;
 });
 ```
+
+The exception is the one the fetch produced, so the types you caught before this contract existed still apply: `HttpRequestException` for an unsuccessful response or a connection failure, `JsonException` for a body the client cannot read. A timeout and a suppressed lookup have no such exception of their own and throw `TranslationLookupException`.
 
 A cancellation your own code requested is never treated as a failure; it always propagates as a cancellation, regardless of `ThrowOnLookupError`.
 

@@ -5,9 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -36,24 +36,10 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    private readonly ILogger? _logger;
    private readonly Guid _clientId;
    private readonly SemaphoreSlim _initializeLock = new(1, 1);
+   private readonly LookupSuppressionWindow _suppression;
 
    private CancellationTokenSource? _heartbeatCts;
    private int _heartbeatStarted;
-
-   /// <summary>
-   /// How long a failure that indicates the service itself is unreachable or broken (a connection
-   /// failure, a timeout, or a 5xx) suppresses further calls for. Not exposed on
-   /// <see cref="TranslationToolsClientOptions"/>: it has neither a length nor a way to disable it.
-   /// </summary>
-   private static readonly TimeSpan LookupSuppressionWindow = TimeSpan.FromMinutes(1);
-
-   /// <summary>
-   /// UTC ticks at which the current suppression window ends, or 0 when no window is open.
-   /// Process-wide for this client instance: shared across every locale and key, because what
-   /// opens it is a statement about the service rather than about one request. Read/written with
-   /// <see cref="Interlocked"/> since lookups can run concurrently.
-   /// </summary>
-   private long _suppressedUntilUtcTicks;
 
    private TranslationToolsClientOptions Options => _options.Value;
 
@@ -81,6 +67,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       _timeProvider = timeProvider ?? TimeProvider.System;
       _logger = logger;
       _clientId = (clientIdStore ?? new FileClientIdStore()).GetOrCreateClientId();
+      _suppression = new LookupSuppressionWindow(_timeProvider);
 
       if (string.IsNullOrWhiteSpace(Options.ApiKey))
          throw new ArgumentException("ApiKey is required.", nameof(options));
@@ -229,14 +216,6 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return assembly.GetName().Version?.ToString() ?? "unknown";
    }
 
-   private sealed class HeartbeatRequest
-   {
-      public Guid ClientId { get; init; }
-      public string? Environment { get; init; }
-      public required string Platform { get; init; }
-      public required string Version { get; init; }
-   }
-
    /// <inheritdoc />
    public Task<TranslationItemResponse> GetAsync(TranslationRef translation, CancellationToken cancellationToken = default)
    {
@@ -269,22 +248,24 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    {
       var localeName = ResolveEffectiveLocale(locale);
 
-      var cached = await GetCachedTranslationAsync(localeName, translation, cancellationToken);
+      var cached = await _cache.GetAsync(localeName, translation, cancellationToken);
       if (cached is not null)
          return cached.Value;
 
-      var (fetched, degraded) = await FetchTranslationOrFallbackAsync(localeName, translation, defaultValue, localeValues, cancellationToken);
+      var lookup = new TranslationLookupRequest(translation, localeName, defaultValue, localeValues);
+
+      var (fetched, degraded) = await FetchTranslationOrFallbackAsync(lookup, cancellationToken);
       if (degraded)
          return fetched;
 
-      return await StoreTranslationAsync(localeName, translation, fetched, cancellationToken);
+      return await StoreTranslationAsync(localeName, fetched, cancellationToken);
    }
 
    /// <inheritdoc />
    public async Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
    {
       var localeName = ResolveEffectiveLocale(locale);
-      var cached = await GetCachedLocaleAsync(localeName, cancellationToken);
+      var cached = await _cache.GetLocaleAsync(localeName, cancellationToken);
       if (cached is not null)
          return cached.Value;
 
@@ -309,12 +290,12 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    internal void InvalidateLocale(CultureInfo locale)
    {
-      InvalidateLocaleAsync(ResolveEffectiveLocale(locale), CancellationToken.None).GetAwaiter().GetResult();
+      _cache.RemoveLocaleAsync(ResolveEffectiveLocale(locale), CancellationToken.None).GetAwaiter().GetResult();
    }
 
    internal void Invalidate(TranslationRef translation, CultureInfo locale)
    {
-      InvalidateAsync(translation, ResolveEffectiveLocale(locale), CancellationToken.None).GetAwaiter().GetResult();
+      _cache.RemoveAsync(ResolveEffectiveLocale(locale), translation, CancellationToken.None).GetAwaiter().GetResult();
    }
 
    internal Task ApplyLocaleUpdateAsync(CultureInfo locale, IReadOnlyDictionary<TranslationRef, string?> values, CancellationToken cancellationToken = default)
@@ -334,7 +315,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    internal Task ApplyUpdateAsync(TranslationRef translation, string? value, CultureInfo locale, CancellationToken cancellationToken = default)
    {
-      return StoreTranslationUpdateAsync(
+      return StoreTranslationAsync(
          locale.Name,
          new TranslationItemResponse
          {
@@ -342,7 +323,6 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
             Key = translation.Key,
             Value = value
          },
-         updateLocaleCache: true,
          cancellationToken
       );
    }
@@ -370,8 +350,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
    private async Task<TranslationItemResponse[]> FetchLocaleAsync(string locale, CancellationToken cancellationToken)
    {
-      if (IsLookupSuppressed())
-         throw new TranslationLookupException($"Translation lookup for locale '{locale}' failed: the service is suppressed after a recent failure.");
+      if (_suppression.IsOpen)
+         throw new TranslationLookupException($"Translation lookup for locale '{locale}' failed: {TranslationLookupFailure.Suppressed.Reason}.");
 
       var url = $"api/v1/translations/{Uri.EscapeDataString(locale)}";
 
@@ -380,199 +360,96 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
          url += $"/{Uri.EscapeDataString(environment)}";
 
       using var request = new HttpRequestMessage(HttpMethod.Get, url);
-      return await FetchAsync(request, static content => DeserializeAsync<TranslationItemResponse[]>(content), cancellationToken);
-   }
-
-   private HttpRequestMessage BuildTranslationRequest(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues)
-   {
-      var url = $"api/v1/translations/{Uri.EscapeDataString(translation.Origin)}/{Uri.EscapeDataString(locale)}/{Uri.EscapeDataString(translation.Key)}";
-
-      var environment = NormalizedEnvironment();
-      if (environment is not null)
-         url += $"/{Uri.EscapeDataString(environment)}";
-
-      var query = new List<string>();
-      if (defaultValue is not null)
-         query.Add($"defaultValue={Uri.EscapeDataString(defaultValue)}");
-
-      if (localeValues is { Count: > 0 })
-      {
-         foreach (var pair in localeValues)
-         {
-            if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrEmpty(pair.Value))
-               continue;
-
-            query.Add($"localeValues[{Uri.EscapeDataString(pair.Key)}]={Uri.EscapeDataString(pair.Value!)}");
-         }
-      }
-
-      if (query.Count > 0)
-         url += "?" + string.Join("&", query);
-
-      return new HttpRequestMessage(HttpMethod.Get, url);
+      return await FetchAsync<TranslationItemResponse[]>(request, cancellationToken);
    }
 
    /// <summary>
-   /// Fetches a single translation. Never throws (other than for the caller's own cancellation):
-   /// an unsuccessful response, a transport exception, a timeout, and an undeserialisable body are
-   /// all logged and answered with the local fallback instead. Degraded results are never cached,
-   /// so the next call retries the service.
+   /// Fetches a single translation. Never throws (other than for the caller's own cancellation, and
+   /// unless <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/> is set): an unsuccessful
+   /// response, a transport exception, a timeout, and an undeserialisable body are all logged and
+   /// answered with the local fallback instead. Degraded results are never cached, so the next call
+   /// retries the service.
    ///
    /// Bounded by <see cref="TranslationToolsClientOptions.LookupTimeout"/>, applied as a
    /// <see cref="TimeProvider"/>-derived cancellation token linked to the caller's own token —
    /// never by setting <see cref="HttpClient.Timeout"/>, which belongs to the consumer that
-   /// supplied the <see cref="HttpClient"/>. A caller's own cancellation is distinguished from the
-   /// client's timeout and always propagates rather than degrading.
+   /// supplied the <see cref="HttpClient"/>. The bound covers reading the response body as well as
+   /// getting its headers. A caller's own cancellation is distinguished from the client's timeout
+   /// and always propagates rather than degrading.
    /// </summary>
-   private async Task<(TranslationItemResponse Value, bool Degraded)> FetchTranslationOrFallbackAsync(string locale, TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken)
+   private async Task<(TranslationItemResponse Value, bool Degraded)> FetchTranslationOrFallbackAsync(TranslationLookupRequest lookup, CancellationToken cancellationToken)
    {
-      if (IsLookupSuppressed())
-         return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service is suppressed after a recent failure", exception: null);
+      if (_suppression.IsOpen)
+         return HandleLookupFailure(lookup, TranslationLookupFailure.Suppressed, exception: null);
 
-      using var request = BuildTranslationRequest(locale, translation, defaultValue, localeValues);
+      using var request = lookup.ToHttpRequest(NormalizedEnvironment());
 
       using var timeoutCts = new CancellationTokenSource(Options.LookupTimeout, _timeProvider);
       using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-      var boundedToken = linkedCts.Token;
 
-      HttpResponseMessage response;
       try
       {
-         response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, boundedToken);
+         return (await FetchAsync<TranslationItemResponse>(request, linkedCts.Token), false);
       }
       catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
       {
+         // The caller asked to stop. That is not a failure, and it is never swallowed.
          throw;
       }
       catch (Exception exception)
       {
-         // A transport failure or our own timeout is a statement about the service, not this
-         // request: it opens the suppression window so the next lookups skip calling out.
-         SuppressLookupsForOneMinute();
-         return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service could not answer", exception);
-      }
+         var failure = TranslationLookupFailure.Classify(exception);
 
-      using (response)
-      {
-         if (!response.IsSuccessStatusCode)
-         {
-            if ((int)response.StatusCode >= 500)
-               SuppressLookupsForOneMinute();
+         if (failure.OpensSuppressionWindow)
+            _suppression.Open();
 
-            var level = response.StatusCode == HttpStatusCode.Unauthorized ? LogLevel.Error : LogLevel.Warning;
-            var reason = response.StatusCode == HttpStatusCode.NotFound
-               ? "the service has no value for this key"
-               : "the service could not answer";
-
-            return HandleDegradedLookup(translation, locale, defaultValue, localeValues, level, reason, exception: null);
-         }
-
-         TranslationItemResponse? deserialized;
-         try
-         {
-            deserialized = await DeserializeAsync<TranslationItemResponse>(response.Content);
-         }
-         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-         {
-            throw;
-         }
-         catch (Exception exception)
-         {
-            return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service could not answer", exception);
-         }
-
-         if (deserialized is null)
-         {
-            return HandleDegradedLookup(translation, locale, defaultValue, localeValues, LogLevel.Warning, "the service could not answer", exception: null);
-         }
-
-         return (deserialized, false);
+         return HandleLookupFailure(lookup, failure, exception);
       }
    }
 
    /// <summary>
-   /// Handles a classified lookup failure: with <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/>
-   /// set, rethrows as <see cref="TranslationLookupException"/> instead of degrading. Otherwise logs at the
-   /// classified level and returns the local fallback. A caller's own cancellation never reaches here; it is
-   /// rethrown by its callers before classification runs.
+   /// Logs a classified failure at its level and answers the lookup with the local fallback.
+   ///
+   /// With <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/> set it rethrows instead,
+   /// preserving the exception the fetch produced so an application that opts back into throwing
+   /// catches the same types it caught before this contract existed: an
+   /// <see cref="HttpRequestException"/> for an unsuccessful response or a connection failure, a
+   /// <see cref="JsonException"/> for a body the client cannot read. The client's own timeout and
+   /// the suppression window have no such exception to preserve, and surface as a
+   /// <see cref="TranslationLookupException"/>, which also keeps a timeout distinguishable from the
+   /// caller's own cancellation.
    /// </summary>
-   private (TranslationItemResponse Value, bool Degraded) HandleDegradedLookup(TranslationRef translation, string locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, LogLevel level, string reason, Exception? exception)
+   private (TranslationItemResponse Value, bool Degraded) HandleLookupFailure(TranslationLookupRequest lookup, TranslationLookupFailure failure, Exception? exception)
    {
       if (Options.ThrowOnLookupError)
-         throw new TranslationLookupException($"Translation lookup for key '{translation.Key}' in locale '{locale}' failed: {reason}.", exception);
-
-      LogDegradedLookup(translation, locale, level, reason, exception);
-      return (BuildLocalFallback(translation, locale, defaultValue, localeValues), true);
-   }
-
-   /// <summary>
-   /// Builds the local fallback for a degraded lookup: the dictionary entry for the effective
-   /// locale, matched on its exact name, then the supplied neutral value.
-   /// </summary>
-   private static TranslationItemResponse BuildLocalFallback(TranslationRef translation, string locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues)
-   {
-      string? value = null;
-      if (localeValues is not null && localeValues.TryGetValue(locale, out var localValue) && !string.IsNullOrEmpty(localValue))
-         value = localValue;
-
-      value ??= defaultValue;
-
-      return new TranslationItemResponse
       {
-         Origin = translation.Origin,
-         Key = translation.Key,
-         Value = value
-      };
+         if (exception is not null and not OperationCanceledException)
+            ExceptionDispatchInfo.Capture(exception).Throw();
+
+         throw new TranslationLookupException(
+            $"Translation lookup for key '{lookup.Translation.Key}' in locale '{lookup.EffectiveLocale}' failed: {failure.Reason}.",
+            exception
+         );
+      }
+
+      _logger?.Log(
+         failure.Level,
+         exception,
+         "Translation lookup for key '{Key}' in locale '{Locale}' degraded to local fallback: {Reason}.",
+         lookup.Translation.Key,
+         lookup.EffectiveLocale,
+         failure.Reason
+      );
+
+      return (lookup.LocalFallback(), true);
    }
 
-   private void LogDegradedLookup(TranslationRef translation, string effectiveLocale, LogLevel level, string reason, Exception? exception)
-   {
-      _logger?.Log(level, exception, "Translation lookup for key '{Key}' in locale '{Locale}' degraded to local fallback: {Reason}.", translation.Key, effectiveLocale, reason);
-   }
-
-   /// <summary>
-   /// True while a suppression window opened by a recent connection failure, timeout, or 5xx is
-   /// still open. Tracked against the injected <see cref="TimeProvider"/> so a fake clock can drive
-   /// it in tests. Nothing probes the service in the background to close it early or extend it;
-   /// it simply expires once <see cref="TimeProvider.GetUtcNow"/> passes the recorded instant.
-   /// </summary>
-   private bool IsLookupSuppressed()
-   {
-      var until = Interlocked.Read(ref _suppressedUntilUtcTicks);
-      return until != 0 && _timeProvider.GetUtcNow().UtcTicks < until;
-   }
-
-   /// <summary>
-   /// Opens (or re-opens) the suppression window for <see cref="LookupSuppressionWindow"/> from now,
-   /// as measured by the injected <see cref="TimeProvider"/>.
-   /// </summary>
-   private void SuppressLookupsForOneMinute()
-   {
-      var until = _timeProvider.GetUtcNow().UtcTicks + LookupSuppressionWindow.Ticks;
-      Interlocked.Exchange(ref _suppressedUntilUtcTicks, until);
-   }
-
-   private async Task<T> FetchAsync<T>(HttpRequestMessage request, Func<HttpContent, Task<T?>> deserialize, CancellationToken cancellationToken) where T : class
+   private async Task<T> FetchAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken) where T : class
    {
       using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
       response.EnsureSuccessStatusCode();
 
-      return await deserialize(response.Content) ?? throw new InvalidOperationException("Response body was empty.");
-   }
-
-   private async Task<TranslationItemResponse> StoreTranslationAsync(string locale, TranslationRef translation, TranslationItemResponse fetched, CancellationToken cancellationToken)
-   {
-      return await StoreTranslationUpdateAsync(locale, fetched, updateLocaleCache: true, cancellationToken);
-   }
-
-   private ValueTask<TranslationToolsClientCacheEntry<TranslationItemResponse>?> GetCachedTranslationAsync(string locale, TranslationRef translation, CancellationToken cancellationToken)
-   {
-      return _cache.GetAsync(locale, translation, cancellationToken);
-   }
-
-   private ValueTask<TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>?> GetCachedLocaleAsync(string locale, CancellationToken cancellationToken)
-   {
-      return _cache.GetLocaleAsync(locale, cancellationToken);
+      return await DeserializeAsync<T>(response.Content, cancellationToken) ?? throw new InvalidOperationException("Response body was empty.");
    }
 
    private async Task<TranslationLocaleSnapshot> StoreLocaleAsync(string locale, TranslationItemResponse[] fetched, CancellationToken cancellationToken)
@@ -594,21 +471,11 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return stored;
    }
 
-   private async Task<TranslationItemResponse> StoreTranslationUpdateAsync(string locale, TranslationItemResponse item, bool updateLocaleCache, CancellationToken cancellationToken)
+   private async Task<TranslationItemResponse> StoreTranslationAsync(string locale, TranslationItemResponse item, CancellationToken cancellationToken)
    {
       await _cache.SetAsync(locale, new TranslationToolsClientCacheEntry<TranslationItemResponse> { Value = item }, cancellationToken);
 
       return item;
-   }
-
-   private async Task InvalidateLocaleAsync(string locale, CancellationToken cancellationToken)
-   {
-      await _cache.RemoveLocaleAsync(locale, cancellationToken);
-   }
-
-   private async Task InvalidateAsync(TranslationRef translation, string locale, CancellationToken cancellationToken)
-   {
-      await _cache.RemoveAsync(locale, translation, cancellationToken);
    }
 
    private CultureInfo[] GetSupportedLocales()
@@ -623,10 +490,9 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return configured.Where(static locale => !string.IsNullOrWhiteSpace(locale.Name)).ToArray();
    }
 
-   private static async Task<T?> DeserializeAsync<T>(HttpContent content) where T : class
+   private static async Task<T?> DeserializeAsync<T>(HttpContent content, CancellationToken cancellationToken) where T : class
    {
-      await using var stream = await content.ReadAsStreamAsync();
-      return await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions);
+      await using var stream = await content.ReadAsStreamAsync(cancellationToken);
+      return await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions, cancellationToken);
    }
-
 }
