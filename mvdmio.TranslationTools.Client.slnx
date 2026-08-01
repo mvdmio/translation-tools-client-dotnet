@@ -14,7 +14,6 @@
     <File Path="AGENTS.md" />
     <File Path="Directory.Build.props" />
     <File Path="LICENSE" />
-    <File Path="opencode.jsonc" />
     <File Path="readme.md" />
   </Folder>
   <Project Path="src/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
