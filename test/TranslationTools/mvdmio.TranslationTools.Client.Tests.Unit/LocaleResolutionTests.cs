@@ -55,6 +55,25 @@ public class LocaleResolutionTests
       handler.RequestCount.Should().Be(1);
    }
 
+   [Fact]
+   public async Task CacheWrite_UnderInvariantCulture_ShouldLandInTheDefaultLocaleBucket()
+   {
+      var handler = new RecordingHandler();
+      using var client = CreateClient(handler, defaultLocale: "en");
+
+      var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
+
+      // Every write path resolves the effective locale too, so a cache entry written under the
+      // invariant culture is readable under the default locale and satisfies its lookups.
+      await client.ApplyUpdateAsync(translation, "Save now", CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
+
+      client.TryGetCached(translation, new CultureInfo("en"))!.Value.Should().Be("Save now");
+
+      await client.GetAsync(translation, CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
+
+      handler.RequestCount.Should().Be(0);
+   }
+
    private static string ExpectedPath(TranslationRef translation, string locale)
    {
       return $"/api/v1/translations/{Uri.EscapeDataString(translation.Origin)}/{Uri.EscapeDataString(locale)}/{Uri.EscapeDataString(translation.Key)}";

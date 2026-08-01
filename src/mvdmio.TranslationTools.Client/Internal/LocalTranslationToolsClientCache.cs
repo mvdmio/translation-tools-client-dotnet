@@ -9,33 +9,33 @@ namespace mvdmio.TranslationTools.Client.Internal;
 
 internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClientCache
 {
-   private readonly ConcurrentDictionary<string, LocaleCacheState> _entries = new(StringComparer.Ordinal);
+   private readonly ConcurrentDictionary<EffectiveLocale, LocaleCacheState> _entries = new();
 
-   public ValueTask<TranslationToolsClientCacheEntry<TranslationItemResponse>?> GetAsync(string locale, TranslationRef translation, CancellationToken cancellationToken)
+   public ValueTask<TranslationToolsClientCacheEntry<TranslationItemResponse>?> GetAsync(EffectiveLocale locale, TranslationRef translation, CancellationToken cancellationToken)
    {
       return ValueTask.FromResult(Get(locale, translation));
    }
 
-   public TranslationToolsClientCacheEntry<TranslationItemResponse>? Get(string locale, TranslationRef translation)
+   public TranslationToolsClientCacheEntry<TranslationItemResponse>? Get(EffectiveLocale locale, TranslationRef translation)
    {
       return _entries.TryGetValue(locale, out var state) && state.Items.TryGetValue(translation, out var entry)
          ? entry
          : null;
    }
 
-   public TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>? GetLocale(string locale)
+   public TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>? GetLocale(EffectiveLocale locale)
    {
       return _entries.TryGetValue(locale, out var state)
          ? state.Locale
          : null;
    }
 
-   public ValueTask<TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>?> GetLocaleAsync(string locale, CancellationToken cancellationToken)
+   public ValueTask<TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>?> GetLocaleAsync(EffectiveLocale locale, CancellationToken cancellationToken)
    {
       return ValueTask.FromResult(GetLocale(locale));
    }
 
-   public ValueTask SetAsync(string locale, TranslationToolsClientCacheEntry<TranslationItemResponse> value, CancellationToken cancellationToken)
+   public ValueTask SetAsync(EffectiveLocale locale, TranslationToolsClientCacheEntry<TranslationItemResponse> value, CancellationToken cancellationToken)
    {
       var state = _entries.GetOrAdd(locale, static _ => new LocaleCacheState());
 
@@ -51,7 +51,7 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
       return ValueTask.CompletedTask;
    }
 
-   public ValueTask SetLocaleAsync(string locale, TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> value, CancellationToken cancellationToken)
+   public ValueTask SetLocaleAsync(EffectiveLocale locale, TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> value, CancellationToken cancellationToken)
    {
       var state = _entries.GetOrAdd(locale, static _ => new LocaleCacheState());
 
@@ -78,7 +78,7 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
       return ValueTask.CompletedTask;
    }
 
-   public ValueTask RemoveAsync(string locale, TranslationRef translation, CancellationToken cancellationToken)
+   public ValueTask RemoveAsync(EffectiveLocale locale, TranslationRef translation, CancellationToken cancellationToken)
    {
       if (!_entries.TryGetValue(locale, out var state))
          return ValueTask.CompletedTask;
@@ -97,18 +97,18 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
       return ValueTask.CompletedTask;
    }
 
-   public ValueTask RemoveLocaleAsync(string locale, CancellationToken cancellationToken)
+   public ValueTask RemoveLocaleAsync(EffectiveLocale locale, CancellationToken cancellationToken)
    {
       _entries.TryRemove(locale, out _);
       return ValueTask.CompletedTask;
    }
 
-   private static TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> CreateLocaleEntry(string locale, IEnumerable<TranslationItemResponse> items)
+   private static TranslationToolsClientCacheEntry<TranslationLocaleSnapshot> CreateLocaleEntry(EffectiveLocale locale, IEnumerable<TranslationItemResponse> items)
    {
       return new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>
       {
          Value = new TranslationLocaleSnapshot(
-            locale,
+            locale.Name,
             items.ToDictionary(static item => new TranslationRef(item.Origin, item.Key), static item => item.Value)
          )
       };

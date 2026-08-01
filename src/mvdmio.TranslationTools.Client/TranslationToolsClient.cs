@@ -72,17 +72,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (string.IsNullOrWhiteSpace(Options.ApiKey))
          throw new ArgumentException("ApiKey is required.", nameof(options));
 
-      if (string.IsNullOrWhiteSpace(Options.DefaultLocale))
-         throw new ArgumentException("DefaultLocale is required.", nameof(options));
-
-      try
-      {
-         _ = new CultureInfo(Options.DefaultLocale);
-      }
-      catch (CultureNotFoundException exception)
-      {
-         throw new ArgumentException($"DefaultLocale '{Options.DefaultLocale}' is not a recognised locale.", nameof(options), exception);
-      }
+      EffectiveLocale.ValidateDefault(Options.DefaultLocale, nameof(options));
 
       _client.BaseAddress = BaseUri;
       _client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", Options.ApiKey);
@@ -235,49 +225,50 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    }
 
    /// <summary>
-   /// Resolves the locale a lookup actually runs against. A locale whose name is blank (the
-   /// invariant culture) is replaced by the configured <see cref="TranslationToolsClientOptions.DefaultLocale"/>.
-   /// A locale the caller names is used as named.
+   /// Resolves the locale a lookup actually runs against, against this client's configured
+   /// <see cref="TranslationToolsClientOptions.DefaultLocale"/>. Every path that needs a locale name
+   /// goes through here, because <see cref="EffectiveLocale"/> is the only thing the cache and the
+   /// request builder accept.
    /// </summary>
-   private string ResolveEffectiveLocale(CultureInfo locale)
+   private EffectiveLocale ResolveEffectiveLocale(CultureInfo locale)
    {
-      return string.IsNullOrWhiteSpace(locale.Name) ? Options.DefaultLocale : locale.Name;
+      return EffectiveLocale.Resolve(locale, Options.DefaultLocale);
    }
 
    internal async Task<TranslationItemResponse> GetInternalAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken = default)
    {
-      var localeName = ResolveEffectiveLocale(locale);
+      var effectiveLocale = ResolveEffectiveLocale(locale);
 
-      var cached = await _cache.GetAsync(localeName, translation, cancellationToken);
+      var cached = await _cache.GetAsync(effectiveLocale, translation, cancellationToken);
       if (cached is not null)
          return cached.Value;
 
-      var lookup = new TranslationLookupRequest(translation, localeName, defaultValue, localeValues);
+      var lookup = new TranslationLookupRequest(translation, effectiveLocale, defaultValue, localeValues);
 
       var (fetched, degraded) = await FetchTranslationOrFallbackAsync(lookup, cancellationToken);
       if (degraded)
          return fetched;
 
-      return await StoreTranslationAsync(localeName, fetched, cancellationToken);
+      return await StoreTranslationAsync(effectiveLocale, fetched, cancellationToken);
    }
 
    /// <inheritdoc />
    public async Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
    {
-      var localeName = ResolveEffectiveLocale(locale);
-      var cached = await _cache.GetLocaleAsync(localeName, cancellationToken);
+      var effectiveLocale = ResolveEffectiveLocale(locale);
+      var cached = await _cache.GetLocaleAsync(effectiveLocale, cancellationToken);
       if (cached is not null)
          return cached.Value;
 
-      var fetched = await FetchLocaleAsync(localeName, cancellationToken);
-      return await StoreLocaleAsync(localeName, fetched, cancellationToken);
+      var fetched = await FetchLocaleAsync(effectiveLocale, cancellationToken);
+      return await StoreLocaleAsync(effectiveLocale, fetched, cancellationToken);
    }
 
    internal async Task RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
    {
-      var localeName = ResolveEffectiveLocale(locale);
-      var fetched = await FetchLocaleAsync(localeName, cancellationToken);
-      await StoreLocaleAsync(localeName, fetched, cancellationToken);
+      var effectiveLocale = ResolveEffectiveLocale(locale);
+      var fetched = await FetchLocaleAsync(effectiveLocale, cancellationToken);
+      await StoreLocaleAsync(effectiveLocale, fetched, cancellationToken);
    }
 
    /// <summary>
@@ -303,7 +294,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       ArgumentNullException.ThrowIfNull(values);
 
       return StoreLocaleAsync(
-         locale.Name,
+         ResolveEffectiveLocale(locale),
          values.Select(static item => new TranslationItemResponse {
             Origin = item.Key.Origin,
             Key = item.Key.Key,
@@ -316,7 +307,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    internal Task ApplyUpdateAsync(TranslationRef translation, string? value, CultureInfo locale, CancellationToken cancellationToken = default)
    {
       return StoreTranslationAsync(
-         locale.Name,
+         ResolveEffectiveLocale(locale),
          new TranslationItemResponse
          {
             Origin = translation.Origin,
@@ -348,12 +339,12 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       _initializeLock.Dispose();
    }
 
-   private async Task<TranslationItemResponse[]> FetchLocaleAsync(string locale, CancellationToken cancellationToken)
+   private async Task<TranslationItemResponse[]> FetchLocaleAsync(EffectiveLocale locale, CancellationToken cancellationToken)
    {
       if (_suppression.IsOpen)
-         throw new TranslationLookupException($"Translation lookup for locale '{locale}' failed: {TranslationLookupFailure.Suppressed.Reason}.");
+         throw new TranslationLookupException($"Translation lookup for locale '{locale.Name}' failed: {TranslationLookupFailure.Suppressed.Reason}.");
 
-      var url = $"api/v1/translations/{Uri.EscapeDataString(locale)}";
+      var url = $"api/v1/translations/{Uri.EscapeDataString(locale.Name)}";
 
       var environment = NormalizedEnvironment();
       if (environment is not null)
@@ -427,7 +418,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
             ExceptionDispatchInfo.Capture(exception).Throw();
 
          throw new TranslationLookupException(
-            $"Translation lookup for key '{lookup.Translation.Key}' in locale '{lookup.EffectiveLocale}' failed: {failure.Reason}.",
+            $"Translation lookup for key '{lookup.Translation.Key}' in locale '{lookup.Locale.Name}' failed: {failure.Reason}.",
             exception
          );
       }
@@ -437,7 +428,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
          exception,
          "Translation lookup for key '{Key}' in locale '{Locale}' degraded to local fallback: {Reason}.",
          lookup.Translation.Key,
-         lookup.EffectiveLocale,
+         lookup.Locale.Name,
          failure.Reason
       );
 
@@ -452,10 +443,10 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return await DeserializeAsync<T>(response.Content, cancellationToken) ?? throw new InvalidOperationException("Response body was empty.");
    }
 
-   private async Task<TranslationLocaleSnapshot> StoreLocaleAsync(string locale, TranslationItemResponse[] fetched, CancellationToken cancellationToken)
+   private async Task<TranslationLocaleSnapshot> StoreLocaleAsync(EffectiveLocale locale, TranslationItemResponse[] fetched, CancellationToken cancellationToken)
    {
       var stored = new TranslationLocaleSnapshot(
-         locale,
+         locale.Name,
          fetched.ToDictionary(static item => new TranslationRef(item.Origin, item.Key), static item => item.Value)
       );
 
@@ -471,7 +462,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       return stored;
    }
 
-   private async Task<TranslationItemResponse> StoreTranslationAsync(string locale, TranslationItemResponse item, CancellationToken cancellationToken)
+   private async Task<TranslationItemResponse> StoreTranslationAsync(EffectiveLocale locale, TranslationItemResponse item, CancellationToken cancellationToken)
    {
       await _cache.SetAsync(locale, new TranslationToolsClientCacheEntry<TranslationItemResponse> { Value = item }, cancellationToken);
 
