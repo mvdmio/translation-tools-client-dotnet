@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using mvdmio.TranslationTools.Tool.Configuration;
+using mvdmio.TranslationTools.Tool.Pull;
 using mvdmio.TranslationTools.Tool.Push;
 using Xunit;
 
@@ -127,6 +128,165 @@ public class PushHandlerTests
       {
          if (Directory.Exists(ProjectDirectory))
             Directory.Delete(ProjectDirectory, recursive: true);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_ShouldPostUnchangedPulledLocaleValuesAsNull()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(
+            projectDirectory,
+            english: """
+               <?xml version="1.0" encoding="utf-8"?>
+               <root>
+                 <data name="Button.Save"><value>Stale English</value></data>
+                 <data name="Button.Cancel"><value>Cancel</value></data>
+               </root>
+               """,
+            dutch: """
+               <?xml version="1.0" encoding="utf-8"?>
+               <root>
+                 <data name="Button.Save"><value>Opslaan</value></data>
+                 <data name="Button.Cancel"><value>Annuleren</value></data>
+               </root>
+               """
+         );
+         await WritePullBaselineAsync(
+            projectDirectory,
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "en", Key = "Button.Save", Value = "Save" },
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "en", Key = "Button.Cancel", Value = "Cancel" },
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "nl", Key = "Button.Save", Value = "Opslaan" },
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "nl", Key = "Button.Cancel", Value = "Annuleren" }
+         );
+
+         var apiService = new TestTranslationApiService();
+         var handler = new PushHandler(apiService, new ProjectManifestScanner(), new TestPushReporter());
+
+         await handler.HandleAsync(CreateConfig(projectDirectory), prune: false, CancellationToken.None);
+
+         apiService.Request.Should().NotBeNull();
+         apiService.Request!.Items.Should().OnlyContain(static item => item.Value == null);
+         apiService.Request.Items.Should().Contain(x => x.Key == "Button.Save" && x.Locale == "nl");
+         apiService.Request.Items.Should().Contain(x => x.Key == "Button.Save" && x.Locale == "en");
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_ShouldPostRewrittenLocaleValuesAndLeaveUnchangedAsNull()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(
+            projectDirectory,
+            english: """
+               <?xml version="1.0" encoding="utf-8"?>
+               <root>
+                 <data name="Button.Save"><value>Save</value></data>
+                 <data name="Button.Cancel"><value>Cancel</value></data>
+               </root>
+               """,
+            dutch: """
+               <?xml version="1.0" encoding="utf-8"?>
+               <root>
+                 <data name="Button.Save"><value>Bewaar</value></data>
+                 <data name="Button.Cancel"><value>Annuleren</value></data>
+               </root>
+               """
+         );
+         await WritePullBaselineAsync(
+            projectDirectory,
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "en", Key = "Button.Save", Value = "Save" },
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "en", Key = "Button.Cancel", Value = "Cancel" },
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "nl", Key = "Button.Save", Value = "Opslaan" },
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "nl", Key = "Button.Cancel", Value = "Annuleren" }
+         );
+
+         var apiService = new TestTranslationApiService();
+         var handler = new PushHandler(apiService, new ProjectManifestScanner(), new TestPushReporter());
+
+         await handler.HandleAsync(CreateConfig(projectDirectory), prune: false, CancellationToken.None);
+
+         apiService.Request.Should().NotBeNull();
+         apiService.Request!.Items.Should().ContainSingle(x => x.Key == "Button.Save" && x.Locale == "nl" && x.Value == "Bewaar");
+         apiService.Request.Items.Should().ContainSingle(x => x.Key == "Button.Cancel" && x.Locale == "nl" && x.Value == null);
+         apiService.Request.Items.Where(static x => x.Locale == "en").Should().OnlyContain(static x => x.Value == null);
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   private static string CreateProjectDirectory()
+   {
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      Directory.CreateDirectory(projectDirectory);
+      return projectDirectory;
+   }
+
+   private static void WriteProjectFiles(string projectDirectory, string english, string dutch)
+   {
+      File.WriteAllText(Path.Combine(projectDirectory, "mvdmio.Localization.csproj"), "<Project />");
+      File.WriteAllText(Path.Combine(projectDirectory, "Localizations.resx"), english);
+      File.WriteAllText(Path.Combine(projectDirectory, "Localizations.nl.resx"), dutch);
+   }
+
+   private static Task WritePullBaselineAsync(string projectDirectory, params PullBaselineItem[] items)
+   {
+      return PullBaselineLookup.WriteAsync(new RealPullFileSystem(), projectDirectory, items, CancellationToken.None);
+   }
+
+   private static ToolConfiguration CreateConfig(string projectDirectory)
+   {
+      return new ToolConfiguration
+      {
+         ApiKey = "test-api-key",
+         ConfigDirectory = projectDirectory,
+         DefaultLocale = "en"
+      };
+   }
+
+   private static void DeleteDirectory(string path)
+   {
+      if (Directory.Exists(path))
+         Directory.Delete(path, recursive: true);
+   }
+
+   private sealed class RealPullFileSystem : IPullFileSystem
+   {
+      public void CreateDirectory(string path)
+      {
+         Directory.CreateDirectory(path);
+      }
+
+      public bool FileExists(string path)
+      {
+         return File.Exists(path);
+      }
+
+      public IEnumerable<string> EnumerateFiles(string directory)
+      {
+         return Directory.Exists(directory) ? Directory.EnumerateFiles(directory) : [];
+      }
+
+      public Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken)
+      {
+         return File.ReadAllTextAsync(path, cancellationToken);
+      }
+
+      public Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken)
+      {
+         return File.WriteAllTextAsync(path, contents, cancellationToken);
       }
    }
 

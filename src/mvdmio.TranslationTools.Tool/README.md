@@ -49,6 +49,11 @@ translations pull
 translations pull --prune
 ```
 
+- Matches the stored origin project segment to the local `.csproj` name case-insensitively (`mvdmio.localization` matches `mvdmio.Localization`).
+- Writes locale `.resx` files using the casing of an existing local resource set (`Localizations.nl.resx` stays `Localizations.nl.resx` when the stored origin is `/localizations.resx`).
+- Does not overwrite the default-locale / neutral `.resx` (the authored source file).
+- Writes `.mvdmio-translations.pull.json` in the project directory as the baseline for the next push.
+
 Use `--prune` for a destructive pull that deletes local `.resx` files and entries that no longer exist remotely.
 
 ### `translations push`
@@ -59,6 +64,14 @@ Uploads local `.resx` values to TranslationTools.
 translations push
 translations push --prune
 ```
+
+When `.mvdmio-translations.pull.json` is present from a previous pull:
+
+- A locale value that changed since that pull is posted as a write (the API treats that as a human edit and clears the machine-filled mark).
+- An unchanged pulled locale value is posted as `null`, so the server keeps the current text and its machine-filled mark.
+- Default-locale values already present in the pull baseline are posted as `null`, so a sparse or stale local source file cannot overwrite live English.
+
+Without a pull baseline, push still posts every local value (bootstrap / first upload).
 
 Use `--prune` for a destructive push that deletes remote translations that no longer exist in local `.resx` files.
 

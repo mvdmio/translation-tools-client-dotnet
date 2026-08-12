@@ -80,18 +80,15 @@ internal sealed class PullHandler
                : null,
             Item = item.Item
          })
-         .Where(item => item.ParsedOrigin is not null && string.Equals(item.ParsedOrigin.ProjectName, request.ProjectName, StringComparison.Ordinal))
+         .Where(item => item.ParsedOrigin is not null && string.Equals(item.ParsedOrigin.ProjectName, request.ProjectName, StringComparison.OrdinalIgnoreCase))
          .GroupBy(item => (Origin: item.ParsedOrigin!.ResourcePath, Locale: item.Locale), item => item.Item)
          .ToArray();
       var localeChanges = locales.ToDictionary(static locale => locale, static _ => new PullLocaleChangeSummary(), StringComparer.Ordinal);
+      var writtenFileCount = 0;
 
       foreach (var group in allItems)
       {
-         var filePath = BuildFilePath(request.ProjectDirectory, group.Key.Origin, group.Key.Locale, defaultLocale);
-         var fileDirectory = Path.GetDirectoryName(filePath);
-         if (!string.IsNullOrWhiteSpace(fileDirectory))
-            _fileSystem.CreateDirectory(fileDirectory);
-
+         var filePath = ResxPathResolver.BuildFilePath(request.ProjectDirectory, group.Key.Origin, group.Key.Locale, defaultLocale, _fileSystem);
          var orderedItems = group.OrderBy(static item => item.Key, StringComparer.Ordinal).ToArray();
          var incomingEntries = orderedItems
             .Select(static item => new ResxDataEntryModel
@@ -101,17 +98,49 @@ internal sealed class PullHandler
                Comment = null
             })
             .ToArray();
+
+         if (string.Equals(group.Key.Locale, defaultLocale, StringComparison.OrdinalIgnoreCase))
+         {
+            _reporter.WriteInfo($"Locale '{group.Key.Locale}': skipped writing default-locale .resx.");
+            continue;
+         }
+
+         var fileDirectory = Path.GetDirectoryName(filePath);
+         if (!string.IsNullOrWhiteSpace(fileDirectory))
+            _fileSystem.CreateDirectory(fileDirectory);
+
          var existingFile = await ReadExistingFileAsync(filePath, cancellationToken);
          localeChanges[group.Key.Locale].Add(CalculateChangeSummary(existingFile.Entries, incomingEntries));
 
          var content = BuildResx(orderedItems);
          await _fileSystem.WriteAllTextAsync(filePath, content, cancellationToken);
+         writtenFileCount++;
       }
 
-      _reporter.WriteInfo($"Updated {allItems.Length} .resx files from {locales.Length} locales.");
+      await PullBaselineLookup.WriteAsync(
+         _fileSystem,
+         request.ProjectDirectory,
+         allItems.SelectMany(
+            group => group.Select(
+               item => new PullBaselineItem
+               {
+                  Origin = item.Origin,
+                  Locale = group.Key.Locale,
+                  Key = item.Key,
+                  Value = item.Value
+               }
+            )
+         ),
+         cancellationToken
+      );
+
+      _reporter.WriteInfo($"Updated {writtenFileCount} .resx files from {locales.Length} locales.");
 
       foreach (var locale in locales)
       {
+         if (string.Equals(locale, defaultLocale, StringComparison.OrdinalIgnoreCase))
+            continue;
+
          var summary = localeChanges[locale];
          _reporter.WriteInfo($"Locale '{locale}': +{summary.Added} ~{summary.Updated} -{summary.Deleted}");
       }
@@ -133,19 +162,6 @@ internal sealed class PullHandler
          ProjectName = projectContext.ProjectName,
          ProjectDirectory = projectContext.ProjectDirectory
       };
-   }
-
-   private static string BuildFilePath(string projectDirectory, string origin, string locale, string defaultLocale)
-   {
-      var normalizedOrigin = origin.Trim().Replace('\\', '/').TrimStart('/');
-      var basePath = Path.Combine(projectDirectory, normalizedOrigin.Replace('/', Path.DirectorySeparatorChar));
-
-      if (string.Equals(locale, defaultLocale, StringComparison.Ordinal))
-         return basePath;
-
-      var directory = Path.GetDirectoryName(basePath) ?? projectDirectory;
-      var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(basePath);
-      return Path.Combine(directory, fileNameWithoutExtension + "." + locale + ".resx");
    }
 
    private static string BuildResx(IEnumerable<TranslationItemResponse> items)
@@ -270,6 +286,7 @@ internal interface IPullFileSystem
 {
    void CreateDirectory(string path);
    bool FileExists(string path);
+   IEnumerable<string> EnumerateFiles(string directory);
    Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken);
    Task WriteAllTextAsync(string path, string contents, CancellationToken cancellationToken);
 }
@@ -284,6 +301,11 @@ internal sealed class PullFileSystem : IPullFileSystem
    public bool FileExists(string path)
    {
       return File.Exists(path);
+   }
+
+   public IEnumerable<string> EnumerateFiles(string directory)
+   {
+      return Directory.Exists(directory) ? Directory.EnumerateFiles(directory) : [];
    }
 
    public Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken)

@@ -53,9 +53,23 @@ internal sealed class PushHandler
          throw new InvalidOperationException("defaultLocale is required in .mvdmio-translations.yml.");
 
       var scanResult = _projectManifestScanner.ScanProject(projectContext.ProjectName, projectDirectory, config.DefaultLocale);
+      var baseline = await PullBaselineLookup.TryLoadAsync(projectDirectory, cancellationToken);
+      var items = scanResult.Items.Select(
+         x => new TranslationPushItemRequest
+         {
+            Origin = x.Origin,
+            Locale = x.Locale,
+            Key = x.Key,
+            Value = PullBaselineLookup.ResolvePushValue(baseline, x.Origin, x.Locale, x.Key, x.Value, config.DefaultLocale)
+         }
+      ).ToArray();
+      var changedValueCount = items.Count(static item => item.Value is not null);
 
       _reporter.WriteInfo($"Scanning .resx translations in {projectDirectory}...");
-      _reporter.WriteInfo($"Pushing {scanResult.Items.Count} translation values to {ToolConfiguration.DEFAULT_BASE_URL}...");
+      if (baseline is null)
+         _reporter.WriteInfo($"Pushing {items.Length} translation values to {ToolConfiguration.DEFAULT_BASE_URL}...");
+      else
+         _reporter.WriteInfo($"Pushing {changedValueCount} changed values ({items.Length - changedValueCount} unchanged left as null) to {ToolConfiguration.DEFAULT_BASE_URL}...");
 
       var result = await _translationApiService.PushProjectTranslationsAsync(
          config.ApiKey,
@@ -63,15 +77,7 @@ internal sealed class PushHandler
          {
             Prune = prune,
             Environment = environment,
-            Items = scanResult.Items.Select(
-               static x => new TranslationPushItemRequest
-               {
-                  Origin = x.Origin,
-                  Locale = x.Locale,
-                  Key = x.Key,
-                  Value = x.Value
-               }
-            ).ToArray()
+            Items = items
          },
          cancellationToken
       );

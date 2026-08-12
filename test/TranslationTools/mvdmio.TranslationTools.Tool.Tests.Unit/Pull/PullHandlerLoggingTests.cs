@@ -98,8 +98,9 @@ public class PullHandlerLoggingTests
             TestContext.Current.CancellationToken
          );
 
-         reporter.Infos.Should().Contain("Locale 'en': +1 ~1 -1");
+         reporter.Infos.Should().Contain("Locale 'en': skipped writing default-locale .resx.");
          reporter.Infos.Should().Contain("Locale 'nl': +1 ~1 -1");
+         reporter.Infos.Should().Contain("Updated 1 .resx files from 2 locales.");
       }
       finally
       {
@@ -191,6 +192,11 @@ public class PullHandlerLoggingTests
       public bool FileExists(string path)
       {
          return Files.ContainsKey(path);
+      }
+
+      public IEnumerable<string> EnumerateFiles(string directory)
+      {
+         return Files.Keys.Where(path => string.Equals(Path.GetDirectoryName(path), directory, StringComparison.OrdinalIgnoreCase));
       }
 
       public Task<string> ReadAllTextAsync(string path, CancellationToken cancellationToken)
