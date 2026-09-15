@@ -1,6 +1,6 @@
 # 01 — Split oversized client and generator types
 
-Status: pending
+Status: done
 Blocked by: none
 
 ## What to build
@@ -17,7 +17,11 @@ Projects: mvdmio.TranslationTools.Client, mvdmio.TranslationTools.Client.SourceG
 
 ## Acceptance criteria
 
-- [ ] `TranslationManifestGenerator.cs` and `TranslationToolsClient.cs` are each well under 500 LOC
-- [ ] Initialize still only preloads supported locales and starts the heartbeat
-- [ ] Generated accessors and origins are unchanged
-- [ ] Solution builds and the existing test suite is green
+- [x] `TranslationManifestGenerator.cs` and `TranslationToolsClient.cs` are each well under 500 LOC
+- [x] Initialize still only preloads supported locales and starts the heartbeat
+- [x] Generated accessors and origins are unchanged
+- [x] Solution builds and the existing test suite is green
+
+## Outcome
+
+Split complete with no behavior change. `TranslationManifestGenerator.cs` is now ~50 LOC (pipeline only). Manifest grouping/`BuildManifests`/`BuildManifest` live in `TranslationManifestBuilder.cs` (~276 LOC); path/MSBuild helpers live in `TranslationManifestPaths.cs` (~214 LOC). Step 02 should edit `TranslationManifestBuilder.BuildManifests`/`BuildManifest`, not the generator file. `TranslationToolsClient` is a partial: main file ~309 LOC (ctors, Initialize, public API, cache store), `TranslationToolsClient.Heartbeat.cs` (~80), `TranslationToolsClient.Fetch.cs` (~122). Initialize still only preloads supported locales then starts heartbeat. Verified: solution build green; unit (162), tool unit (21), and integration (7) tests green.
