@@ -11,6 +11,10 @@ The name a translatable string is known by, unique within its origin. Written in
 `data` element's `name`.
 _Avoid_: resource name, string id
 
+**Missing key**:
+A translation key the service does not have in this Environment, in any locale.
+_Avoid_: unsynced key, new key, unpushed key
+
 **Origin**:
 The `.resx` file a translation key came from, written as `<project>:<path>`. Two keys with the
 same name in different files are different translations.
