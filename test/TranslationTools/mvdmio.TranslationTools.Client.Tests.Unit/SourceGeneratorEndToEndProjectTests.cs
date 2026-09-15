@@ -31,11 +31,51 @@ public class SourceGeneratorEndToEndProjectTests
 
       var localizationsPath = Path.Combine(generatedDirectory, "Fixture.App.Localizations.Translations.g.cs");
       var errorsPath = Path.Combine(generatedDirectory, "Fixture.App.Resources.Shared.Errors.Translations.g.cs");
+      var catalogPath = Path.Combine(generatedDirectory, "TranslationCatalog.g.cs");
       var expectedGeneratorVersion = typeof(mvdmio.TranslationTools.Client.SourceGenerator.TranslationManifestGenerator).Assembly.GetName().Version?.ToString();
 
       File.Exists(localizationsPath).Should().BeTrue();
       File.Exists(errorsPath).Should().BeTrue();
+      File.Exists(catalogPath).Should().BeTrue();
       File.ReadAllText(localizationsPath).Should().Contain($"[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", \"{expectedGeneratorVersion}\")]");
+      File.ReadAllText(catalogPath).Should().Contain("ModuleInitializerAttribute");
+      File.ReadAllText(catalogPath).Should().Contain("LocaleOnly.Greeting");
+      File.ReadAllText(catalogPath).Should().Contain("Orphan.Only");
+   }
+
+   [Fact]
+   public void FixtureProject_ShouldRegisterCatalogWithoutReferencingGeneratedTypes()
+   {
+      // ModuleInitializer registers the catalog when SourceGeneratorEndToEnd loads; no Localizations/Errors touch.
+      var entries = TranslationCatalog.Entries
+         .Where(entry => entry.Origin.StartsWith(ProjectOriginPrefix, StringComparison.OrdinalIgnoreCase))
+         .ToArray();
+
+      entries.Should().Contain(entry =>
+         entry.Origin == ProjectOriginPrefix + "/Localizations.resx"
+         && entry.Key == "LocaleOnly.Greeting"
+         && entry.NeutralValue == null
+         && entry.LocaleValues["nl"] == "Hallo");
+
+      entries.Should().Contain(entry =>
+         entry.Origin == ProjectOriginPrefix + "/Orphan.resx"
+         && entry.Key == "Orphan.Only"
+         && entry.NeutralValue == null
+         && entry.LocaleValues["fr"] == "Seul");
+
+      entries.Should().Contain(entry =>
+         entry.Origin == ProjectOriginPrefix + "/Localizations.resx"
+         && entry.Key == "Button.Save"
+         && entry.NeutralValue == "Save"
+         && entry.LocaleValues["nl"] == "Opslaan");
+
+      entries.Should().Contain(entry =>
+         entry.Origin == ProjectOriginPrefix + "/Resources/Shared/Errors.resx"
+         && entry.Key == "Button.Save"
+         && entry.NeutralValue == "Error save");
+
+      typeof(Localizations).GetProperty("LocaleOnly_Greeting").Should().BeNull();
+      typeof(Localizations).Assembly.GetTypes().Should().NotContain(type => type.Name == "Orphan");
    }
 
    [Fact]

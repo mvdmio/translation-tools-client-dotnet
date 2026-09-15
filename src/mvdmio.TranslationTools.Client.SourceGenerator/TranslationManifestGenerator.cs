@@ -28,10 +28,13 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
          .SelectMany(static (names, _) => names)
          .Collect();
 
-      var manifests = allResxFiles
+      var builds = allResxFiles
          .Combine(analyzerOptions)
          .Combine(declaredGlobals)
-         .SelectMany(static (input, cancellationToken) => TranslationManifestBuilder.BuildManifests(input.Left.Left, input.Left.Right, input.Right, cancellationToken));
+         .Select(static (input, cancellationToken) => TranslationManifestBuilder.Build(input.Left.Left, input.Left.Right, input.Right, cancellationToken));
+
+      var manifests = builds.SelectMany(static (build, _) => build.Manifests);
+      var catalogs = builds.Select(static (build, _) => build.Catalog);
 
       context.RegisterSourceOutput(manifests, static (productionContext, result) =>
       {
@@ -45,6 +48,17 @@ public sealed class TranslationManifestGenerator : IIncrementalGenerator
             hintName: TranslationManifestPaths.BuildHintName(result.Model) + ".g.cs",
             source: TranslationManifestEmitter.Emit(result.Model)
           );
+      });
+
+      context.RegisterSourceOutput(catalogs, static (productionContext, catalog) =>
+      {
+         if (catalog is null || catalog.Entries.IsDefaultOrEmpty)
+            return;
+
+         productionContext.AddSource(
+            hintName: "TranslationCatalog.g.cs",
+            source: TranslationCatalogEmitter.Emit(catalog)
+         );
       });
    }
 }

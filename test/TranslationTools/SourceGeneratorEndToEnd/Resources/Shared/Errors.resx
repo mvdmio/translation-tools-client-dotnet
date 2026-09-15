@@ -6,4 +6,7 @@
   <data name="Status.Code">
     <value>Status</value>
   </data>
+  <data name="Button.Save">
+    <value>Error save</value>
+  </data>
 </root>

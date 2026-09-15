@@ -170,6 +170,28 @@ public class PlaceholderGeneratorTests
                 public string? Name { get; }
              }
 
+             public sealed class TranslationCatalogKey
+             {
+                public TranslationCatalogKey(string origin, string key, string? neutralValue = null, System.Collections.Generic.IReadOnlyDictionary<string, string>? localeValues = null)
+                {
+                   Origin = origin;
+                   Key = key;
+                   NeutralValue = neutralValue;
+                   LocaleValues = localeValues ?? new System.Collections.Generic.Dictionary<string, string>();
+                }
+
+                public string Origin { get; }
+                public string Key { get; }
+                public string? NeutralValue { get; }
+                public System.Collections.Generic.IReadOnlyDictionary<string, string> LocaleValues { get; }
+             }
+
+             public static class TranslationCatalog
+             {
+                public static void Register(params TranslationCatalogKey[] keys) { }
+                public static void Register(System.Collections.Generic.IEnumerable<TranslationCatalogKey> keys) { }
+             }
+
              public static class Translations
              {
                 public static string Get(TranslationRef translation, string? defaultValue = null) => defaultValue ?? translation.Key;

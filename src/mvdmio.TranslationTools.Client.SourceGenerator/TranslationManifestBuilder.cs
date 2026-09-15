@@ -33,14 +33,14 @@ internal static class TranslationManifestBuilder
       return builder.ToImmutable();
    }
 
-   public static ImmutableArray<TranslationManifestResult> BuildManifests(
+   public static TranslationManifestBuildResult Build(
       ImmutableArray<AdditionalText> files,
       GeneratorOptions options,
       ImmutableArray<string> declaredGlobals,
       CancellationToken cancellationToken)
    {
       if (files.IsDefaultOrEmpty)
-         return ImmutableArray<TranslationManifestResult>.Empty;
+         return new TranslationManifestBuildResult();
 
       var globalNames = new HashSet<string>(declaredGlobals.IsDefault ? Enumerable.Empty<string>() : declaredGlobals, StringComparer.Ordinal);
       var declaredGlobalsOrdered = declaredGlobals.IsDefault
@@ -84,19 +84,114 @@ internal static class TranslationManifestBuilder
             group.LocaleFiles.Add((localeSuffix!, file));
       }
 
-      var results = new List<TranslationManifestResult>(groups.Count);
-
-      foreach (var group in groups.Values)
+      if (!TranslationManifestPaths.IsValidProjectName(options.ProjectName))
       {
+         return new TranslationManifestBuildResult
+         {
+            Manifests = ImmutableArray.Create(new TranslationManifestResult
+            {
+               Diagnostics = ImmutableArray.Create(Diagnostic.Create(
+                  TranslationGeneratorDiagnostics.InvalidProjectName,
+                  Location.None,
+                  options.ProjectName
+               ))
+            })
+         };
+      }
+
+      var manifests = new List<TranslationManifestResult>(groups.Count);
+      var catalogEntries = new List<TranslationCatalogEntryModel>();
+
+      foreach (var group in groups.Values.OrderBy(static g => g.GroupKey, StringComparer.OrdinalIgnoreCase))
+      {
+         cancellationToken.ThrowIfCancellationRequested();
+
+         catalogEntries.AddRange(BuildCatalogEntries(group, options, cancellationToken));
+
          if (group.NeutralFile is null)
             continue;
 
          var result = BuildManifest(group, options, globalNames, declaredGlobalsOrdered, cancellationToken);
          if (result is not null)
-            results.Add(result);
+            manifests.Add(result);
       }
 
-      return results.ToImmutableArray();
+      return new TranslationManifestBuildResult
+      {
+         Manifests = manifests.ToImmutableArray(),
+         Catalog = catalogEntries.Count == 0
+            ? null
+            : new TranslationCatalogModel
+            {
+               Entries = catalogEntries
+                  .OrderBy(static e => e.Origin, StringComparer.OrdinalIgnoreCase)
+                  .ThenBy(static e => e.Key, StringComparer.Ordinal)
+                  .ToImmutableArray()
+            }
+      };
+   }
+
+   private static IEnumerable<TranslationCatalogEntryModel> BuildCatalogEntries(
+      GroupBuilder group,
+      GeneratorOptions options,
+      CancellationToken cancellationToken)
+   {
+      var pathForOrigin = group.NeutralFile?.Path ?? group.LocaleFiles.FirstOrDefault().File?.Path;
+      if (string.IsNullOrWhiteSpace(pathForOrigin))
+         yield break;
+
+      var relativePath = TranslationManifestPaths.BuildProjectRelativePath(pathForOrigin!, options.ProjectDirectory);
+      var origin = TranslationManifestPaths.BuildOrigin(options.ProjectName, relativePath);
+
+      var neutralByKey = new Dictionary<string, string?>(StringComparer.Ordinal);
+      if (group.NeutralFile is not null)
+      {
+         var neutralText = group.NeutralFile.GetText(cancellationToken)?.ToString();
+         if (!string.IsNullOrWhiteSpace(neutralText))
+         {
+            foreach (var entry in ReadResxEntries(neutralText!))
+               neutralByKey[entry.Key] = entry.Value;
+         }
+      }
+
+      var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+      foreach (var (locale, file) in group.LocaleFiles)
+      {
+         var localeText = file.GetText(cancellationToken)?.ToString();
+         if (string.IsNullOrWhiteSpace(localeText))
+            continue;
+
+         foreach (var entry in ReadResxEntries(localeText!))
+         {
+            if (string.IsNullOrEmpty(entry.Value))
+               continue;
+
+            if (!localeValuesByKey.TryGetValue(entry.Key, out var perLocale))
+            {
+               perLocale = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+               localeValuesByKey[entry.Key] = perLocale;
+            }
+
+            perLocale[locale] = entry.Value!;
+         }
+      }
+
+      var keys = neutralByKey.Keys
+         .Concat(localeValuesByKey.Keys)
+         .Distinct(StringComparer.Ordinal)
+         .OrderBy(static key => key, StringComparer.Ordinal);
+
+      foreach (var key in keys)
+      {
+         neutralByKey.TryGetValue(key, out var neutralValue);
+         yield return new TranslationCatalogEntryModel
+         {
+            Origin = origin,
+            Key = key,
+            NeutralValue = neutralValue,
+            LocaleValues = BuildLocaleValues(key, localeValuesByKey)
+         };
+      }
    }
 
    private static TranslationManifestResult? BuildManifest(
@@ -139,18 +234,6 @@ internal static class TranslationManifestBuilder
       }
 
       var relativePath = TranslationManifestPaths.BuildProjectRelativePath(neutralFile.Path, options.ProjectDirectory);
-      if (!TranslationManifestPaths.IsValidProjectName(options.ProjectName))
-      {
-         return new TranslationManifestResult
-         {
-            Diagnostics = ImmutableArray.Create(Diagnostic.Create(
-               TranslationGeneratorDiagnostics.InvalidProjectName,
-               Location.None,
-               options.ProjectName
-            ))
-         };
-      }
-
       var origin = TranslationManifestPaths.BuildOrigin(options.ProjectName, relativePath);
       var typeName = TranslationManifestPaths.BuildTypeName(neutralFile.Path);
       var @namespace = TranslationManifestPaths.BuildNamespace(relativePath, options.RootNamespace);

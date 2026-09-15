@@ -3,4 +3,7 @@
   <data name="Button.Save">
     <value>Opslaan</value>
   </data>
+  <data name="LocaleOnly.Greeting">
+    <value>Hallo</value>
+  </data>
 </root>

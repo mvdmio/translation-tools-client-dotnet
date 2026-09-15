@@ -41,3 +41,22 @@ internal sealed class TranslationManifestResult
    public TranslationManifestModel? Model { get; set; }
    public ImmutableArray<Diagnostic> Diagnostics { get; set; } = ImmutableArray<Diagnostic>.Empty;
 }
+
+internal sealed class TranslationManifestBuildResult
+{
+   public ImmutableArray<TranslationManifestResult> Manifests { get; set; } = ImmutableArray<TranslationManifestResult>.Empty;
+   public TranslationCatalogModel? Catalog { get; set; }
+}
+
+internal sealed class TranslationCatalogModel
+{
+   public ImmutableArray<TranslationCatalogEntryModel> Entries { get; set; } = ImmutableArray<TranslationCatalogEntryModel>.Empty;
+}
+
+internal sealed class TranslationCatalogEntryModel
+{
+   public string Origin { get; set; } = string.Empty;
+   public string Key { get; set; } = string.Empty;
+   public string? NeutralValue { get; set; }
+   public ImmutableArray<TranslationManifestLocaleValueModel> LocaleValues { get; set; } = ImmutableArray<TranslationManifestLocaleValueModel>.Empty;
+}

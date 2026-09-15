@@ -76,6 +76,63 @@ public class TranslationManifestGeneratorTests
    }
 
    [Fact]
+   public void ShouldEmitCatalogWithNeutralAndSiblingLocaleValues()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Button.Save", "Save"))),
+            ("src/Demo/Localizations.nl.resx", Resx(("Button.Save", "Opslaan"), ("LocaleOnly.Greeting", "Hallo")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("ModuleInitializerAttribute");
+      result.GeneratedSource.Should().Contain("TranslationCatalog.Register");
+      result.GeneratedSource.Should().Contain("new global::mvdmio.TranslationTools.Client.TranslationCatalogKey(\"GeneratorTests:/src/Demo/Localizations.resx\", \"Button.Save\", \"Save\"");
+      result.GeneratedSource.Should().Contain("[\"nl\"] = \"Opslaan\"");
+      result.GeneratedSource.Should().Contain("new global::mvdmio.TranslationTools.Client.TranslationCatalogKey(\"GeneratorTests:/src/Demo/Localizations.resx\", \"LocaleOnly.Greeting\", null");
+      result.GeneratedSource.Should().Contain("[\"nl\"] = \"Hallo\"");
+      result.GeneratedSource.Should().NotContain("LocaleOnly_Greeting");
+   }
+
+   [Fact]
+   public void ShouldEmitCatalogForLocaleOnlyResxWithoutNeutralPair()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Orphan.fr.resx", Resx(("Orphan.Only", "Seul")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("TranslationCatalog.Register");
+      result.GeneratedSource.Should().Contain("new global::mvdmio.TranslationTools.Client.TranslationCatalogKey(\"GeneratorTests:/src/Demo/Orphan.resx\", \"Orphan.Only\", null");
+      result.GeneratedSource.Should().Contain("[\"fr\"] = \"Seul\"");
+      result.GeneratedSource.Should().NotContain("public static partial class Orphan");
+   }
+
+   [Fact]
+   public void ShouldEmitDistinctCatalogEntriesForSharedKeyAcrossOrigins()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Button.Save", "Save"))),
+            ("src/Demo/Errors.resx", Resx(("Button.Save", "Error save")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("new global::mvdmio.TranslationTools.Client.TranslationCatalogKey(\"GeneratorTests:/src/Demo/Localizations.resx\", \"Button.Save\", \"Save\"");
+      result.GeneratedSource.Should().Contain("new global::mvdmio.TranslationTools.Client.TranslationCatalogKey(\"GeneratorTests:/src/Demo/Errors.resx\", \"Button.Save\", \"Error save\"");
+   }
+
+   [Fact]
    public void ShouldGenerateDistinctSanitizedPropertyNames()
    {
       var result = RunGenerator(
@@ -200,6 +257,28 @@ public class TranslationManifestGeneratorTests
           namespace mvdmio.TranslationTools.Client
           {
              public readonly record struct TranslationRef(string Origin, string Key);
+
+             public sealed class TranslationCatalogKey
+             {
+                public TranslationCatalogKey(string origin, string key, string? neutralValue = null, System.Collections.Generic.IReadOnlyDictionary<string, string>? localeValues = null)
+                {
+                   Origin = origin;
+                   Key = key;
+                   NeutralValue = neutralValue;
+                   LocaleValues = localeValues ?? new System.Collections.Generic.Dictionary<string, string>();
+                }
+
+                public string Origin { get; }
+                public string Key { get; }
+                public string? NeutralValue { get; }
+                public System.Collections.Generic.IReadOnlyDictionary<string, string> LocaleValues { get; }
+             }
+
+             public static class TranslationCatalog
+             {
+                public static void Register(params TranslationCatalogKey[] keys) { }
+                public static void Register(System.Collections.Generic.IEnumerable<TranslationCatalogKey> keys) { }
+             }
 
              public static class Translations
              {
