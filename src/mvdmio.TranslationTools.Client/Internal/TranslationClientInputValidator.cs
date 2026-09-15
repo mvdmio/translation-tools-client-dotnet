@@ -1,15 +1,36 @@
 using System;
 using System.Text.RegularExpressions;
+
 namespace mvdmio.TranslationTools.Client.Internal;
 
 internal static partial class TranslationClientInputValidator
 {
+   private const int MaxEnvironmentLength = 64;
+   private const string EnvironmentRulesMessage =
+      "Environment may only contain letters, numbers, dots, underscores, and hyphens; must be at most 64 characters; and must not be '.' or '..'.";
+
    public static string NormalizeLocale(string locale)
    {
       if (string.IsNullOrWhiteSpace(locale))
          throw new ArgumentException("Locale is required.", nameof(locale));
 
       return locale.Trim().ToLowerInvariant();
+   }
+
+   /// <summary>
+   /// Trims a configured Environment name and checks it against the API rule. Blank or whitespace
+   /// means the unnamed Environment and returns <c>null</c>. Does not lowercase; the server does.
+   /// </summary>
+   public static string? NormalizeEnvironment(string? environment, string parameterName)
+   {
+      if (string.IsNullOrWhiteSpace(environment))
+         return null;
+
+      var normalized = environment.Trim();
+      if (normalized.Length > MaxEnvironmentLength || normalized is "." or ".." || !KeyPattern().IsMatch(normalized))
+         throw new ArgumentException(EnvironmentRulesMessage, parameterName);
+
+      return normalized;
    }
 
    public static string ValidateKey(string key)

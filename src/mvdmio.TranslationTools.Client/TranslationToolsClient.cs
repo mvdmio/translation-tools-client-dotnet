@@ -73,6 +73,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
          throw new ArgumentException("ApiKey is required.", nameof(options));
 
       EffectiveLocale.ValidateDefault(Options.DefaultLocale, nameof(options));
+      TranslationClientInputValidator.NormalizeEnvironment(Options.Environment, nameof(options));
 
       _client.BaseAddress = BaseUri;
       _client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", Options.ApiKey);
@@ -295,7 +296,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
       return StoreLocaleAsync(
          ResolveEffectiveLocale(locale),
-         values.Select(static item => new TranslationItemResponse {
+         values.Select(static item => new TranslationItemResponse
+         {
             Origin = item.Key.Origin,
             Key = item.Key.Key,
             Value = item.Value

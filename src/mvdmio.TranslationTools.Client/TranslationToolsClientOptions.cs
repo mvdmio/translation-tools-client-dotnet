@@ -36,7 +36,10 @@ public sealed class TranslationToolsClientOptions
    /// Optional deployment environment name (e.g. "production", "staging").
    /// When set (non-blank), it is appended as the final path segment on translation
    /// pull requests and carried in the heartbeat body, so the server scopes the keys
-   /// it serves to this deployment's Environment. Sent as-is; the server lowercases it.
+   /// it serves to this deployment's Environment. Blank or whitespace means the unnamed
+   /// Environment. A set name may use letters, digits, <c>.</c>, <c>_</c>, or <c>-</c> only,
+   /// must be at most 64 characters after trim, and must not be <c>.</c> or <c>..</c>.
+   /// Validated when the client is constructed. Sent trimmed and as-is; the server lowercases it.
    /// </summary>
    public string? Environment { get; set; }
 

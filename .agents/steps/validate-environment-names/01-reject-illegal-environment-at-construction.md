@@ -1,6 +1,6 @@
 # 01 — Reject illegal Environment names at client construction
 
-Status: pending
+Status: done
 Blocked by: none
 
 ## What to build
@@ -34,12 +34,16 @@ Projects: mvdmio.TranslationTools.Client, mvdmio.TranslationTools.Client.Tests.U
 
 ## Acceptance criteria
 
-- [ ] Constructing the client with `Environment = "prod:sha"` throws `ArgumentException` whose message names the allowed characters and the length limit.
-- [ ] Constructing with a space, a slash, `prod!`, `.`, `..`, or 65 characters throws the same way.
-- [ ] Constructing with `production`, `staging`, `Production`, `dev_local`, `build-123`, `v1.2`, ` production `, or 64 legal characters succeeds.
-- [ ] Constructing with Environment unset, `""`, or `"   "` succeeds.
-- [ ] Construction with an illegal name performs no HTTP request, including when heartbeat is disabled and when no global placeholders are registered.
-- [ ] A legal Environment is still trimmed and sent as today; the client does not lowercase it.
-- [ ] Client package docs and the Environment glossary state the allowed characters, the length limit, `.` / `..`, and that blank means unnamed.
-- [ ] One shared check exists for the tool to call; package version is bumped as a patch.
-- [ ] Footprint projects are green.
+- [x] Constructing the client with `Environment = "prod:sha"` throws `ArgumentException` whose message names the allowed characters and the length limit.
+- [x] Constructing with a space, a slash, `prod!`, `.`, `..`, or 65 characters throws the same way.
+- [x] Constructing with `production`, `staging`, `Production`, `dev_local`, `build-123`, `v1.2`, ` production `, or 64 legal characters succeeds.
+- [x] Constructing with Environment unset, `""`, or `"   "` succeeds.
+- [x] Construction with an illegal name performs no HTTP request, including when heartbeat is disabled and when no global placeholders are registered.
+- [x] A legal Environment is still trimmed and sent as today; the client does not lowercase it.
+- [x] Client package docs and the Environment glossary state the allowed characters, the length limit, `.` / `..`, and that blank means unnamed.
+- [x] One shared check exists for the tool to call; package version is bumped as a patch.
+- [x] Footprint projects are green.
+
+## Outcome
+
+Shared check is `TranslationClientInputValidator.NormalizeEnvironment(string? environment, string parameterName)`. It reuses `KeyPattern`, returns `null` for blank/whitespace, otherwise trims and throws `ArgumentException` with the allowed-charset + 64-length + `.`/`..` message. Constructor calls it next to ApiKey/DefaultLocale; `NormalizedEnvironment()` still only trims on send and does not lowercase. `InternalsVisibleTo("mvdmio.TranslationTools.Tool")` added in both the csproj and `Properties/AssemblyInfo.cs` so step 02 can call the shared check. `TranslationToolsVersion` bumped 3.5.0 → 3.5.1. Construction coverage lives in `TranslationToolsClientConstructionTests` (illegal/legal Theories, no-HTTP on failed construct, trim-without-lowercase pull). Footprint note: InternalsVisibleTo for the Tool already belonged in the client csproj/AssemblyInfo pattern rather than only AssemblyInfo.

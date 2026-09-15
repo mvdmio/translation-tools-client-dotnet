@@ -35,7 +35,9 @@ _Avoid_: offline value, cached value, degraded value
 
 **Environment**:
 A name a deployment reports itself under, such as `production` or `staging`, so the service can
-scope which translation keys it serves to that deployment.
+scope which translation keys it serves to that deployment. Blank or whitespace means the unnamed
+Environment. A set name may use letters, digits, `.`, `_`, or `-` only, must be at most 64
+characters after trim, and must not be `.` or `..`.
 _Avoid_: stage, tier, ring
 
 **Global placeholder**:

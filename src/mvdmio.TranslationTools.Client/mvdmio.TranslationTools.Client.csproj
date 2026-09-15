@@ -32,6 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="mvdmio.TranslationTools.Tool"/>
     <InternalsVisibleTo Include="mvdmio.TranslationTools.Tool.Tests.Unit"/>
     <InternalsVisibleTo Include="mvdmio.TranslationTools.Client.Tests.Unit"/>
   </ItemGroup>

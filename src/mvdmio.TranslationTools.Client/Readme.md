@@ -43,7 +43,7 @@ await app.InitializeTranslationToolsClientAsync();
 | `DefaultLocale` | `string` | `"en"` | Substituted for a lookup's locale whenever that locale's name is blank (the invariant culture) before the lookup consults the cache or calls the service, so that background jobs and other invariant-culture callers resolve to a real locale instead of a collapsed request path. Must be blank-free and recognised by the runtime; validated when the client is constructed. |
 | `SupportedLocales` | `CultureInfo[]` | `[]` | Locales preloaded during initialization. When left empty, the app's `RequestLocalizationOptions` cultures are used. |
 | `EnableLiveUpdates` | `bool` | `false` | Enables built-in WebSocket live translation updates. See [Live updates](#live-updates). |
-| `Environment` | `string?` | `null` | Deployment environment name used to scope fetched translations. See [Environment scoping](#environment-scoping). |
+| `Environment` | `string?` | `null` | Deployment environment name used to scope fetched translations. Blank or whitespace means the unnamed Environment. A set name may use letters, digits, `.`, `_`, or `-` only, must be at most 64 characters after trim, and must not be `.` or `..`. Validated when the client is constructed. See [Environment scoping](#environment-scoping). |
 | `EnableHeartbeat` | `bool` | `true` | Periodically reports client presence to the server. See [Heartbeat and client identity](#heartbeat-and-client-identity). |
 | `HeartbeatInterval` | `TimeSpan` | `1 hour` | Interval between heartbeat reports. |
 | `ThrowOnPlaceholderError` | `bool` | `false` | Throw `PlaceholderSubstitutionException` on an unresolved placeholder instead of degrading. See [Placeholders](#placeholders). |
@@ -79,7 +79,7 @@ When `Environment` is set (non-blank):
 - it is appended as the final path segment on translation fetch requests, so the server returns only the keys that belong to this environment;
 - it is included in the periodic heartbeat, so the server can track which environment each client reports from.
 
-The value is sent trimmed and as-is; the server lowercases it, so `Production` and `production` resolve to the same environment. When `Environment` is left unset (or blank), the client fetches translations from the unnamed environment.
+A set name may use letters, digits, `.`, `_`, or `-` only, must be at most 64 characters after trim, and must not be `.` or `..`. The client rejects an illegal name when it is constructed. The value is sent trimmed and as-is; the server lowercases it, so `Production` and `production` resolve to the same environment. When `Environment` is left unset (or blank/whitespace), the client fetches translations from the unnamed environment.
 
 Use the same environment name here that `mvdmio.TranslationTools.Tool` pushes keys into (the `environment` setting in `.mvdmio-translations.yml`), so the keys your deployment requests match the keys that were declared.
 
