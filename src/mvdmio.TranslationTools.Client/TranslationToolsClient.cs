@@ -35,6 +35,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
    private readonly TimeProvider _timeProvider;
    private readonly ILogger? _logger;
    private readonly Guid _clientId;
+   private readonly string? _environment;
    private readonly SemaphoreSlim _initializeLock = new(1, 1);
    private readonly LookupSuppressionWindow _suppression;
 
@@ -73,7 +74,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
          throw new ArgumentException("ApiKey is required.", nameof(options));
 
       EffectiveLocale.ValidateDefault(Options.DefaultLocale, nameof(options));
-      TranslationClientInputValidator.NormalizeEnvironment(Options.Environment, nameof(options));
+      _environment = TranslationClientInputValidator.NormalizeEnvironment(Options.Environment, nameof(options));
 
       _client.BaseAddress = BaseUri;
       _client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", Options.ApiKey);
@@ -148,7 +149,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       var payload = new HeartbeatRequest
       {
          ClientId = _clientId,
-         Environment = NormalizedEnvironment(),
+         Environment = _environment,
          Platform = PlatformName,
          Version = _clientVersion
       };
@@ -164,11 +165,6 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       response.EnsureSuccessStatusCode();
    }
 
-   private string? NormalizedEnvironment()
-   {
-      return string.IsNullOrWhiteSpace(Options.Environment) ? null : Options.Environment!.Trim();
-   }
-
    /// <summary>
    /// Push the declared global placeholder names for this deployment's Environment.
    /// Globals-only push: empty items (keys untouched), non-null globals (full-replaced for this Environment).
@@ -178,7 +174,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       var payload = new ProjectGlobalsPushRequest
       {
          Items = Array.Empty<object>(),
-         Environment = NormalizedEnvironment(),
+         Environment = _environment,
          Globals = globals
       };
 
@@ -348,9 +344,8 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
 
       var url = $"api/v1/translations/{Uri.EscapeDataString(locale.Name)}";
 
-      var environment = NormalizedEnvironment();
-      if (environment is not null)
-         url += $"/{Uri.EscapeDataString(environment)}";
+      if (_environment is not null)
+         url += $"/{Uri.EscapeDataString(_environment)}";
 
       using var request = new HttpRequestMessage(HttpMethod.Get, url);
       return await FetchAsync<TranslationItemResponse[]>(request, cancellationToken);
@@ -375,7 +370,7 @@ public sealed class TranslationToolsClient : ITranslationToolsClient, IDisposabl
       if (_suppression.IsOpen)
          return HandleLookupFailure(lookup, TranslationLookupFailure.Suppressed, exception: null);
 
-      using var request = lookup.ToHttpRequest(NormalizedEnvironment());
+      using var request = lookup.ToHttpRequest(_environment);
 
       using var timeoutCts = new CancellationTokenSource(Options.LookupTimeout, _timeProvider);
       using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
