@@ -59,6 +59,29 @@ public class TranslationClientTypesTests
    }
 
    [Fact]
+   public void TranslationCatalog_Replace_LastWriteWinsForSameTranslationRef()
+   {
+      TranslationCatalog.Replace(
+      [
+         new TranslationCatalogKey("Fixture.App:/Localizations.resx", "Button.Save", neutralValue: "First"),
+         new TranslationCatalogKey("fixture.app:/localizations.resx", "Button.Save", neutralValue: "Second"),
+         new TranslationCatalogKey("Fixture.App:/Localizations.resx", "Button.Cancel", neutralValue: "Cancel")
+      ]);
+
+      try
+      {
+         var entries = TranslationCatalog.Entries;
+         entries.Should().HaveCount(2);
+         entries.Should().ContainSingle(entry => entry.Key == "Button.Save").Which.NeutralValue.Should().Be("Second");
+         entries.Should().ContainSingle(entry => entry.Key == "Button.Cancel").Which.NeutralValue.Should().Be("Cancel");
+      }
+      finally
+      {
+         TranslationCatalog.Clear();
+      }
+   }
+
+   [Fact]
    public void TranslationLocaleSnapshot_ShouldExposeOnlyOriginAwareLookup()
    {
       var snapshot = new TranslationLocaleSnapshot(

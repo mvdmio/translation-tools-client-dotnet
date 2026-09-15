@@ -11,7 +11,7 @@ namespace mvdmio.TranslationTools.Client;
 public static class TranslationCatalog
 {
    private static readonly object Gate = new();
-   private static List<TranslationCatalogKey> _entries = new();
+   private static Dictionary<TranslationRef, TranslationCatalogKey> _entries = new();
 
    /// <summary>
    /// All registered catalog keys across loaded assemblies, in registration order.
@@ -21,7 +21,7 @@ public static class TranslationCatalog
       get
       {
          lock (Gate)
-            return _entries.ToArray();
+            return _entries.Values.ToArray();
       }
    }
 
@@ -47,12 +47,7 @@ public static class TranslationCatalog
          foreach (var key in keys)
          {
             ArgumentNullException.ThrowIfNull(key);
-
-            var index = _entries.FindIndex(existing => SameKey(existing, key));
-            if (index >= 0)
-               _entries[index] = key;
-            else
-               _entries.Add(key);
+            _entries[key.Translation] = key;
          }
       }
    }
@@ -63,22 +58,25 @@ public static class TranslationCatalog
    internal static void Clear()
    {
       lock (Gate)
-         _entries = new List<TranslationCatalogKey>();
+         _entries = new Dictionary<TranslationRef, TranslationCatalogKey>();
    }
 
    /// <summary>
    /// Replaces the entire catalog. Intended for tests.
+   /// A later entry for the same origin and key replaces the earlier one.
    /// </summary>
    internal static void Replace(IEnumerable<TranslationCatalogKey> keys)
    {
       ArgumentNullException.ThrowIfNull(keys);
 
-      lock (Gate)
-         _entries = keys.ToList();
-   }
+      var next = new Dictionary<TranslationRef, TranslationCatalogKey>();
+      foreach (var key in keys)
+      {
+         ArgumentNullException.ThrowIfNull(key);
+         next[key.Translation] = key;
+      }
 
-   private static bool SameKey(TranslationCatalogKey left, TranslationCatalogKey right)
-   {
-      return left.Translation.Equals(right.Translation);
+      lock (Gate)
+         _entries = next;
    }
 }
