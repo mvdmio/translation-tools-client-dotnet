@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using mvdmio.TranslationTools.Client.Placeholders;
 
 namespace mvdmio.TranslationTools.Client;
 
@@ -84,6 +85,59 @@ public static class Translations
       var client = ResolveClient();
       var response = await client.GetAsync(translation, locale, defaultValue, localeValues, cancellationToken);
       return response.Value ?? defaultValue ?? translation.Key;
+   }
+
+   /// <summary>
+   /// Get a translation and apply placeholder substitution. Used by generated accessors that have key-scoped tokens.
+   /// </summary>
+   /// <param name="translation">The translation reference.</param>
+   /// <param name="defaultValue">Fallback value seeded to the server when missing.</param>
+   /// <param name="localeValues">Per-locale values seeded to the server when missing.</param>
+   /// <param name="bindings">Token name -> supplied value.</param>
+   /// <param name="knownSet">Key-scoped token names ∪ declared global names. Unknown tokens stay inert.</param>
+   public static string GetWithPlaceholders(TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet)
+   {
+      var value = Get(translation, CultureInfo.CurrentUICulture, defaultValue, localeValues);
+      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+   }
+
+   /// <summary>
+   /// Get a translation for a specific locale and apply placeholder substitution.
+   /// </summary>
+   public static string GetWithPlaceholders(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet)
+   {
+      var value = Get(translation, locale, defaultValue, localeValues);
+      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+   }
+
+   /// <summary>
+   /// Get a translation asynchronously and apply placeholder substitution.
+   /// </summary>
+   public static async Task<string> GetWithPlaceholdersAsync(TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, CancellationToken cancellationToken = default)
+   {
+      var value = await GetAsync(translation, CultureInfo.CurrentUICulture, defaultValue, localeValues, cancellationToken);
+      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+   }
+
+   /// <summary>
+   /// Get a translation asynchronously for a specific locale and apply placeholder substitution.
+   /// </summary>
+   public static async Task<string> GetWithPlaceholdersAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, CancellationToken cancellationToken = default)
+   {
+      var value = await GetAsync(translation, locale, defaultValue, localeValues, cancellationToken);
+      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+   }
+
+   /// <summary>
+   /// Start a fluent placeholder build for a dynamic key lookup. Bindings are validated at render time
+   /// against the fetched value (string-keyed path: knownSet = null, so every unbound/unregistered token degrades).
+   /// </summary>
+   /// <example>
+   /// <code>Translations.WithPlaceholders(myRef).SetPlaceholder("userName", name).Render();</code>
+   /// </example>
+   public static PlaceholderBuilder WithPlaceholders(TranslationRef translation, string? defaultValue = null)
+   {
+      return new PlaceholderBuilder(translation, defaultValue);
    }
 
    private static ITranslationToolsClient ResolveClient()

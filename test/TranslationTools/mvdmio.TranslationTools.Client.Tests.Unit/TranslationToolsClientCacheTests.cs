@@ -13,7 +13,7 @@ public class TranslationToolsClientCacheTests
    public async Task Cache_ShouldStoreRetrieveAndRemoveTypedEntries()
    {
       var cache = new LocalTranslationToolsClientCache();
-      var locale = CultureInfo.GetCultureInfo("en").Name;
+      var locale = EffectiveLocale.Resolve(CultureInfo.GetCultureInfo("en"), "en");
       var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
       var entry = new TranslationToolsClientCacheEntry<TranslationItemResponse>
       {
@@ -40,9 +40,9 @@ public class TranslationToolsClientCacheTests
    public async Task Cache_SetLocale_ShouldPopulateLocaleAndTranslationLookups()
    {
       var cache = new LocalTranslationToolsClientCache();
-      var locale = CultureInfo.GetCultureInfo("en").Name;
+      var locale = EffectiveLocale.Resolve(CultureInfo.GetCultureInfo("en"), "en");
       var snapshot = new TranslationLocaleSnapshot(
-         locale,
+         locale.Name,
          new Dictionary<TranslationRef, string?>
          {
             [new TranslationRef(ProjectOriginPrefix + "/Feature/Shared.resx", "Button.Save")] = "Feature save",
@@ -60,14 +60,14 @@ public class TranslationToolsClientCacheTests
    public async Task Cache_SetTranslation_ShouldRefreshExistingLocaleSnapshot()
    {
       var cache = new LocalTranslationToolsClientCache();
-      var locale = CultureInfo.GetCultureInfo("en").Name;
+      var locale = EffectiveLocale.Resolve(CultureInfo.GetCultureInfo("en"), "en");
 
       await cache.SetLocaleAsync(
          locale,
          new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>
          {
             Value = new TranslationLocaleSnapshot(
-               locale,
+               locale.Name,
                new Dictionary<TranslationRef, string?>
                {
                   [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Save"
@@ -98,7 +98,7 @@ public class TranslationToolsClientCacheTests
    public async Task Cache_RemoveTranslation_ShouldRefreshExistingLocaleSnapshot()
    {
       var cache = new LocalTranslationToolsClientCache();
-      var locale = CultureInfo.GetCultureInfo("en").Name;
+      var locale = EffectiveLocale.Resolve(CultureInfo.GetCultureInfo("en"), "en");
       var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
 
       await cache.SetLocaleAsync(
@@ -106,7 +106,7 @@ public class TranslationToolsClientCacheTests
          new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>
          {
             Value = new TranslationLocaleSnapshot(
-               locale,
+               locale.Name,
                new Dictionary<TranslationRef, string?>
                {
                   [translation] = "Save",

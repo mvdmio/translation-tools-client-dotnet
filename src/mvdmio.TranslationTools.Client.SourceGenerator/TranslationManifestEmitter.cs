@@ -119,6 +119,12 @@ internal static class TranslationManifestEmitter
 
       foreach (var property in model.Properties)
       {
+         if (property.HasTokens)
+         {
+            EmitPlaceholderMethod(builder, model, property);
+            continue;
+         }
+
          builder.Append("   public static string ");
          builder.Append(property.Name);
          builder.AppendLine();
@@ -141,6 +147,72 @@ internal static class TranslationManifestEmitter
 
       builder.AppendLine("}");
       return builder.ToString();
+   }
+
+   private static void EmitPlaceholderMethod(StringBuilder builder, TranslationManifestModel model, TranslationManifestPropertyModel property)
+   {
+      // Method signature: one required string parameter per key-scoped token, first-seen order.
+      builder.Append("   public static string ");
+      builder.Append(property.Name);
+      builder.Append("(");
+      for (var i = 0; i < property.Tokens.Length; i++)
+      {
+         if (i > 0)
+            builder.Append(", ");
+
+         builder.Append("string ");
+         builder.Append(PlaceholderParameterNaming.ToParameterIdentifier(property.Tokens[i]));
+      }
+      builder.AppendLine(")");
+      builder.AppendLine("   {");
+
+      // bindings dict: token name -> parameter.
+      builder.Append("      var __bindings = new global::System.Collections.Generic.Dictionary<string, string?>(global::System.StringComparer.Ordinal) { ");
+      for (var i = 0; i < property.Tokens.Length; i++)
+      {
+         if (i > 0)
+            builder.Append(", ");
+
+         builder.Append("[");
+         builder.Append(ToStringLiteral(property.Tokens[i]));
+         builder.Append("] = ");
+         builder.Append(PlaceholderParameterNaming.ToParameterIdentifier(property.Tokens[i]));
+      }
+      builder.AppendLine(" };");
+
+      // knownSet = key-scoped tokens ∪ declared global names.
+      builder.Append("      var __knownSet = new string[] { ");
+      var first = true;
+      foreach (var token in property.Tokens)
+      {
+         if (!first)
+            builder.Append(", ");
+
+         builder.Append(ToStringLiteral(token));
+         first = false;
+      }
+      foreach (var global in model.DeclaredGlobalNames)
+      {
+         if (!first)
+            builder.Append(", ");
+
+         builder.Append(ToStringLiteral(global));
+         first = false;
+      }
+      builder.AppendLine(" };");
+
+      var defaultValueLiteral = property.DefaultValue is null ? "null" : ToStringLiteral(property.DefaultValue);
+
+      builder.Append("      return global::mvdmio.TranslationTools.Client.Translations.GetWithPlaceholders(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, ");
+      builder.Append(ToStringLiteral(property.Key));
+      builder.Append("), ");
+      if (model.UsesCultureOverride)
+         builder.Append("Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, ");
+      builder.Append(defaultValueLiteral);
+      builder.Append(", GetLocaleValues(");
+      builder.Append(ToStringLiteral(property.Key));
+      builder.AppendLine("), __bindings, __knownSet);");
+      builder.AppendLine("   }");
    }
 
    private static string ToStringLiteral(string value)

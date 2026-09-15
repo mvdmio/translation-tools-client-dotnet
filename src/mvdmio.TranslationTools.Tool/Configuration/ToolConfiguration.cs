@@ -13,6 +13,12 @@ internal sealed class ToolConfiguration
    public string? ApiKey { get; set; }
    public string? DefaultLocale { get; set; }
 
+   /// <summary>
+   /// Optional deployment environment name (e.g. "production", "staging"). When set, the push declares
+   /// the key set into that environment's membership; unset declares into the unnamed environment.
+   /// </summary>
+   public string? Environment { get; set; }
+
    public void Save(string directoryPath)
    {
       Directory.CreateDirectory(directoryPath);

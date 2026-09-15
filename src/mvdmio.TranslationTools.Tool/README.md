@@ -27,10 +27,12 @@ Example:
 ```yaml
 apiKey: project-api-key
 defaultLocale: en
+environment: production # optional
 ```
 
 - `apiKey`: your TranslationTools project API key
 - `defaultLocale`: locale used for neutral `Name.resx` files
+- `environment` (optional): deployment environment name, e.g. `production` or `staging`. When set, `translations push` declares your local key set into that environment's membership on the server, scoping which keys belong to this deployment. When omitted, keys are declared into the unnamed environment. Leave it unset unless you maintain separate key sets per environment.
 
 ## Commands
 
