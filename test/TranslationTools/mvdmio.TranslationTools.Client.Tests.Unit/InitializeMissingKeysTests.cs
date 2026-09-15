@@ -243,6 +243,69 @@ public class InitializeMissingKeysTests
    }
 
    [Fact]
+   public async Task Initialize_WhenNoLocaleWasLoaded_ProducesNoProjectPush()
+   {
+      var originalCulture = CultureInfo.CurrentUICulture;
+      try
+      {
+         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+         var handler = new RecordingHandler();
+         var catalog = new[] { new TranslationCatalogKey(OriginA, "Button.Save", neutralValue: "Save") };
+         using var client = CreateClient(handler, catalog, supportedLocales: [], enableHeartbeat: false);
+
+         await client.Initialize(TestContext.Current.CancellationToken);
+
+         handler.ProjectPushes.Should().BeEmpty();
+      }
+      finally
+      {
+         CultureInfo.CurrentUICulture = originalCulture;
+      }
+   }
+
+   [Fact]
+   public async Task Initialize_AfterSuccessfulSend_MergesSiblingLocaleThatIsNotARuntimeCulture()
+   {
+      var handler = new RecordingHandler();
+      var cache = new LocalTranslationToolsClientCache();
+      var catalog = new[]
+      {
+         new TranslationCatalogKey(
+            OriginA,
+            "Button.Save",
+            neutralValue: "Save",
+            localeValues: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["zz-x-notreal"] = "X" }
+         )
+      };
+      var logger = new FakeLogger();
+      using var client = CreateClient(
+         handler,
+         catalog,
+         supportedLocales: [new CultureInfo("en")],
+         enableHeartbeat: false,
+         logger: logger,
+         cache: cache
+      );
+
+      await client.Initialize(TestContext.Current.CancellationToken);
+
+      handler.ProjectPushes.Should().ContainSingle().Subject.Items.Should().BeEquivalentTo(
+         [
+            new PushItem(OriginA, "en", "Button.Save", "Save"),
+            new PushItem(OriginA, "zz-x-notreal", "Button.Save", "X")
+         ]
+      );
+      logger.Entries.Should().NotContain(entry =>
+         entry.Level == LogLevel.Warning && entry.Message.Contains("missing-key", StringComparison.OrdinalIgnoreCase)
+      );
+
+      var translation = new TranslationRef(OriginA, "Button.Save");
+      cache.Get(EffectiveLocale.Resolve("en", "en"), translation)!.Value.Value.Should().Be("Save");
+      cache.Get(EffectiveLocale.Resolve("zz-x-notreal", "en"), translation)!.Value.Value.Should().Be("X");
+   }
+
+   [Fact]
    public async Task Initialize_WithoutCatalogReplacement_DoesNotPostKeysFromGlobalCatalog()
    {
       TranslationCatalog.Replace(
@@ -272,7 +335,8 @@ public class InitializeMissingKeysTests
       CultureInfo[]? supportedLocales = null,
       FakeTimeProvider? time = null,
       bool enableHeartbeat = true,
-      ILogger? logger = null)
+      ILogger? logger = null,
+      ITranslationToolsClientCache? cache = null)
    {
       return new TranslationToolsClient(
          new HttpClient(handler),
@@ -287,7 +351,7 @@ public class InitializeMissingKeysTests
                SupportedLocales = supportedLocales ?? []
             }
          ),
-         new LocalTranslationToolsClientCache(),
+         cache ?? new LocalTranslationToolsClientCache(),
          time ?? new FakeTimeProvider(),
          new FileClientIdStore(Path.Combine(Path.GetTempPath(), "tt-client-id-" + Guid.NewGuid().ToString("N"))),
          logger,

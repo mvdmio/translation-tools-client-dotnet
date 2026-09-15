@@ -123,4 +123,47 @@ public class TranslationToolsClientCacheTests
       cache.GetLocale(locale)!.Value.Values.ContainsKey(new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")).Should().BeFalse();
       cache.GetLocale(locale)!.Value.Values.ContainsKey(new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Cancel")).Should().BeTrue();
    }
+
+   [Fact]
+   public async Task Cache_GetKnownKeys_ReturnsKeysFromLocaleSnapshotsOnly()
+   {
+      var cache = new LocalTranslationToolsClientCache();
+      var english = EffectiveLocale.Resolve("en", "en");
+      var dutch = EffectiveLocale.Resolve("nl", "en");
+      var save = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
+      var cancel = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Cancel");
+      var extra = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Extra");
+
+      await cache.SetLocaleAsync(
+         english,
+         new TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>
+         {
+            Value = new TranslationLocaleSnapshot(
+               english.Name,
+               new Dictionary<TranslationRef, string?>
+               {
+                  [save] = "Save",
+                  [cancel] = null
+               }
+            )
+         },
+         TestContext.Current.CancellationToken
+      );
+
+      await cache.SetAsync(
+         dutch,
+         new TranslationToolsClientCacheEntry<TranslationItemResponse>
+         {
+            Value = new TranslationItemResponse
+            {
+               Origin = extra.Origin,
+               Key = extra.Key,
+               Value = "Extra"
+            }
+         },
+         TestContext.Current.CancellationToken
+      );
+
+      cache.GetKnownKeys().Should().BeEquivalentTo([save, cancel]);
+   }
 }

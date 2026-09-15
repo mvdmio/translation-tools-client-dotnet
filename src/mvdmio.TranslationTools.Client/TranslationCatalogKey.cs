@@ -15,7 +15,7 @@ public sealed class TranslationCatalogKey
    /// <summary>
    /// Create a catalog key.
    /// </summary>
-   /// <param name="origin">Resource-set origin (<c>project:/path.resx</c>).</param>
+   /// <param name="origin">Origin (<c>&lt;project&gt;:&lt;path&gt;</c>).</param>
    /// <param name="key">Translation key name.</param>
    /// <param name="neutralValue">Value from the unsuffixed <c>.resx</c>, or null when absent or empty.</param>
    /// <param name="localeValues">Non-empty sibling-locale values keyed by locale name.</param>
@@ -25,8 +25,7 @@ public sealed class TranslationCatalogKey
       string? neutralValue = null,
       IReadOnlyDictionary<string, string>? localeValues = null)
    {
-      Origin = Internal.TranslationClientInputValidator.ValidateOrigin(origin);
-      Key = Internal.TranslationClientInputValidator.ValidateKey(key);
+      Translation = new TranslationRef(origin, key);
       NeutralValue = string.IsNullOrEmpty(neutralValue) ? null : neutralValue;
       LocaleValues = localeValues is null || localeValues.Count == 0
          ? EmptyLocaleValues
@@ -34,14 +33,19 @@ public sealed class TranslationCatalogKey
    }
 
    /// <summary>
-   /// Resource-set origin.
+   /// Origin and translation key.
    /// </summary>
-   public string Origin { get; }
+   public TranslationRef Translation { get; }
+
+   /// <summary>
+   /// Origin, written as <c>&lt;project&gt;:&lt;path&gt;</c>.
+   /// </summary>
+   public string Origin => Translation.Origin;
 
    /// <summary>
    /// Translation key name.
    /// </summary>
-   public string Key { get; }
+   public string Key => Translation.Key;
 
    /// <summary>
    /// Neutral value from the unsuffixed <c>.resx</c>, or null when absent or empty.

@@ -25,6 +25,40 @@ public class TranslationClientTypesTests
    }
 
    [Fact]
+   public void TranslationCatalogKey_ShouldHoldTranslationRefAndExposeOriginAsProjectPath()
+   {
+      var key = new TranslationCatalogKey("Fixture.App:\\Feature\\Shared.resx", "Button.Save", neutralValue: "Save");
+
+      key.Translation.Should().Be(new TranslationRef("Fixture.App:/Feature/Shared.resx", "Button.Save"));
+      key.Origin.Should().Be("Fixture.App:/Feature/Shared.resx");
+      key.Key.Should().Be("Button.Save");
+   }
+
+   [Fact]
+   public void TranslationCatalog_Register_ReplacesByTranslationRefEquality()
+   {
+      TranslationCatalog.Replace(
+      [
+         new TranslationCatalogKey("Fixture.App:/Localizations.resx", "Button.Save", neutralValue: "Save")
+      ]);
+
+      try
+      {
+         TranslationCatalog.Register(
+            new TranslationCatalogKey("fixture.app:/localizations.resx", "Button.Save", neutralValue: "Updated")
+         );
+
+         var entry = TranslationCatalog.Entries.Should().ContainSingle().Subject;
+         entry.Translation.Should().Be(new TranslationRef("Fixture.App:/Localizations.resx", "Button.Save"));
+         entry.NeutralValue.Should().Be("Updated");
+      }
+      finally
+      {
+         TranslationCatalog.Clear();
+      }
+   }
+
+   [Fact]
    public void TranslationLocaleSnapshot_ShouldExposeOnlyOriginAwareLookup()
    {
       var snapshot = new TranslationLocaleSnapshot(

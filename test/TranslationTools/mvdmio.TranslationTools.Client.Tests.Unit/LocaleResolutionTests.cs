@@ -12,6 +12,14 @@ public class LocaleResolutionTests
    private const string ProjectOriginPrefix = "Fixture.App:";
 
    [Fact]
+   public void EffectiveLocale_Resolve_FromName_DoesNotRequireRuntimeCulture()
+   {
+      var locale = EffectiveLocale.Resolve("zz-x-notreal", "en");
+
+      locale.Name.Should().Be("zz-x-notreal");
+   }
+
+   [Fact]
    public async Task Lookup_UnderInvariantCulture_ShouldRequestPathForDefaultLocale()
    {
       var handler = new RecordingHandler();

@@ -154,27 +154,7 @@ internal static class TranslationManifestBuilder
          }
       }
 
-      var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
-      foreach (var (locale, file) in group.LocaleFiles)
-      {
-         var localeText = file.GetText(cancellationToken)?.ToString();
-         if (string.IsNullOrWhiteSpace(localeText))
-            continue;
-
-         foreach (var entry in ReadResxEntries(localeText!))
-         {
-            if (string.IsNullOrEmpty(entry.Value))
-               continue;
-
-            if (!localeValuesByKey.TryGetValue(entry.Key, out var perLocale))
-            {
-               perLocale = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-               localeValuesByKey[entry.Key] = perLocale;
-            }
-
-            perLocale[locale] = entry.Value!;
-         }
-      }
+      var localeValuesByKey = ReadLocaleValuesByKey(group, cancellationToken);
 
       var keys = neutralByKey.Keys
          .Concat(localeValuesByKey.Keys)
@@ -210,28 +190,7 @@ internal static class TranslationManifestBuilder
       if (entries.Count == 0)
          return null;
 
-      // Read locale resx values into a map: key -> (locale -> value)
-      var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
-      foreach (var (locale, file) in group.LocaleFiles)
-      {
-         var localeText = file.GetText(cancellationToken)?.ToString();
-         if (string.IsNullOrWhiteSpace(localeText))
-            continue;
-
-         foreach (var entry in ReadResxEntries(localeText!))
-         {
-            if (string.IsNullOrEmpty(entry.Value))
-               continue;
-
-            if (!localeValuesByKey.TryGetValue(entry.Key, out var perLocale))
-            {
-               perLocale = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-               localeValuesByKey[entry.Key] = perLocale;
-            }
-
-            perLocale[locale] = entry.Value!;
-         }
-      }
+      var localeValuesByKey = ReadLocaleValuesByKey(group, cancellationToken);
 
       var relativePath = TranslationManifestPaths.BuildProjectRelativePath(neutralFile.Path, options.ProjectDirectory);
       var origin = TranslationManifestPaths.BuildOrigin(options.ProjectName, relativePath);
@@ -299,6 +258,33 @@ internal static class TranslationManifestBuilder
          key
       ));
       return false;
+   }
+
+   private static Dictionary<string, Dictionary<string, string>> ReadLocaleValuesByKey(GroupBuilder group, CancellationToken cancellationToken)
+   {
+      var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+      foreach (var (locale, file) in group.LocaleFiles)
+      {
+         var localeText = file.GetText(cancellationToken)?.ToString();
+         if (string.IsNullOrWhiteSpace(localeText))
+            continue;
+
+         foreach (var entry in ReadResxEntries(localeText!))
+         {
+            if (string.IsNullOrEmpty(entry.Value))
+               continue;
+
+            if (!localeValuesByKey.TryGetValue(entry.Key, out var perLocale))
+            {
+               perLocale = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+               localeValuesByKey[entry.Key] = perLocale;
+            }
+
+            perLocale[locale] = entry.Value!;
+         }
+      }
+
+      return localeValuesByKey;
    }
 
    private static ImmutableArray<TranslationManifestLocaleValueModel> BuildLocaleValues(string key, Dictionary<string, Dictionary<string, string>> localeValuesByKey)

@@ -10,7 +10,7 @@ namespace mvdmio.TranslationTools.Client.Internal;
 ///
 /// This is a type rather than a <see cref="string"/> because an unresolved locale name reaching a
 /// request path is the bug the failure contract exists to fix: an empty name collapsed the path, the
-/// service matched no route, and every lookup threw. Only <see cref="Resolve"/> builds one, so a raw
+/// service matched no route, and every lookup threw. Only <see cref="Resolve(CultureInfo, string)"/> builds one, so a raw
 /// <see cref="CultureInfo.Name"/> cannot become a cache key or a URL segment by accident — the
 /// compiler asks for a resolution first.
 /// </summary>
@@ -43,7 +43,17 @@ internal readonly struct EffectiveLocale : IEquatable<EffectiveLocale>
    {
       ArgumentNullException.ThrowIfNull(locale);
 
-      return new EffectiveLocale(string.IsNullOrWhiteSpace(locale.Name) ? defaultLocale : locale.Name);
+      return Resolve(locale.Name, defaultLocale);
+   }
+
+   /// <summary>
+   /// Resolves a locale name the same way <see cref="Resolve(CultureInfo, string)"/> does, without
+   /// requiring the name to be a runtime <see cref="CultureInfo"/>. Blank names become
+   /// <paramref name="defaultLocale"/>.
+   /// </summary>
+   public static EffectiveLocale Resolve(string? localeName, string defaultLocale)
+   {
+      return new EffectiveLocale(string.IsNullOrWhiteSpace(localeName) ? defaultLocale : localeName);
    }
 
    /// <summary>

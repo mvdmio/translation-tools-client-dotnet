@@ -1,16 +1,9 @@
-using System.Reflection;
 using System.Text;
 
 namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
 internal static class TranslationManifestEmitter
 {
-   private static readonly string GeneratedCodeVersion = typeof(TranslationManifestEmitter).Assembly
-      .GetName().Version?.ToString()
-      ?? typeof(TranslationManifestEmitter).Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version
-      ?? typeof(TranslationManifestEmitter).Assembly.GetName().Version?.ToString()
-      ?? "0.0.0.0";
-
    public static string Emit(TranslationManifestModel model)
    {
       var builder = new StringBuilder();
@@ -25,7 +18,7 @@ internal static class TranslationManifestEmitter
       }
 
       builder.Append("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", ");
-      builder.Append(ToStringLiteral(GeneratedCodeVersion));
+      builder.Append(GeneratedCodeText.ToStringLiteral(GeneratedCodeText.Version));
       builder.Append(")]");
       builder.AppendLine();
       builder.Append(model.Accessibility);
@@ -35,7 +28,7 @@ internal static class TranslationManifestEmitter
       builder.AppendLine();
       builder.AppendLine("{");
       builder.Append("   private const string Origin = ");
-      builder.Append(ToStringLiteral(model.Origin));
+      builder.Append(GeneratedCodeText.ToStringLiteral(model.Origin));
       builder.AppendLine(";");
       builder.AppendLine();
 
@@ -52,14 +45,14 @@ internal static class TranslationManifestEmitter
             continue;
 
          builder.Append("      result[");
-         builder.Append(ToStringLiteral(property.Key));
+         builder.Append(GeneratedCodeText.ToStringLiteral(property.Key));
          builder.AppendLine("] = new global::System.Collections.Generic.Dictionary<string, string?>(global::System.StringComparer.OrdinalIgnoreCase) {");
          foreach (var localeValue in property.LocaleValues)
          {
             builder.Append("         [");
-            builder.Append(ToStringLiteral(localeValue.Locale));
+            builder.Append(GeneratedCodeText.ToStringLiteral(localeValue.Locale));
             builder.Append("] = ");
-            builder.Append(ToStringLiteral(localeValue.Value));
+            builder.Append(GeneratedCodeText.ToStringLiteral(localeValue.Value));
             builder.AppendLine(",");
          }
          builder.AppendLine("      };");
@@ -108,7 +101,7 @@ internal static class TranslationManifestEmitter
          builder.Append("      public static readonly global::mvdmio.TranslationTools.Client.TranslationRef ");
          builder.Append(property.Name);
          builder.Append(" = new(Origin, ");
-         builder.Append(ToStringLiteral(property.Key));
+         builder.Append(GeneratedCodeText.ToStringLiteral(property.Key));
          builder.AppendLine(");");
       }
 
@@ -130,7 +123,7 @@ internal static class TranslationManifestEmitter
          builder.AppendLine();
          builder.AppendLine("   {");
          builder.Append("      get => Get(");
-         builder.Append(ToStringLiteral(property.Key));
+         builder.Append(GeneratedCodeText.ToStringLiteral(property.Key));
 
          if (property.DefaultValue is null)
          {
@@ -140,7 +133,7 @@ internal static class TranslationManifestEmitter
          }
 
          builder.Append(", ");
-         builder.Append(ToStringLiteral(property.DefaultValue));
+         builder.Append(GeneratedCodeText.ToStringLiteral(property.DefaultValue));
          builder.AppendLine(");");
          builder.AppendLine("   }");
       }
@@ -174,7 +167,7 @@ internal static class TranslationManifestEmitter
             builder.Append(", ");
 
          builder.Append("[");
-         builder.Append(ToStringLiteral(property.Tokens[i]));
+         builder.Append(GeneratedCodeText.ToStringLiteral(property.Tokens[i]));
          builder.Append("] = ");
          builder.Append(PlaceholderParameterNaming.ToParameterIdentifier(property.Tokens[i]));
       }
@@ -188,7 +181,7 @@ internal static class TranslationManifestEmitter
          if (!first)
             builder.Append(", ");
 
-         builder.Append(ToStringLiteral(token));
+         builder.Append(GeneratedCodeText.ToStringLiteral(token));
          first = false;
       }
       foreach (var global in model.DeclaredGlobalNames)
@@ -196,31 +189,22 @@ internal static class TranslationManifestEmitter
          if (!first)
             builder.Append(", ");
 
-         builder.Append(ToStringLiteral(global));
+         builder.Append(GeneratedCodeText.ToStringLiteral(global));
          first = false;
       }
       builder.AppendLine(" };");
 
-      var defaultValueLiteral = property.DefaultValue is null ? "null" : ToStringLiteral(property.DefaultValue);
+      var defaultValueLiteral = property.DefaultValue is null ? "null" : GeneratedCodeText.ToStringLiteral(property.DefaultValue);
 
       builder.Append("      return global::mvdmio.TranslationTools.Client.Translations.GetWithPlaceholders(new global::mvdmio.TranslationTools.Client.TranslationRef(Origin, ");
-      builder.Append(ToStringLiteral(property.Key));
+      builder.Append(GeneratedCodeText.ToStringLiteral(property.Key));
       builder.Append("), ");
       if (model.UsesCultureOverride)
          builder.Append("Culture ?? global::System.Globalization.CultureInfo.CurrentUICulture, ");
       builder.Append(defaultValueLiteral);
       builder.Append(", GetLocaleValues(");
-      builder.Append(ToStringLiteral(property.Key));
+      builder.Append(GeneratedCodeText.ToStringLiteral(property.Key));
       builder.AppendLine("), __bindings, __knownSet);");
       builder.AppendLine("   }");
-   }
-
-   private static string ToStringLiteral(string value)
-   {
-      return "\"" + value
-         .Replace("\\", "\\\\")
-         .Replace("\"", "\\\"")
-         .Replace("\r", "\\r")
-         .Replace("\n", "\\n") + "\"";
    }
 }

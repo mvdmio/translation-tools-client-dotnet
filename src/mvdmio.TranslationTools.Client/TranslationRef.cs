@@ -17,7 +17,7 @@ public readonly record struct TranslationRef
    }
 
    /// <summary>
-   /// Resource-set origin.
+   /// Origin, written as <c>&lt;project&gt;:&lt;path&gt;</c>.
    /// </summary>
    public string Origin { get; }
 

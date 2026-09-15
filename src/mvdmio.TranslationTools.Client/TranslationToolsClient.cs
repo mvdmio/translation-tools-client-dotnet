@@ -118,6 +118,11 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
          Globals = globals
       };
 
+      await PostProjectPushAsync(payload, cancellationToken);
+   }
+
+   private async Task PostProjectPushAsync(ProjectPushRequest payload, CancellationToken cancellationToken)
+   {
       var json = JsonSerializer.Serialize(payload, _serializerOptions);
 
       using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/translations/project")

@@ -30,6 +30,26 @@ internal sealed class LocalTranslationToolsClientCache : ITranslationToolsClient
          : null;
    }
 
+   public IReadOnlyCollection<TranslationRef> GetKnownKeys()
+   {
+      var known = new HashSet<TranslationRef>();
+
+      foreach (var state in _entries.Values)
+      {
+         TranslationLocaleSnapshot? snapshot;
+         lock (state.SyncRoot)
+            snapshot = state.Locale?.Value;
+
+         if (snapshot is null)
+            continue;
+
+         foreach (var translation in snapshot.Values.Keys)
+            known.Add(translation);
+      }
+
+      return known;
+   }
+
    public ValueTask<TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>?> GetLocaleAsync(EffectiveLocale locale, CancellationToken cancellationToken)
    {
       return ValueTask.FromResult(GetLocale(locale));

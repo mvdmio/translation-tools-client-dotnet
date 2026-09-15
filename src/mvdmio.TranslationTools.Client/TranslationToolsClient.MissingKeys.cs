@@ -3,9 +3,6 @@ using mvdmio.TranslationTools.Client.Internal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,11 +15,15 @@ public sealed partial class TranslationToolsClient
       if (_catalog.Count == 0)
          return;
 
+      // No supported-locale GET ran, so we have no snapshot of keys the service already has.
+      if (GetSupportedLocales().Length == 0)
+         return;
+
       try
       {
-         var knownKeys = CollectKnownKeysFromPreloadedLocales();
+         var knownKeys = _cache.GetKnownKeys();
          var missing = _catalog
-            .Where(entry => !knownKeys.Contains(new TranslationRef(entry.Origin, entry.Key)))
+            .Where(entry => !knownKeys.Contains(entry.Translation))
             .ToArray();
 
          if (missing.Length == 0)
@@ -43,23 +44,6 @@ public sealed partial class TranslationToolsClient
       {
          _logger?.LogWarning(exception, "TranslationTools missing-key send failed.");
       }
-   }
-
-   private HashSet<TranslationRef> CollectKnownKeysFromPreloadedLocales()
-   {
-      var known = new HashSet<TranslationRef>();
-
-      foreach (var locale in GetSupportedLocales())
-      {
-         var snapshot = _cache.GetLocale(ResolveEffectiveLocale(locale));
-         if (snapshot is null)
-            continue;
-
-         foreach (var translation in snapshot.Value.Values.Keys)
-            known.Add(translation);
-      }
-
-      return known;
    }
 
    private static ProjectPushItemRequest[] BuildMissingKeyItems(IReadOnlyList<TranslationCatalogKey> missing, string defaultLocale)
@@ -107,25 +91,14 @@ public sealed partial class TranslationToolsClient
          Prune = false
       };
 
-      var json = JsonSerializer.Serialize(payload, _serializerOptions);
-
-      using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/translations/project")
-      {
-         Content = new StringContent(json, Encoding.UTF8, "application/json")
-      };
-
-      using var response = await _client.SendAsync(request, cancellationToken);
-      response.EnsureSuccessStatusCode();
+      await PostProjectPushAsync(payload, cancellationToken);
    }
 
    private async Task MergeSentItemsIntoCacheAsync(ProjectPushItemRequest[] items, CancellationToken cancellationToken)
    {
       foreach (var item in items)
       {
-         var locale = EffectiveLocale.Resolve(
-            System.Globalization.CultureInfo.GetCultureInfo(item.Locale),
-            Options.DefaultLocale
-         );
+         var locale = EffectiveLocale.Resolve(item.Locale, Options.DefaultLocale);
 
          await StoreTranslationAsync(
             locale,

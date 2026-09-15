@@ -79,7 +79,6 @@ public static class TranslationCatalog
 
    private static bool SameKey(TranslationCatalogKey left, TranslationCatalogKey right)
    {
-      return StringComparer.OrdinalIgnoreCase.Equals(left.Origin, right.Origin)
-             && StringComparer.Ordinal.Equals(left.Key, right.Key);
+      return left.Translation.Equals(right.Translation);
    }
 }

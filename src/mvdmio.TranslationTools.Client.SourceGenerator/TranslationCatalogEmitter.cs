@@ -1,16 +1,10 @@
 using System.Linq;
-using System.Reflection;
 using System.Text;
 
 namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
 internal static class TranslationCatalogEmitter
 {
-   private static readonly string GeneratedCodeVersion = typeof(TranslationCatalogEmitter).Assembly
-      .GetName().Version?.ToString()
-      ?? typeof(TranslationCatalogEmitter).Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version
-      ?? "0.0.0.0";
-
    public static string Emit(TranslationCatalogModel model)
    {
       var builder = new StringBuilder();
@@ -19,7 +13,7 @@ internal static class TranslationCatalogEmitter
       builder.AppendLine("namespace mvdmio.TranslationTools.Client.Generated;");
       builder.AppendLine();
       builder.Append("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", ");
-      builder.Append(ToStringLiteral(GeneratedCodeVersion));
+      builder.Append(GeneratedCodeText.ToStringLiteral(GeneratedCodeText.Version));
       builder.AppendLine(")]");
       builder.AppendLine("internal static class TranslationCatalogRegistration");
       builder.AppendLine("{");
@@ -32,11 +26,11 @@ internal static class TranslationCatalogEmitter
       {
          var entry = model.Entries[i];
          builder.Append("         new global::mvdmio.TranslationTools.Client.TranslationCatalogKey(");
-         builder.Append(ToStringLiteral(entry.Origin));
+         builder.Append(GeneratedCodeText.ToStringLiteral(entry.Origin));
          builder.Append(", ");
-         builder.Append(ToStringLiteral(entry.Key));
+         builder.Append(GeneratedCodeText.ToStringLiteral(entry.Key));
          builder.Append(", ");
-         builder.Append(entry.NeutralValue is null ? "null" : ToStringLiteral(entry.NeutralValue));
+         builder.Append(entry.NeutralValue is null ? "null" : GeneratedCodeText.ToStringLiteral(entry.NeutralValue));
 
          if (entry.LocaleValues.Length > 0)
          {
@@ -44,9 +38,9 @@ internal static class TranslationCatalogEmitter
             foreach (var localeValue in entry.LocaleValues.OrderBy(static x => x.Locale, System.StringComparer.OrdinalIgnoreCase))
             {
                builder.Append(" [");
-               builder.Append(ToStringLiteral(localeValue.Locale));
+               builder.Append(GeneratedCodeText.ToStringLiteral(localeValue.Locale));
                builder.Append("] = ");
-               builder.Append(ToStringLiteral(localeValue.Value));
+               builder.Append(GeneratedCodeText.ToStringLiteral(localeValue.Value));
                builder.Append(",");
             }
             builder.Append(" }");
@@ -60,14 +54,5 @@ internal static class TranslationCatalogEmitter
       builder.AppendLine("   }");
       builder.AppendLine("}");
       return builder.ToString();
-   }
-
-   private static string ToStringLiteral(string value)
-   {
-      return "\"" + value
-         .Replace("\\", "\\\\")
-         .Replace("\"", "\\\"")
-         .Replace("\r", "\\r")
-         .Replace("\n", "\\n") + "\"";
    }
 }
