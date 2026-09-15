@@ -1,6 +1,6 @@
 # 02 — Reject illegal Environment names on CLI push
 
-Status: pending
+Status: done
 Blocked by: 01
 
 ## What to build
@@ -24,8 +24,12 @@ Projects: mvdmio.TranslationTools.Client, mvdmio.TranslationTools.Client.SourceG
 
 ## Acceptance criteria
 
-- [ ] Push with `environment: prod:sha` reports an error that names the allowed characters and does not call the API.
-- [ ] Push with `environment: production` still sends that Environment as today.
-- [ ] Push with `environment` omitted still pushes into the unnamed Environment as today.
-- [ ] CLI tool docs state the allowed characters, the length limit, `.` / `..`, and that blank means unnamed.
-- [ ] The whole suite is green.
+- [x] Push with `environment: prod:sha` reports an error that names the allowed characters and does not call the API.
+- [x] Push with `environment: production` still sends that Environment as today.
+- [x] Push with `environment` omitted still pushes into the unnamed Environment as today.
+- [x] CLI tool docs state the allowed characters, the length limit, `.` / `..`, and that blank means unnamed.
+- [x] The whole suite is green.
+
+## Outcome
+
+`PushHandler.HandleAsync` calls `TranslationClientInputValidator.NormalizeEnvironment` after the ApiKey check; on `ArgumentException` it writes `Error: {message}` via `IPushReporter` and returns without scanning or calling the API. The push request uses the normalized (trimmed / null-for-blank) Environment. Coverage: illegal `prod:sha` reports charset+64 and leaves `TestTranslationApiService.Request` null; omitted Environment sends null; legal `production` still sends as today. Tool README and `ToolConfiguration.Environment` docs state the same rules. No package version bump beyond step 01's 3.5.1.

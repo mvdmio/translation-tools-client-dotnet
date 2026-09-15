@@ -118,6 +118,93 @@ public class PushHandlerTests
       }
    }
 
+   [Fact]
+   public async Task HandleAsync_WhenEnvironmentOmitted_ShouldPushIntoUnnamedEnvironment()
+   {
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+      try
+      {
+         Directory.CreateDirectory(projectDirectory);
+         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
+         File.WriteAllText(
+            Path.Combine(projectDirectory, "Localizations.resx"),
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root>
+              <data name="Home.Title"><value>Hello</value></data>
+            </root>
+            """
+         );
+
+         var apiService = new TestTranslationApiService();
+         var handler = new PushHandler(apiService, new ProjectManifestScanner(), new TestPushReporter());
+         var config = new ToolConfiguration
+         {
+            ApiKey = "test-api-key",
+            ConfigDirectory = projectDirectory,
+            DefaultLocale = "en"
+         };
+
+         await handler.HandleAsync(config, prune: false, CancellationToken.None);
+
+         apiService.Request.Should().NotBeNull();
+         apiService.Request!.Environment.Should().BeNull();
+      }
+      finally
+      {
+         if (Directory.Exists(projectDirectory))
+            Directory.Delete(projectDirectory, recursive: true);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_WhenEnvironmentIsIllegal_ShouldReportErrorAndNotCallApi()
+   {
+      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+      try
+      {
+         Directory.CreateDirectory(projectDirectory);
+         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
+         File.WriteAllText(
+            Path.Combine(projectDirectory, "Localizations.resx"),
+            """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root>
+              <data name="Home.Title"><value>Hello</value></data>
+            </root>
+            """
+         );
+
+         var apiService = new TestTranslationApiService();
+         var reporter = new TestPushReporter();
+         var handler = new PushHandler(apiService, new ProjectManifestScanner(), reporter);
+         var config = new ToolConfiguration
+         {
+            ApiKey = "test-api-key",
+            ConfigDirectory = projectDirectory,
+            DefaultLocale = "en",
+            Environment = "prod:sha"
+         };
+
+         await handler.HandleAsync(config, prune: false, CancellationToken.None);
+
+         apiService.Request.Should().BeNull();
+         reporter.Errors.Should().ContainSingle()
+            .Which.Should().Contain("letters")
+            .And.Contain("64")
+            .And.Contain("dots")
+            .And.Contain("underscores")
+            .And.Contain("hyphens");
+      }
+      finally
+      {
+         if (Directory.Exists(projectDirectory))
+            Directory.Delete(projectDirectory, recursive: true);
+      }
+   }
+
    private sealed class TestTranslationApiService : mvdmio.TranslationTools.Tool.Pull.ITranslationApiService
    {
       public TranslationPushRequest? Request { get; private set; }
@@ -149,12 +236,15 @@ public class PushHandlerTests
 
    private sealed class TestPushReporter : IPushReporter
    {
+      public List<string> Errors { get; } = [];
+
       public void WriteInfo(string message)
       {
       }
 
       public void WriteError(string message)
       {
+         Errors.Add(message);
       }
    }
 }

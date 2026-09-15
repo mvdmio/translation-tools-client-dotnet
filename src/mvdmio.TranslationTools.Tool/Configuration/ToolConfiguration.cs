@@ -15,7 +15,9 @@ internal sealed class ToolConfiguration
 
    /// <summary>
    /// Optional deployment environment name (e.g. "production", "staging"). When set, the push declares
-   /// the key set into that environment's membership; unset declares into the unnamed environment.
+   /// the key set into that environment's membership; blank or whitespace means the unnamed environment.
+   /// A set name may use letters, digits, '.', '_', or '-' only, must be at most 64 characters after trim,
+   /// and must not be '.' or '..'.
    /// </summary>
    public string? Environment { get; set; }
 

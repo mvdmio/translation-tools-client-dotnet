@@ -32,7 +32,7 @@ environment: production # optional
 
 - `apiKey`: your TranslationTools project API key
 - `defaultLocale`: locale used for neutral `Name.resx` files
-- `environment` (optional): deployment environment name, e.g. `production` or `staging`. When set, `translations push` declares your local key set into that environment's membership on the server, scoping which keys belong to this deployment. When omitted, keys are declared into the unnamed environment. Leave it unset unless you maintain separate key sets per environment.
+- `environment` (optional): deployment environment name, e.g. `production` or `staging`. When set, `translations push` declares your local key set into that environment's membership on the server, scoping which keys belong to this deployment. Blank, whitespace, or omitted means the unnamed environment. A set name may use letters, digits, `.`, `_`, or `-` only, must be at most 64 characters after trim, and must not be `.` or `..`. An illegal name fails the push before any API call. Leave it unset unless you maintain separate key sets per environment.
 
 ## Commands
 

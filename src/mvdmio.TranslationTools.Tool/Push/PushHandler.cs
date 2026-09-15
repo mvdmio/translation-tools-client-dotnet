@@ -1,3 +1,4 @@
+using mvdmio.TranslationTools.Client.Internal;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
 
@@ -35,6 +36,17 @@ internal sealed class PushHandler
          return;
       }
 
+      string? environment;
+      try
+      {
+         environment = TranslationClientInputValidator.NormalizeEnvironment(config.Environment, nameof(config.Environment));
+      }
+      catch (ArgumentException ex)
+      {
+         _reporter.WriteError($"Error: {ex.Message}");
+         return;
+      }
+
       var projectContext = ToolProjectResolver.Resolve(config);
       var projectDirectory = projectContext.ProjectDirectory;
       if (string.IsNullOrWhiteSpace(config.DefaultLocale))
@@ -50,7 +62,7 @@ internal sealed class PushHandler
          new TranslationPushRequest
          {
             Prune = prune,
-            Environment = config.Environment,
+            Environment = environment,
             Items = scanResult.Items.Select(
                static x => new TranslationPushItemRequest
                {
