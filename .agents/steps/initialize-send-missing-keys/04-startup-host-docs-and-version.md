@@ -1,6 +1,6 @@
 # 04 — Record the project push at startup and ship the docs
 
-Status: pending
+Status: done
 Blocked by: 01, 02, 03
 
 ## What to build
@@ -32,13 +32,17 @@ Projects: mvdmio.TranslationTools.Client, mvdmio.TranslationTools.Client.SourceG
 
 ## Acceptance criteria
 
-- [ ] After a successful preload through `InitializeTranslationToolsClientAsync`, every local key that was not in the snapshots is posted, with Neutral value as the default locale and sibling-locale values present
-- [ ] A failed locale GET produces no project push of keys, and application startup still succeeds
-- [ ] A failed project push does not throw from the startup wrapper, and the heartbeat still starts
-- [ ] Environment is on the missing-key body when configured, and omitted when unnamed
-- [ ] Global placeholder names are still posted after initialize, and that post does not require the missing-key items
-- [ ] Live updates still start from the startup wrapper after `Initialize` when they are enabled
-- [ ] Generated accessors for existing keys still compile and still seed on first lookup
-- [ ] The client package readme states that initialize sends missing keys after a successful locale preload, and that existing keys are not overwritten
-- [ ] Package version is 3.6.0
-- [ ] Solution builds and the whole test suite is green
+- [x] After a successful preload through `InitializeTranslationToolsClientAsync`, every local key that was not in the snapshots is posted, with Neutral value as the default locale and sibling-locale values present
+- [x] A failed locale GET produces no project push of keys, and application startup still succeeds
+- [x] A failed project push does not throw from the startup wrapper, and the heartbeat still starts
+- [x] Environment is on the missing-key body when configured, and omitted when unnamed
+- [x] Global placeholder names are still posted after initialize, and that post does not require the missing-key items
+- [x] Live updates still start from the startup wrapper after `Initialize` when they are enabled
+- [x] Generated accessors for existing keys still compile and still seed on first lookup
+- [x] The client package readme states that initialize sends missing keys after a successful locale preload, and that existing keys are not overwritten
+- [x] Package version is 3.6.0
+- [x] Solution builds and the whole test suite is green
+
+## Outcome
+
+Integration host records and accepts `POST /api/v1/translations/project` (`ProjectPushes` / `ProjectPushRawBodies`, plus `LocaleStatusCode` / `ProjectPushStatusCode`). New `InitializeMissingKeysIntegrationTests` cover missing-key send via `InitializeTranslationToolsClientAsync` (Neutral+sibling, failed locale GET, failed push+heartbeat, Environment omit, globals-only push). Added `Localizations.nl.resx` (`Opslaan fallback`) so the generated catalog carries a sibling value. `InitializeTranslationToolsClientAsync` XML docs, client `Readme.md`, and root `README.md` state missing-key send / no overwrite. `TranslationToolsVersion` → 3.6.0. Adjusted invariant-culture startup test to set explicit `SupportedLocales = [en]` and include Errors in the snapshot so Initialize does not treat empty-preload as “all keys missing” and cache Neutral over the API value. Parked whole-locale lookup issue left open. Verified: unit 178, integration 13, tool unit 21, SourceGeneratorEndToEnd build green.

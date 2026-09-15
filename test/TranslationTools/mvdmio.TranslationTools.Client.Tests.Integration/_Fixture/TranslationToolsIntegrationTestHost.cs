@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -29,6 +30,8 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public int TranslationRequestCount => _translationRequestCount;
 
+   public string? LastTranslationRequestQuery { get; private set; }
+
    public int SocketTokenRequestCount => _socketTokenRequestCount;
 
    public int HeartbeatRequestCount => _heartbeatRequestCount;
@@ -37,11 +40,19 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public HeartbeatBody? LastHeartbeatBody { get; private set; }
 
+   public ConcurrentBag<ProjectPushBody> ProjectPushes { get; } = new();
+
+   public ConcurrentBag<string> ProjectPushRawBodies { get; } = new();
+
    public required IReadOnlyDictionary<string, IReadOnlyDictionary<TranslationRef, string?>> Locales { get; init; }
 
    public string BaseUrl { get; private set; } = string.Empty;
 
    public int HeartbeatStatusCode { get; set; } = StatusCodes.Status200OK;
+
+   public int LocaleStatusCode { get; set; } = StatusCodes.Status200OK;
+
+   public int ProjectPushStatusCode { get; set; } = StatusCodes.Status200OK;
 
    private int _localeRequestCount;
 
@@ -70,6 +81,9 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          host.LastEnvironment = environment;
          Interlocked.Increment(ref host._localeRequestCount);
 
+         if (host.LocaleStatusCode != StatusCodes.Status200OK)
+            return Results.StatusCode(host.LocaleStatusCode);
+
          if (!host.Locales.TryGetValue(locale, out var values))
             return Results.Json(Array.Empty<TranslationItemResponse>());
 
@@ -89,6 +103,7 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
       IResult ServeTranslation(HttpContext context, string origin, string locale, string key)
       {
          host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
+         host.LastTranslationRequestQuery = context.Request.QueryString.Value;
          Interlocked.Increment(ref host._translationRequestCount);
 
          // ASP.NET Core route binding leaves an escaped '/' (%2F) undecoded within a path
@@ -127,6 +142,20 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          Interlocked.Increment(ref host._heartbeatRequestCount);
 
          return Results.StatusCode(host.HeartbeatStatusCode);
+      });
+
+      app.MapPost("/api/v1/translations/project", async (HttpContext context) =>
+      {
+         host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
+
+         using var reader = new StreamReader(context.Request.Body);
+         var raw = await reader.ReadToEndAsync();
+         host.ProjectPushRawBodies.Add(raw);
+
+         var parsed = JsonSerializer.Deserialize<ProjectPushBody>(raw, SerializerOptions) ?? new ProjectPushBody();
+         host.ProjectPushes.Add(parsed);
+
+         return Results.StatusCode(host.ProjectPushStatusCode);
       });
 
       app.MapGet("/ws/translations", async context =>
@@ -214,4 +243,26 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
    }
 
    public sealed record HeartbeatBody(string? ClientId, string? Environment, string? Platform, string? Version);
+
+   public sealed class ProjectPushBody
+   {
+      public ProjectPushItemBody[] Items { get; init; } = [];
+
+      public string? Environment { get; init; }
+
+      public bool Prune { get; init; }
+
+      public string[]? Globals { get; init; }
+   }
+
+   public sealed class ProjectPushItemBody
+   {
+      public string Origin { get; init; } = string.Empty;
+
+      public string Locale { get; init; } = string.Empty;
+
+      public string Key { get; init; } = string.Empty;
+
+      public string? Value { get; init; }
+   }
 }

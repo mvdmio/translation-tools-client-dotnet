@@ -92,7 +92,8 @@ public sealed class StartupAndLiveUpdateIntegrationTests
          {
             ["en"] = new Dictionary<TranslationRef, string?>
             {
-               [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Save from API"
+               [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Save from API",
+               [new TranslationRef(ProjectOriginPrefix + "/Resources/Shared/Errors.resx", "404.title")] = "Not found from API"
             }
          },
          TestContext.Current.CancellationToken
@@ -103,6 +104,9 @@ public sealed class StartupAndLiveUpdateIntegrationTests
       {
          options.ApiKey = "test-api-key";
          options.DefaultLocale = "en";
+         // Explicit SupportedLocales so Initialize still preloads DefaultLocale even when the
+         // process UI culture is invariant (which is dropped from the fallback SupportedLocales).
+         options.SupportedLocales = [new CultureInfo("en")];
          options.EnableLiveUpdates = false;
          options.BaseUrlOverride = server.BaseUrl;
       });
@@ -113,13 +117,10 @@ public sealed class StartupAndLiveUpdateIntegrationTests
 
       try
       {
-         // A job-like caller running entirely under the invariant culture: no locales are
-         // preloaded during Initialize (the invariant culture is dropped from preloading, as
-         // before), so the lookup below is a live call that must resolve to DefaultLocale.
          CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
          await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
-         server.LocaleRequestCount.Should().Be(0);
+         server.LocaleRequestCount.Should().Be(1);
 
          var value = await Localizations.GetAsync("Button.Save", cancellationToken: TestContext.Current.CancellationToken);
 

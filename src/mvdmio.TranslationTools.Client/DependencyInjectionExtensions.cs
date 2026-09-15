@@ -83,7 +83,10 @@ public static class DependencyInjectionExtensions
    }
 
    /// <summary>
-   ///   Initializes the Translation Tools Client.
+   /// Initializes the Translation Tools client: preloads supported locales, sends every missing local
+   /// catalog key (Neutral value as the default locale plus sibling-locale values; existing snapshot
+   /// keys are not overwritten), pushes declared global placeholder names, and starts live updates when
+   /// enabled. Failures are logged and do not fail application startup.
    /// </summary>
    public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)
    {
