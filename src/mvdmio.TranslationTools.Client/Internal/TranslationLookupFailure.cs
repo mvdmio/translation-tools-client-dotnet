@@ -61,7 +61,8 @@ internal readonly struct TranslationLookupFailure
    /// </summary>
    public static TranslationLookupFailure Classify(Exception exception)
    {
-      return exception switch {
+      return exception switch
+      {
          // The client's own timeout. The caller's own cancellation never reaches here.
          OperationCanceledException => new TranslationLookupFailure(LogLevel.Warning, CouldNotAnswer, opensSuppressionWindow: true),
 

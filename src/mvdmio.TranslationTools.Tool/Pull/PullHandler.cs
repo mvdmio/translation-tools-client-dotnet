@@ -72,7 +72,8 @@ internal sealed class PullHandler
 
       var allItems = localeItems
          .SelectMany(static pair => pair.Value.Select(item => (Locale: pair.Key, Item: item)))
-         .Select(static item => new {
+         .Select(static item => new
+         {
             item.Locale,
             ParsedOrigin = TranslationOrigin.TryParse(item.Item.Origin, out var projectName, out var resourcePath)
                ? new ParsedTranslationOrigin(projectName, resourcePath)

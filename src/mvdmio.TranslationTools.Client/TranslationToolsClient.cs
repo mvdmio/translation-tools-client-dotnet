@@ -31,6 +31,7 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    private readonly HttpClient _client;
    private readonly IOptions<TranslationToolsClientOptions> _options;
    private readonly ITranslationToolsClientCache _cache;
+   private readonly IReadOnlyList<TranslationCatalogKey> _catalog;
    private readonly TimeProvider _timeProvider;
    private readonly ILogger? _logger;
    private readonly Guid _clientId;
@@ -47,9 +48,10 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
 
    /// <summary>
    /// Create a client using cache services registered in the container.
+   /// Uses the assembly-level <see cref="TranslationCatalog"/> registered by generated code.
    /// </summary>
    public TranslationToolsClient(HttpClient client, IOptions<TranslationToolsClientOptions> options, ILogger<TranslationToolsClient>? logger = null)
-      : this(client, options, new LocalTranslationToolsClientCache(), logger: logger)
+      : this(client, options, new LocalTranslationToolsClientCache(), catalog: TranslationCatalog.Entries, logger: logger)
    {
    }
 
@@ -59,11 +61,15 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       ITranslationToolsClientCache cache,
       TimeProvider? timeProvider = null,
       IClientIdStore? clientIdStore = null,
-      ILogger? logger = null)
+      ILogger? logger = null,
+      IEnumerable<TranslationCatalogKey>? catalog = null)
    {
       _client = client;
       _options = options;
       _cache = cache;
+      // Internal callers that omit catalog get an empty set so unit tests do not post keys from
+      // another assembly's generated ModuleInitializer. Public/DI pass TranslationCatalog.Entries.
+      _catalog = catalog?.ToArray() ?? Array.Empty<TranslationCatalogKey>();
       _timeProvider = timeProvider ?? TimeProvider.System;
       _logger = logger;
       _clientId = (clientIdStore ?? new FileClientIdStore()).GetOrCreateClientId();
@@ -88,6 +94,8 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       {
          foreach (var locale in GetSupportedLocales())
             await RefreshLocaleAsync(locale, cancellationToken);
+
+         await TrySendMissingKeysAsync(cancellationToken);
       }
       finally
       {
@@ -103,9 +111,9 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    /// </summary>
    internal async Task PushGlobalsAsync(string[] globals, CancellationToken cancellationToken = default)
    {
-      var payload = new ProjectGlobalsPushRequest
+      var payload = new ProjectPushRequest
       {
-         Items = Array.Empty<object>(),
+         Items = Array.Empty<ProjectPushItemRequest>(),
          Environment = _environment,
          Globals = globals
       };

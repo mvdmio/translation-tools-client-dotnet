@@ -1,6 +1,6 @@
 # 03 — Send missing keys after a successful locale preload
 
-Status: pending
+Status: done
 Blocked by: 01, 02
 
 ## What to build
@@ -34,15 +34,19 @@ Projects: mvdmio.TranslationTools.Client, mvdmio.TranslationTools.Client.Tests.U
 
 ## Acceptance criteria
 
-- [ ] After a successful preload, every local key that was not in the snapshots is posted, with Neutral value as the default locale and sibling-locale values present
-- [ ] A key that appeared in any loaded snapshot is not posted, even when its snapshot value is empty
-- [ ] A failed locale GET produces no project push of keys, and `Initialize` still throws on that GET
-- [ ] A failed project push does not throw from `Initialize`, is logged, and the heartbeat still starts
-- [ ] An empty missing set produces no project push from `Initialize`
-- [ ] An empty catalog produces no project push from `Initialize`
-- [ ] Environment is on the body when configured, and omitted when unnamed
-- [ ] After a successful send, a lookup for a sent key is answered from cache without a single-key GET
-- [ ] A second `Initialize` in the same process sends nothing when the keys are already on the service
-- [ ] Two origins that share a key name both appear when both are missing
-- [ ] A sibling file whose locale equals the default locale wins for that locale
-- [ ] Solution builds and the existing test suite is green
+- [x] After a successful preload, every local key that was not in the snapshots is posted, with Neutral value as the default locale and sibling-locale values present
+- [x] A key that appeared in any loaded snapshot is not posted, even when its snapshot value is empty
+- [x] A failed locale GET produces no project push of keys, and `Initialize` still throws on that GET
+- [x] A failed project push does not throw from `Initialize`, is logged, and the heartbeat still starts
+- [x] An empty missing set produces no project push from `Initialize`
+- [x] An empty catalog produces no project push from `Initialize`
+- [x] Environment is on the body when configured, and omitted when unnamed
+- [x] After a successful send, a lookup for a sent key is answered from cache without a single-key GET
+- [x] A second `Initialize` in the same process sends nothing when the keys are already on the service
+- [x] Two origins that share a key name both appear when both are missing
+- [x] A sibling file whose locale equals the default locale wins for that locale
+- [x] Solution builds and the existing test suite is green
+
+## Outcome
+
+`Initialize` now sends missing catalog keys after every supported-locale preload succeeds, then starts the heartbeat as before. Send logic lives in `TranslationToolsClient.MissingKeys.cs` (~142 LOC); main client ~317 LOC. `ProjectGlobalsPushRequest` was replaced by `ProjectPushRequest` / `ProjectPushItemRequest` (items + optional Environment/Prune/Globals; null Environment and false Prune omitted from JSON). `PushGlobalsAsync` uses the same type with empty items. Catalog seam: internal ctor takes optional `IEnumerable<TranslationCatalogKey>? catalog` — omit/`null` means empty (so existing unit tests do not post keys from another assembly's `ModuleInitializer`); public ctor and `AddTranslationToolsClient` pass `TranslationCatalog.Entries`. Missing = origin+key absent from every preloaded locale snapshot (empty/null snapshot values still count as present). After a successful POST, sent values are merged via cache `SetAsync`. Failed send is logged at Warning and does not throw. README/version/`InitializeTranslationToolsClientAsync` host recording remain Step 04 — integration Initialize may now attempt a missing-key POST against the fake host; failures are swallowed until Step 04 records/accepts that endpoint. Verified: unit 178, integration 7, SourceGeneratorEndToEnd build green.

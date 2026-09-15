@@ -1,6 +1,6 @@
 using AwesomeAssertions;
-using mvdmio.TranslationTools.Tool.Resx;
 using mvdmio.TranslationTools.Tool.Push;
+using mvdmio.TranslationTools.Tool.Resx;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Tool.Tests.Unit.Push;

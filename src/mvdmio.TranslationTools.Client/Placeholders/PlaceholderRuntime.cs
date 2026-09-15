@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using Microsoft.Extensions.Logging;
 
 namespace mvdmio.TranslationTools.Client.Placeholders;
 
@@ -47,8 +47,7 @@ internal static class PlaceholderRuntime
    /// </summary>
    public static Action<string> Warn { get; } = message =>
    {
-      if (_logger is not null)
-         _logger.LogWarning("TranslationTools placeholder: {Message}", message);
+      _logger?.LogWarning("TranslationTools placeholder: {Message}", message);
    };
 
    /// <summary>

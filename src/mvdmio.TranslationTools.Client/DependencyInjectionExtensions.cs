@@ -52,7 +52,7 @@ public static class DependencyInjectionExtensions
          var clientIdStore = serviceProvider.GetRequiredService<IClientIdStore>();
          var timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
          var logger = serviceProvider.GetService<ILoggerFactory>()?.CreateLogger<TranslationToolsClient>();
-         var client = new TranslationToolsClient(httpClient, clientOptions, new LocalTranslationToolsClientCache(), timeProvider, clientIdStore, logger);
+         var client = new TranslationToolsClient(httpClient, clientOptions, new LocalTranslationToolsClientCache(), timeProvider, clientIdStore, logger, TranslationCatalog.Entries);
          Translations.SetClient(client);
          return client;
       });

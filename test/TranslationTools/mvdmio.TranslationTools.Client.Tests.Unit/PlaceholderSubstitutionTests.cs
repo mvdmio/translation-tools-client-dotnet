@@ -1,7 +1,7 @@
-using System;
-using System.Collections.Generic;
 using AwesomeAssertions;
 using mvdmio.TranslationTools.Client.Placeholders;
+using System;
+using System.Collections.Generic;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;

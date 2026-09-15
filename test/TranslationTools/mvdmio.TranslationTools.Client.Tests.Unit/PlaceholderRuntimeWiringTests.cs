@@ -1,11 +1,11 @@
+using AwesomeAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using mvdmio.TranslationTools.Client.Placeholders;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using AwesomeAssertions;
-using Microsoft.Extensions.DependencyInjection;
-using mvdmio.TranslationTools.Client.Placeholders;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;

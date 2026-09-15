@@ -1,5 +1,5 @@
-using System;
 using JetBrains.Annotations;
+using System;
 
 namespace mvdmio.TranslationTools.Client;
 

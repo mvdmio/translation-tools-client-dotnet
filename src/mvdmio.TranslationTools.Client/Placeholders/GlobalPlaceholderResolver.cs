@@ -1,7 +1,7 @@
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace mvdmio.TranslationTools.Client.Placeholders;
 
