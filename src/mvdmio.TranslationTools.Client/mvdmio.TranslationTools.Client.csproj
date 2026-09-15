@@ -32,12 +32,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="mvdmio.TranslationTools.Tool"/>
-    <InternalsVisibleTo Include="mvdmio.TranslationTools.Tool.Tests.Unit"/>
-    <InternalsVisibleTo Include="mvdmio.TranslationTools.Client.Tests.Unit"/>
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="JetBrains.Annotations" Version="2025.2.4"/>
   </ItemGroup>
 

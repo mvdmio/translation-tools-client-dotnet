@@ -27,7 +27,7 @@ internal static partial class TranslationClientInputValidator
          return null;
 
       var normalized = environment.Trim();
-      if (normalized.Length > MaxEnvironmentLength || normalized is "." or ".." || !KeyPattern().IsMatch(normalized))
+      if (normalized.Length > MaxEnvironmentLength || normalized is "." or ".." || !CharsetPattern().IsMatch(normalized))
          throw new ArgumentException(EnvironmentRulesMessage, parameterName);
 
       return normalized;
@@ -39,7 +39,7 @@ internal static partial class TranslationClientInputValidator
          throw new ArgumentException("Translation key is required.", nameof(key));
 
       var normalized = key.Trim();
-      if (!KeyPattern().IsMatch(normalized))
+      if (!CharsetPattern().IsMatch(normalized))
          throw new ArgumentException("Translation key may only contain letters, numbers, dots, underscores, and hyphens.", nameof(key));
 
       return normalized;
@@ -68,5 +68,5 @@ internal static partial class TranslationClientInputValidator
    }
 
    [GeneratedRegex("^[A-Za-z0-9._-]+$", RegexOptions.CultureInvariant)]
-   private static partial Regex KeyPattern();
+   private static partial Regex CharsetPattern();
 }

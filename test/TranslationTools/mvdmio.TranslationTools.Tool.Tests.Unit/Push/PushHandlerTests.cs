@@ -38,137 +38,67 @@ public class PushHandlerTests
    [Fact]
    public async Task HandleAsync_ShouldSendPruneFlagInPushRequest()
    {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      using var fixture = new PushProjectFixture();
 
-      try
-      {
-         Directory.CreateDirectory(projectDirectory);
-         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Localizations.resx"),
-            """
-            <?xml version="1.0" encoding="utf-8"?>
-            <root>
-              <data name="Home.Title"><value>Hello</value></data>
-            </root>
-            """
-         );
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration(), prune: true, CancellationToken.None);
 
-         var apiService = new TestTranslationApiService();
-         var reporter = new TestPushReporter();
-         var handler = new PushHandler(apiService, new ProjectManifestScanner(), reporter);
-         var config = new ToolConfiguration
-         {
-            ApiKey = "test-api-key",
-            ConfigDirectory = projectDirectory,
-            DefaultLocale = "en"
-         };
-
-         await handler.HandleAsync(config, prune: true, CancellationToken.None);
-
-         apiService.Request.Should().NotBeNull();
-         apiService.Request!.Prune.Should().BeTrue();
-         apiService.Request.Items.Should().ContainSingle(x => x.Key == "Home.Title" && x.Locale == "en" && x.Value == "Hello");
-      }
-      finally
-      {
-         if (Directory.Exists(projectDirectory))
-            Directory.Delete(projectDirectory, recursive: true);
-      }
+      fixture.ApiService.Request.Should().NotBeNull();
+      fixture.ApiService.Request!.Prune.Should().BeTrue();
+      fixture.ApiService.Request.Items.Should().ContainSingle(x => x.Key == "Home.Title" && x.Locale == "en" && x.Value == "Hello");
    }
 
    [Fact]
    public async Task HandleAsync_ShouldSendConfiguredEnvironmentInPushRequest()
    {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      using var fixture = new PushProjectFixture();
 
-      try
-      {
-         Directory.CreateDirectory(projectDirectory);
-         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Localizations.resx"),
-            """
-            <?xml version="1.0" encoding="utf-8"?>
-            <root>
-              <data name="Home.Title"><value>Hello</value></data>
-            </root>
-            """
-         );
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration("production"), prune: false, CancellationToken.None);
 
-         var apiService = new TestTranslationApiService();
-         var handler = new PushHandler(apiService, new ProjectManifestScanner(), new TestPushReporter());
-         var config = new ToolConfiguration
-         {
-            ApiKey = "test-api-key",
-            ConfigDirectory = projectDirectory,
-            DefaultLocale = "en",
-            Environment = "production"
-         };
-
-         await handler.HandleAsync(config, prune: false, CancellationToken.None);
-
-         apiService.Request.Should().NotBeNull();
-         apiService.Request!.Environment.Should().Be("production");
-      }
-      finally
-      {
-         if (Directory.Exists(projectDirectory))
-            Directory.Delete(projectDirectory, recursive: true);
-      }
+      fixture.ApiService.Request.Should().NotBeNull();
+      fixture.ApiService.Request!.Environment.Should().Be("production");
    }
 
    [Fact]
    public async Task HandleAsync_WhenEnvironmentOmitted_ShouldPushIntoUnnamedEnvironment()
    {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      using var fixture = new PushProjectFixture();
 
-      try
-      {
-         Directory.CreateDirectory(projectDirectory);
-         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
-         File.WriteAllText(
-            Path.Combine(projectDirectory, "Localizations.resx"),
-            """
-            <?xml version="1.0" encoding="utf-8"?>
-            <root>
-              <data name="Home.Title"><value>Hello</value></data>
-            </root>
-            """
-         );
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration(), prune: false, CancellationToken.None);
 
-         var apiService = new TestTranslationApiService();
-         var handler = new PushHandler(apiService, new ProjectManifestScanner(), new TestPushReporter());
-         var config = new ToolConfiguration
-         {
-            ApiKey = "test-api-key",
-            ConfigDirectory = projectDirectory,
-            DefaultLocale = "en"
-         };
-
-         await handler.HandleAsync(config, prune: false, CancellationToken.None);
-
-         apiService.Request.Should().NotBeNull();
-         apiService.Request!.Environment.Should().BeNull();
-      }
-      finally
-      {
-         if (Directory.Exists(projectDirectory))
-            Directory.Delete(projectDirectory, recursive: true);
-      }
+      fixture.ApiService.Request.Should().NotBeNull();
+      fixture.ApiService.Request!.Environment.Should().BeNull();
    }
 
    [Fact]
    public async Task HandleAsync_WhenEnvironmentIsIllegal_ShouldReportErrorAndNotCallApi()
    {
-      var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+      using var fixture = new PushProjectFixture();
 
-      try
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration("prod:sha"), prune: false, CancellationToken.None);
+
+      fixture.ApiService.Request.Should().BeNull();
+      fixture.Reporter.Errors.Should().ContainSingle()
+         .Which.Should().Contain("letters")
+         .And.Contain("64")
+         .And.Contain("dots")
+         .And.Contain("underscores")
+         .And.Contain("hyphens");
+   }
+
+   private sealed class PushProjectFixture : IDisposable
+   {
+      public string ProjectDirectory { get; }
+      public TestTranslationApiService ApiService { get; }
+      public TestPushReporter Reporter { get; }
+      public PushHandler Handler { get; }
+
+      public PushProjectFixture()
       {
-         Directory.CreateDirectory(projectDirectory);
-         File.WriteAllText(Path.Combine(projectDirectory, "Demo.csproj"), "<Project />");
+         ProjectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+         Directory.CreateDirectory(ProjectDirectory);
+         File.WriteAllText(Path.Combine(ProjectDirectory, "Demo.csproj"), "<Project />");
          File.WriteAllText(
-            Path.Combine(projectDirectory, "Localizations.resx"),
+            Path.Combine(ProjectDirectory, "Localizations.resx"),
             """
             <?xml version="1.0" encoding="utf-8"?>
             <root>
@@ -177,31 +107,26 @@ public class PushHandlerTests
             """
          );
 
-         var apiService = new TestTranslationApiService();
-         var reporter = new TestPushReporter();
-         var handler = new PushHandler(apiService, new ProjectManifestScanner(), reporter);
-         var config = new ToolConfiguration
+         ApiService = new TestTranslationApiService();
+         Reporter = new TestPushReporter();
+         Handler = new PushHandler(ApiService, new ProjectManifestScanner(), Reporter);
+      }
+
+      public ToolConfiguration CreateConfiguration(string? environment = null)
+      {
+         return new ToolConfiguration
          {
             ApiKey = "test-api-key",
-            ConfigDirectory = projectDirectory,
+            ConfigDirectory = ProjectDirectory,
             DefaultLocale = "en",
-            Environment = "prod:sha"
+            Environment = environment
          };
-
-         await handler.HandleAsync(config, prune: false, CancellationToken.None);
-
-         apiService.Request.Should().BeNull();
-         reporter.Errors.Should().ContainSingle()
-            .Which.Should().Contain("letters")
-            .And.Contain("64")
-            .And.Contain("dots")
-            .And.Contain("underscores")
-            .And.Contain("hyphens");
       }
-      finally
+
+      public void Dispose()
       {
-         if (Directory.Exists(projectDirectory))
-            Directory.Delete(projectDirectory, recursive: true);
+         if (Directory.Exists(ProjectDirectory))
+            Directory.Delete(ProjectDirectory, recursive: true);
       }
    }
 
