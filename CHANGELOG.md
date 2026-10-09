@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-10: Keys match without regard to case
+
+The client now matches translation keys without regard to case, as the service does. A lookup for `Action.Edit` is answered from a cached `action.edit`, so no call goes to the service and rendering does not wait on one. The value that comes back holds the key in the casing the service stores.
+
 ## 2026-09-15: Initialize sends missing keys
 
 When the client initializes and every locale preload succeeds, it sends every missing key from the application's `.resx` files, with the Neutral value and any sibling-locale values the app shipped. Keys already on the service stay as they are. A failed send is logged and the application still starts.

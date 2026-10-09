@@ -4,6 +4,7 @@ namespace mvdmio.TranslationTools.Client;
 
 /// <summary>
 /// Stable identity for one translation entry.
+/// Two values are equal when their origins and keys match without regard to case, as the service matches them.
 /// </summary>
 public readonly record struct TranslationRef
 {
@@ -22,7 +23,8 @@ public readonly record struct TranslationRef
    public string Origin { get; }
 
    /// <summary>
-   /// Resource entry key.
+   /// Resource entry key, in the casing it was created with.
+   /// Equality compares it without regard to case.
    /// </summary>
    public string Key { get; }
 
@@ -30,7 +32,7 @@ public readonly record struct TranslationRef
    public bool Equals(TranslationRef other)
    {
       return StringComparer.OrdinalIgnoreCase.Equals(Origin, other.Origin)
-             && StringComparer.Ordinal.Equals(Key, other.Key);
+             && StringComparer.OrdinalIgnoreCase.Equals(Key, other.Key);
    }
 
    /// <inheritdoc />
@@ -38,7 +40,7 @@ public readonly record struct TranslationRef
    {
       return HashCode.Combine(
          StringComparer.OrdinalIgnoreCase.GetHashCode(Origin),
-         StringComparer.Ordinal.GetHashCode(Key)
+         StringComparer.OrdinalIgnoreCase.GetHashCode(Key)
       );
    }
 }

@@ -79,6 +79,24 @@ public class InitializeMissingKeysTests
    }
 
    [Fact]
+   public async Task Initialize_DoesNotPostKeyTheServiceHoldsInAnotherCasing()
+   {
+      var handler = new RecordingHandler
+      {
+         LocaleResponses =
+         {
+            ["en"] = [new TranslationItemResponse { Origin = OriginA, Key = "action.edit", Value = "Edit" }]
+         }
+      };
+      var catalog = new[] { new TranslationCatalogKey(OriginA, "Action.Edit", neutralValue: "Edit") };
+      using var client = CreateClient(handler, catalog, supportedLocales: [new CultureInfo("en")], enableHeartbeat: false);
+
+      await client.Initialize(TestContext.Current.CancellationToken);
+
+      handler.ProjectPushes.Should().BeEmpty();
+   }
+
+   [Fact]
    public async Task Initialize_FailedLocaleGet_ProducesNoProjectPushAndStillThrows()
    {
       var handler = new RecordingHandler { LocaleStatusCode = HttpStatusCode.InternalServerError };

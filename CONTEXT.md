@@ -7,7 +7,8 @@ back at runtime. This file is the glossary for that domain.
 ## Language
 
 **Translation key**:
-The name a translatable string is known by, unique within its origin. Written in `.resx` as the
+The name a translatable string is known by, unique within its origin, ignoring case: `Action.Edit`
+and `action.edit` in one origin are the same key, as the service treats them. Written in `.resx` as the
 `data` element's `name`.
 _Avoid_: resource name, string id
 

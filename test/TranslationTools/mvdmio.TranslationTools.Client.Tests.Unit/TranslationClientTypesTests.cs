@@ -17,6 +17,18 @@ public class TranslationClientTypesTests
    }
 
    [Fact]
+   public void TranslationRef_KeysDifferingOnlyInCase_AreEqualAndKeepTheirOwnCasing()
+   {
+      var left = new TranslationRef("Fixture.App:/Localizations.resx", "Action.Edit");
+      var right = new TranslationRef("Fixture.App:/Localizations.resx", "action.edit");
+
+      left.Should().Be(right);
+      left.GetHashCode().Should().Be(right.GetHashCode());
+      left.Key.Should().Be("Action.Edit");
+      right.Key.Should().Be("action.edit");
+   }
+
+   [Fact]
    public void TranslationRef_ShouldRejectInvalidOrigin()
    {
       var act = () => new TranslationRef("Feature/Shared.txt", "Button.Save");
@@ -50,6 +62,31 @@ public class TranslationClientTypesTests
 
          var entry = TranslationCatalog.Entries.Should().ContainSingle().Subject;
          entry.Translation.Should().Be(new TranslationRef("Fixture.App:/Localizations.resx", "Button.Save"));
+         entry.NeutralValue.Should().Be("Updated");
+      }
+      finally
+      {
+         TranslationCatalog.Clear();
+      }
+   }
+
+   [Fact]
+   public void TranslationCatalog_Register_KeysDifferingOnlyInCase_LaterEntryReplacesEarlier()
+   {
+      TranslationCatalog.Replace(
+      [
+         new TranslationCatalogKey("Fixture.App:/Localizations.resx", "Action.Edit", neutralValue: "Edit")
+      ]);
+
+      try
+      {
+         var act = () => TranslationCatalog.Register(
+            new TranslationCatalogKey("Fixture.App:/Localizations.resx", "action.edit", neutralValue: "Updated")
+         );
+
+         act.Should().NotThrow();
+         var entry = TranslationCatalog.Entries.Should().ContainSingle().Subject;
+         entry.Key.Should().Be("action.edit");
          entry.NeutralValue.Should().Be("Updated");
       }
       finally

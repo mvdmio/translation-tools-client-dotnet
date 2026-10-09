@@ -65,6 +65,8 @@ var item = await client.GetAsync(Localizations.Keys.Button_Save, new CultureInfo
 var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 ```
 
+Translation keys match without regard to case within an origin, as the service matches them. A lookup for `Action.Edit` is answered by a cached `action.edit`, so a key the service stores in another casing hits the cache. The `TranslationItemResponse` that comes back holds the key in the casing the service stores, so that lookup returns `Key = "action.edit"`.
+
 ## Environment scoping
 
 Set `Environment` to scope the translations this deployment fetches to a named environment, for example `production` or `staging`:
