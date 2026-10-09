@@ -14,7 +14,7 @@ This document provides instructions for AI coding assistants working on this cod
 - If the build fails because some process is running and locking the file, kill the process.
 - Always update the README.md file so that it reflects the latest state of the project
 - Keep README.md focused on stable product description, usage, and reference material. Do not add changelog-style notes, implementation history, or release-specific callouts unless the information is required for users to understand current behavior or usage.
-- Always bump the version number in the `mvdmio.Database.PgSQL` and `mvmdio.Database.PgSQL.Tool` .csproj file when making changes that affect those projects. Follow semantic versioning principles (MAJOR.MINOR.PATCH):
+- Always bump `TranslationToolsVersion` in `Directory.Build.props` (it versions every package) when making changes that affect a published package. Follow semantic versioning principles (MAJOR.MINOR.PATCH):
   - Increment the MAJOR version when you make incompatible API changes.
   - Increment the MINOR version when you add functionality in a backward-compatible manner.
   - Increment the PATCH version when you make backward-compatible bug fixes.
@@ -100,7 +100,7 @@ This project uses a comprehensive `.editorconfig` file. Key conventions:
 
 - **Indentation:** 3 spaces for C# files
 - **Namespace style:** File-scoped (`namespace Foo;`)
-- **Line endings:** CRLF
+- **Line endings:** LF
 - **Final newline:** Required
 
 ### Naming Conventions
