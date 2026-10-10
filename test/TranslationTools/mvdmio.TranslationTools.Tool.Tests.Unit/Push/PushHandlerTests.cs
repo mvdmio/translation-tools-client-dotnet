@@ -227,6 +227,168 @@ public class PushHandlerTests
       }
    }
 
+   [Fact]
+   public async Task HandleAsync_WhenLocaleKeyCasingDiffers_ShouldPostLocaleValueUnderDefaultLocaleCasing()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(projectDirectory, english: Resx(("Action.Edit", "Edit")), dutch: Resx(("action.edit", "Bewerken")));
+
+         var request = await PushAsync(projectDirectory);
+
+         request.Items.Should().HaveCount(2);
+         request.Items.Should().ContainSingle(x => x.Key == "Action.Edit" && x.Locale == "en" && x.Value == "Edit");
+         request.Items.Should().ContainSingle(x => x.Key == "Action.Edit" && x.Locale == "nl" && x.Value == "Bewerken");
+         request.Items.Should().NotContain(x => x.Key == "action.edit");
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_WhenLocaleKeyCasingDiffersWithPullBaseline_ShouldPostEditedLocaleValueOnce()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(projectDirectory, english: Resx(("Action.Edit", "Edit")), dutch: Resx(("action.edit", "Bewerken")));
+         await WritePullBaselineAsync(
+            projectDirectory,
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "en", Key = "Action.Edit", Value = "Edit" },
+            new PullBaselineItem { Origin = "mvdmio.localization:/localizations.resx", Locale = "nl", Key = "action.edit", Value = "Bewerk" }
+         );
+
+         var request = await PushAsync(projectDirectory);
+
+         var dutchItems = request.Items
+            .Where(static x => x.Locale == "nl" && string.Equals(x.Key, "Action.Edit", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+         dutchItems.Should().ContainSingle()
+            .Which.Should().Match<TranslationPushItemRequest>(static x => x.Key == "Action.Edit" && x.Value == "Bewerken");
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_WhenDefaultLocaleKeyIsLowerCase_ShouldUseDefaultLocaleCasing()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(projectDirectory, english: Resx(("action.edit", "Edit")), dutch: Resx(("Action.Edit", "Bewerken")));
+
+         var request = await PushAsync(projectDirectory);
+
+         request.Items.Should().HaveCount(2);
+         request.Items.Should().OnlyContain(static x => x.Key == "action.edit");
+         request.Items.Should().ContainSingle(x => x.Locale == "en" && x.Value == "Edit");
+         request.Items.Should().ContainSingle(x => x.Locale == "nl" && x.Value == "Bewerken");
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_WhenKeyExistsOnlyInLocaleFilesInDifferentCasings_ShouldUseFirstSortedLocaleCasing()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(projectDirectory, english: Resx(("Home.Title", "Hello")), dutch: Resx(("action.edit", "Bewerken")));
+         File.WriteAllText(Path.Combine(projectDirectory, "Localizations.de.resx"), Resx(("Action.Edit", "Bearbeiten")));
+
+         var request = await PushAsync(projectDirectory);
+
+         var keyItems = request.Items
+            .Where(static x => string.Equals(x.Key, "Action.Edit", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+         keyItems.Should().HaveCount(3);
+         keyItems.Should().OnlyContain(static x => x.Key == "Action.Edit");
+         keyItems.Should().ContainSingle(x => x.Locale == "en" && x.Value == null);
+         keyItems.Should().ContainSingle(x => x.Locale == "de" && x.Value == "Bearbeiten");
+         keyItems.Should().ContainSingle(x => x.Locale == "nl" && x.Value == "Bewerken");
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_WhenLocaleKeyCasingDiffers_ShouldReportOneValuePerKeyAndLocale()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(projectDirectory, english: Resx(("Action.Edit", "Edit")), dutch: Resx(("action.edit", "Bewerken")));
+         var reporter = new TestPushReporter();
+
+         await PushAsync(projectDirectory, reporter);
+
+         reporter.Infos.Should().Contain(static x => x.StartsWith("Pushing 2 translation values ", StringComparison.Ordinal));
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   [Fact]
+   public async Task HandleAsync_WhenResxFilesHoldKeyInTwoCasings_ShouldPostOneItemPerLocaleUnderOneCasing()
+   {
+      var projectDirectory = CreateProjectDirectory();
+
+      try
+      {
+         WriteProjectFiles(
+            projectDirectory,
+            english: Resx(("action.edit", "Edit"), ("Action.Edit", "Change")),
+            dutch: Resx(("action.edit", "Bewerken"), ("ACTION.EDIT", "Wijzigen"))
+         );
+
+         var request = await PushAsync(projectDirectory);
+
+         request.Items.Should().HaveCount(2);
+         request.Items.Select(static x => x.Key).Distinct(StringComparer.Ordinal).Should().ContainSingle();
+         request.Items.Should().ContainSingle(static x => x.Locale == "en");
+         request.Items.Should().ContainSingle(static x => x.Locale == "nl");
+      }
+      finally
+      {
+         DeleteDirectory(projectDirectory);
+      }
+   }
+
+   private static string Resx(params (string Key, string Value)[] entries)
+   {
+      var data = string.Concat(entries.Select(static entry => $"  <data name=\"{entry.Key}\"><value>{entry.Value}</value></data>\n"));
+      return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<root>\n" + data + "</root>\n";
+   }
+
+   private static async Task<TranslationPushRequest> PushAsync(string projectDirectory, TestPushReporter? reporter = null)
+   {
+      var apiService = new TestTranslationApiService();
+      var handler = new PushHandler(apiService, new ProjectManifestScanner(), reporter ?? new TestPushReporter());
+
+      await handler.HandleAsync(CreateConfig(projectDirectory), prune: false, CancellationToken.None);
+
+      apiService.Request.Should().NotBeNull();
+      return apiService.Request!;
+   }
+
    private static string CreateProjectDirectory()
    {
       var projectDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -321,10 +483,12 @@ public class PushHandlerTests
 
    private sealed class TestPushReporter : IPushReporter
    {
+      public List<string> Infos { get; } = [];
       public List<string> Errors { get; } = [];
 
       public void WriteInfo(string message)
       {
+         Infos.Add(message);
       }
 
       public void WriteError(string message)

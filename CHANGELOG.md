@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-10: Push keeps differently cased locale values
+
+`translations push` now matches translation keys without regard to case. When a locale `.resx` file spells a key in a different case than the default-locale file, push sends that locale's value instead of dropping it, under the default-locale file's casing. Each key is sent once per locale, so the push count matches what the service receives.
+
 ## 2026-10-10: Keys match without regard to case
 
 The client now matches translation keys without regard to case, as the service does. A lookup for `Action.Edit` is answered from a cached `action.edit`, so no call goes to the service and rendering does not wait on one. The value that comes back holds the key in the casing the service stores.
