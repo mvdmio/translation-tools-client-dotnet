@@ -65,7 +65,7 @@ var item = await client.GetAsync(Localizations.Keys.Button_Save, new CultureInfo
 var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 ```
 
-Translation keys match without regard to case within an origin, as the service matches them. A lookup for `Action.Edit` is answered by a cached `action.edit`, so a key the service stores in another casing hits the cache. The `TranslationItemResponse` that comes back holds the key in the casing the service stores, so that lookup returns `Key = "action.edit"`.
+Translation keys match without regard to case within an origin, as the service matches them. A lookup for `Action.Edit` is answered by a cached `action.edit`, so a key the service stores in another casing hits the cache. The `TranslationItemResponse` that comes back holds the key in the casing the service stores, so that lookup returns `Key = "action.edit"`. The source generator matches locale `.resx` keys to neutral `.resx` keys without regard to case too: a Dutch `action.edit` feeds the generated local fallback and the catalog entry of the neutral `Action.Edit`, and both use the neutral file's casing.
 
 ## Environment scoping
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-10: Generator keeps differently cased locale values
+
+The source generator now matches translation keys without regard to case. When a locale `.resx` file spells a key in a different case than the default-locale file, the generated local fallback holds that locale's value, and the catalog holds one entry with every value under the default-locale file's casing. Users see the translated text when the service cannot answer, and initialize sends every value for a missing key.
+
 ## 2026-10-10: Push keeps differently cased locale values
 
 `translations push` now matches translation keys without regard to case. When a locale `.resx` file spells a key in a different case than the default-locale file, push sends that locale's value instead of dropping it, under the default-locale file's casing. Each key is sent once per locale, so the push count matches what the service receives.

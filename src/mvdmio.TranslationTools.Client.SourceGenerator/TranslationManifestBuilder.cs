@@ -143,7 +143,8 @@ internal static class TranslationManifestBuilder
       var relativePath = TranslationManifestPaths.BuildProjectRelativePath(pathForOrigin!, options.ProjectDirectory);
       var origin = TranslationManifestPaths.BuildOrigin(options.ProjectName, relativePath);
 
-      var neutralByKey = new Dictionary<string, string?>(StringComparer.Ordinal);
+      // Keys match without regard to case within an origin.
+      var neutralByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
       if (group.NeutralFile is not null)
       {
          var neutralText = group.NeutralFile.GetText(cancellationToken)?.ToString();
@@ -156,9 +157,9 @@ internal static class TranslationManifestBuilder
 
       var localeValuesByKey = ReadLocaleValuesByKey(group, cancellationToken);
 
+      // The neutral file's casing wins: a locale key adds a catalog entry only when no neutral key matches it.
       var keys = neutralByKey.Keys
-         .Concat(localeValuesByKey.Keys)
-         .Distinct(StringComparer.Ordinal)
+         .Concat(localeValuesByKey.Keys.Where(key => !neutralByKey.ContainsKey(key)))
          .OrderBy(static key => key, StringComparer.Ordinal);
 
       foreach (var key in keys)
@@ -262,8 +263,13 @@ internal static class TranslationManifestBuilder
 
    private static Dictionary<string, Dictionary<string, string>> ReadLocaleValuesByKey(GroupBuilder group, CancellationToken cancellationToken)
    {
-      var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
-      foreach (var (locale, file) in group.LocaleFiles)
+      // Read locale files in locale-name order, so a key that appears only in locale files gets the same casing on every build.
+      var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+      var orderedLocaleFiles = group.LocaleFiles
+         .OrderBy(static x => x.Locale, StringComparer.OrdinalIgnoreCase)
+         .ThenBy(static x => x.File.Path, StringComparer.Ordinal);
+
+      foreach (var (locale, file) in orderedLocaleFiles)
       {
          var localeText = file.GetText(cancellationToken)?.ToString();
          if (string.IsNullOrWhiteSpace(localeText))

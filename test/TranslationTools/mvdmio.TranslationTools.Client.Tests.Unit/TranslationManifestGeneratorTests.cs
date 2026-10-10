@@ -116,6 +116,100 @@ public class TranslationManifestGeneratorTests
    }
 
    [Fact]
+   public void ShouldMatchLocaleKeyToNeutralKeyWithoutRegardToCase()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Action.Edit", "Edit"))),
+            ("src/Demo/Localizations.nl.resx", Resx(("action.edit", "Bewerken")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain(LookupTableEntry("Action.Edit") + Environment.NewLine + "         [\"nl\"] = \"Bewerken\",");
+      CatalogLines(result).Should().ContainSingle()
+         .Which.Should().Contain(CATALOG_KEY_PREFIX + "\"GeneratorTests:/src/Demo/Localizations.resx\", \"Action.Edit\", \"Edit\", ")
+         .And.Contain("[\"nl\"] = \"Bewerken\"");
+      result.GeneratedSource.Should().NotContain("\"action.edit\"");
+   }
+
+   [Fact]
+   public void ShouldUseNeutralKeyCasingWhenLocaleKeyIsUpperCase()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("action.edit", "Edit"))),
+            ("src/Demo/Localizations.nl.resx", Resx(("Action.Edit", "Bewerken")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain(LookupTableEntry("action.edit") + Environment.NewLine + "         [\"nl\"] = \"Bewerken\",");
+      CatalogLines(result).Should().ContainSingle()
+         .Which.Should().Contain(CATALOG_KEY_PREFIX + "\"GeneratorTests:/src/Demo/Localizations.resx\", \"action.edit\", \"Edit\", ")
+         .And.Contain("[\"nl\"] = \"Bewerken\"");
+      result.GeneratedSource.Should().NotContain("\"Action.Edit\"");
+   }
+
+   [Fact]
+   public void ShouldEmitOneCatalogEntryForLocaleOnlyKeyInDifferentCasings()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Button.Save", "Save"))),
+            ("src/Demo/Localizations.nl.resx", Resx(("Greeting.Hello", "Hallo"))),
+            ("src/Demo/Localizations.fr.resx", Resx(("greeting.hello", "Bonjour")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      CatalogLines(result).Where(x => x.Contains(".hello\"", StringComparison.OrdinalIgnoreCase)).Should().ContainSingle()
+         .Which.Should().Contain(CATALOG_KEY_PREFIX + "\"GeneratorTests:/src/Demo/Localizations.resx\", \"greeting.hello\", null, ")
+         .And.Contain("[\"fr\"] = \"Bonjour\", [\"nl\"] = \"Hallo\",");
+      result.GeneratedSource.Should().NotContain("\"Greeting.Hello\"");
+   }
+
+   [Fact]
+   public void ShouldGenerateSameSourceWhateverLocaleFileOrder()
+   {
+      var neutral = ("src/Demo/Localizations.resx", Resx(("Action.Edit", "Edit")));
+      var nl = ("src/Demo/Localizations.nl.resx", Resx(("Greeting.Hello", "Hallo"), ("action.edit", "Bewerken")));
+      var fr = ("src/Demo/Localizations.fr.resx", Resx(("greeting.hello", "Bonjour"), ("ACTION.EDIT", "Modifier")));
+
+      var forward = RunGenerator(source: "namespace Demo; public sealed class Marker;", additionalFiles: [neutral, nl, fr]);
+      var reverse = RunGenerator(source: "namespace Demo; public sealed class Marker;", additionalFiles: [neutral, fr, nl]);
+
+      forward.GeneratorDiagnostics.Should().BeEmpty();
+      forward.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      reverse.GeneratorDiagnostics.Should().BeEmpty();
+      reverse.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      reverse.GeneratedSource.Should().Be(forward.GeneratedSource);
+      forward.GeneratedSource.Should().Contain("\"greeting.hello\", null, ");
+   }
+
+   [Fact]
+   public void ShouldEmitOneCatalogEntryForNeutralKeysThatDifferOnlyInCase()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Action.Edit", "Edit"), ("action.edit", "edit"))),
+            ("src/Demo/Localizations.nl.resx", Resx(("action.edit", "Bewerken")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      CatalogLines(result).Should().ContainSingle();
+   }
+
+   [Fact]
    public void ShouldEmitDistinctCatalogEntriesForSharedKeyAcrossOrigins()
    {
       var result = RunGenerator(
@@ -362,6 +456,21 @@ public class TranslationManifestGeneratorTests
           GeneratorDiagnostics: runResult.Results.SelectMany(static x => x.Diagnostics).ToImmutableArray(),
           CompilationDiagnostics: [.. outputCompilation.GetDiagnostics(), .. outputDiagnostics]
        );
+   }
+
+   private const string CATALOG_KEY_PREFIX = "new global::mvdmio.TranslationTools.Client.TranslationCatalogKey(";
+
+   private static string LookupTableEntry(string key)
+   {
+      return $"result[\"{key}\"] = new global::System.Collections.Generic.Dictionary<string, string?>(global::System.StringComparer.OrdinalIgnoreCase) {{";
+   }
+
+   private static string[] CatalogLines(GeneratorTestResult result)
+   {
+      return result.GeneratedSource
+         .Split(Environment.NewLine)
+         .Where(static x => x.TrimStart().StartsWith(CATALOG_KEY_PREFIX, StringComparison.Ordinal))
+         .ToArray();
    }
 
    private static MetadataReference[] GetReferences()
