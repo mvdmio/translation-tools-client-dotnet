@@ -21,46 +21,17 @@ This document provides instructions for AI coding assistants working on this cod
 
 ## Project Overview
 
-**mvdmio.Database.PgSQL** is a C# NuGet package that provides a wrapper around Dapper for PostgreSQL database interactions. It simplifies:
-
-- Database connections and query execution via Dapper
-- Transaction management
-- Database migrations
-- Bulk data operations (copy, upsert)
-- Database management tasks (schema/table existence checks)
-
-The package targets .NET 8.0, .NET 9.0, and .NET 10.0.
-
-## Project Structure
+.NET client, source generator, and CLI tool (`translations`) for the TranslationTools service. Glossary: `CONTEXT.md`. Decisions: `docs/adr/`. Rules learned from mistakes: `.agents/refs/coding-standards.md`.
 
 ```
-├── src/
-│   ├── mvdmio.Database.PgSQL/              # Main library
-│   │   ├── Connectors/                     # Database connector abstractions
-│   │   │   ├── Bulk/                       # Bulk operations (copy, upsert)
-│   │   │   ├── DapperDatabaseConnector.cs  # Dapper wrapper
-│   │   │   └── ManagementDatabaseConnector.cs
-│   │   ├── Dapper/                         # Dapper configuration & type handlers
-│   │   ├── Exceptions/                     # Custom exceptions
-│   │   ├── Extensions/                     # Extension methods
-│   │   ├── Migrations/                     # Migration framework
-│   │   └── DatabaseConnection.cs           # Main entry point
-│   └── mvdmio.Database.PgSQL.Tool/         # CLI tool for migrations
-└── test/
-    ├── mvdmio.Database.PgSQL.Tests.Integration/
-    └── mvdmio.Database.PgSQL.Tests.Unit/
+src/
+  mvdmio.TranslationTools.Client/                   # runtime client
+  mvdmio.TranslationTools.Client.SourceGenerator/   # generates accessors + catalog from .resx
+  mvdmio.TranslationTools.Tool/                     # CLI tool: init, pull, push
+test/TranslationTools/                              # every test project + SourceGeneratorEndToEnd fixture
 ```
 
-## Key Classes
-
-| Class | Purpose |
-|-------|---------|
-| `DatabaseConnection` | Main entry point for database operations. Provides access to Dapper, Management, and Bulk connectors. |
-| `DapperDatabaseConnector` | Wraps Dapper methods with proper connection/transaction handling. |
-| `ManagementDatabaseConnector` | Database management operations (TableExists, SchemaExists). |
-| `BulkConnector` | High-performance bulk operations: Copy, InsertOrUpdate, InsertOrSkip. |
-| `IDbMigration` | Interface for implementing database migrations. |
-| `DatabaseMigrator` | Migration runner that tracks executed migrations. |
+The service lives in the `mvdmio-suite` repo under `TranslationTools/` (sibling checkout `../mvdmio-suite`). Read its code and `TranslationTools/docs/adr/` when a change depends on how the service treats keys, push, or Environments.
 
 ## Development Workflow
 
@@ -87,10 +58,7 @@ dotnet format
 
 Write tests before implementing features. Tests should cover all new code.
 
-- **Unit tests:** `test/mvdmio.Database.PgSQL.Tests.Unit/`
-- **Integration tests:** `test/mvdmio.Database.PgSQL.Tests.Integration/`
-
-Integration tests use Testcontainers to spin up PostgreSQL in Docker. Each test runs in a transaction that is rolled back after completion.
+Test projects live in `test/TranslationTools/`.
 
 ## Code Style
 
@@ -142,10 +110,7 @@ public async Task<IEnumerable<T>> QueryAsync<T>(string sql, object? parameters =
 
 ### Test Infrastructure
 
-- Inherit from `TestBase` for integration tests with database access
-- Each test runs in its own transaction (automatically rolled back)
 - Use `AwesomeAssertions` for fluent assertions
-- Test migrations are in `test/.../Fixture/Migrations/`
 
 ### Test Naming
 
@@ -155,35 +120,3 @@ Use descriptive names that explain what is being tested:
 public async Task QueryAsync_WithValidSql_ReturnsResults()
 public async Task BulkCopy_WithEmptyTable_CompletesSuccessfully()
 ```
-
-## Migration Conventions
-
-Migration identifiers use timestamp format: `YYYYMMDDHHmm` (e.g., `202602161430`)
-
-```csharp
-public class AddUsersTable : IDbMigration
-{
-   public long Identifier => 202602161430;
-   public string Name => "AddUsersTable";
-
-   public async Task UpAsync(DatabaseConnection connection)
-   {
-      await connection.Dapper.ExecuteAsync("""
-         CREATE TABLE users (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL
-         )
-         """);
-   }
-}
-```
-
-## Dependencies
-
-Key dependencies to be aware of:
-
-- **Dapper:** Micro-ORM for database queries
-- **Npgsql:** PostgreSQL ADO.NET provider
-- **xunit.v3:** Test framework
-- **Testcontainers.PostgreSql:** PostgreSQL container for integration tests
-- **AwesomeAssertions:** Fluent assertions library
