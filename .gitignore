@@ -1,5 +1,7 @@
 **/.git
 **/.vs
+.claude/worktrees/
+.agents/worktrees/
 **/.idea
 **/packages
 **/bin
