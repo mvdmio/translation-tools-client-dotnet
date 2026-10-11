@@ -12,9 +12,13 @@ and `action.edit` in one origin are the same key, as the service treats them. Wr
 `data` element's `name`.
 _Avoid_: resource name, string id
 
-**Missing key**:
-A translation key the service does not have in this Environment, in any locale.
-_Avoid_: unsynced key, new key, unpushed key
+**Declaration**:
+Every translation key in the application's `.resx` files, with every value those files hold, sent under its Environment each time the client initializes. The service makes those keys the Environment's complete set, replacing the previous one, and stores the values by Seeding.
+_Avoid_: missing keys, key sync, startup push
+
+**Seeding**:
+How the service stores a value from a Declaration: only where it holds no value for that key and locale. A value already on the service stays, whoever wrote it, so a restart never overwrites an edit made in TranslationTools.
+_Avoid_: create-only push, fill
 
 **Origin**:
 The `.resx` file a translation key came from, written as `<project>:<path>`. Two keys with the
