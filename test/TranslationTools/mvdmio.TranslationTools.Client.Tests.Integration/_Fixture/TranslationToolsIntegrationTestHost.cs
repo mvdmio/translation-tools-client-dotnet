@@ -44,6 +44,10 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public ConcurrentBag<string> ProjectPushRawBodies { get; } = new();
 
+   public ConcurrentBag<DeclarationBody> Declarations { get; } = new();
+
+   public ConcurrentBag<string> DeclarationRawBodies { get; } = new();
+
    public required IReadOnlyDictionary<string, IReadOnlyDictionary<TranslationRef, string?>> Locales { get; init; }
 
    public string BaseUrl { get; private set; } = string.Empty;
@@ -53,6 +57,8 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
    public int LocaleStatusCode { get; set; } = StatusCodes.Status200OK;
 
    public int ProjectPushStatusCode { get; set; } = StatusCodes.Status200OK;
+
+   public int DeclarationStatusCode { get; set; } = StatusCodes.Status200OK;
 
    private int _localeRequestCount;
 
@@ -158,6 +164,20 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          return Results.StatusCode(host.ProjectPushStatusCode);
       });
 
+      app.MapPost("/api/v1/translations/declaration", async (HttpContext context) =>
+      {
+         host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
+
+         using var reader = new StreamReader(context.Request.Body);
+         var raw = await reader.ReadToEndAsync();
+         host.DeclarationRawBodies.Add(raw);
+
+         var parsed = JsonSerializer.Deserialize<DeclarationBody>(raw, SerializerOptions) ?? new DeclarationBody();
+         host.Declarations.Add(parsed);
+
+         return Results.StatusCode(host.DeclarationStatusCode);
+      });
+
       app.MapGet("/ws/translations", async context =>
       {
          if (!context.WebSockets.IsWebSocketRequest)
@@ -244,9 +264,16 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public sealed record HeartbeatBody(string? ClientId, string? Environment, string? Platform, string? Version);
 
+   public sealed class DeclarationBody
+   {
+      public KeyValueItemBody[] Items { get; init; } = [];
+
+      public string? Environment { get; init; }
+   }
+
    public sealed class ProjectPushBody
    {
-      public ProjectPushItemBody[] Items { get; init; } = [];
+      public KeyValueItemBody[] Items { get; init; } = [];
 
       public string? Environment { get; init; }
 
@@ -255,7 +282,7 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
       public string[]? Globals { get; init; }
    }
 
-   public sealed class ProjectPushItemBody
+   public sealed class KeyValueItemBody
    {
       public string Origin { get; init; } = string.Empty;
 

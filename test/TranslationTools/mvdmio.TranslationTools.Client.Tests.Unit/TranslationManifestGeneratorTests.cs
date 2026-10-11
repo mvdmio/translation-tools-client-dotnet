@@ -98,6 +98,23 @@ public class TranslationManifestGeneratorTests
    }
 
    [Fact]
+   public void ShouldMarkAssemblyBesideTheCatalogModuleInitializer()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Button.Save", "Save")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+      result.GeneratedSource.Should().Contain("[assembly: global::mvdmio.TranslationTools.Client.TranslationCatalogAssembly]");
+      result.GeneratedSource.Should().Contain("ModuleInitializerAttribute");
+      result.GeneratedSource.Should().Contain("TranslationCatalog.Register");
+   }
+
+   [Fact]
    public void ShouldEmitCatalogForLocaleOnlyResxWithoutNeutralPair()
    {
       var result = RunGenerator(

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using mvdmio.TranslationTools.Client.Internal;
 
 namespace mvdmio.TranslationTools.Client;
 
@@ -23,6 +24,17 @@ public static class TranslationCatalog
          lock (Gate)
             return _entries.Values.ToArray();
       }
+   }
+
+   /// <summary>
+   /// Runs the module initializer of every assembly in the application that carries generated catalog data,
+   /// then returns all registered keys. Assemblies whose code has not run yet are included.
+   /// </summary>
+   internal static IReadOnlyList<TranslationCatalogKey> DiscoverEntries()
+   {
+      TranslationCatalogDiscovery.RegisterAllAssemblies();
+
+      return Entries;
    }
 
    /// <summary>

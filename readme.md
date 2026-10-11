@@ -12,7 +12,7 @@ Use this package in your application when you want to:
 - use generated strongly typed localization classes from `.resx` files
 - substitute `{token}` placeholders, including ambient global placeholders
 - keep local `.resx` resources as a fallback
-- send missing local keys to the service when the client initializes
+- send a Declaration of every local key to the service when the client initializes
 - optionally receive live translation updates at runtime
 
 Install:

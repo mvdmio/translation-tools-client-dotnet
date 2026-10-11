@@ -10,6 +10,8 @@ internal static class TranslationCatalogEmitter
       var builder = new StringBuilder();
       builder.AppendLine("#nullable enable");
       builder.AppendLine();
+      builder.AppendLine("[assembly: global::mvdmio.TranslationTools.Client.TranslationCatalogAssembly]");
+      builder.AppendLine();
       builder.AppendLine("namespace mvdmio.TranslationTools.Client.Generated;");
       builder.AppendLine();
       builder.Append("[global::System.CodeDom.Compiler.GeneratedCodeAttribute(\"mvdmio.TranslationTools.Client.SourceGenerator\", ");

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-11: Initialize keeps Environment keys
+
+When the client initializes, it now sends every translation key from the application's `.resx` files to the Environment, before it loads the locales. A name like `production` no longer loses half its keys on every second start, and values edited in TranslationTools are no longer overwritten. Keys from `.resx` files in class libraries are included too, even when no code from the library has run yet.
+
 ## 2026-10-10: Generator keeps differently cased locale values
 
 The source generator now matches translation keys without regard to case. When a locale `.resx` file spells a key in a different case than the default-locale file, the generated local fallback holds that locale's value, and the catalog holds one entry with every value under the default-locale file's casing. Users see the translated text when the service cannot answer, and initialize sends every value for a missing key.

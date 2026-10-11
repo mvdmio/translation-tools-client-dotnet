@@ -14,9 +14,10 @@ namespace mvdmio.TranslationTools.Client;
 public interface ITranslationToolsClient
 {
    /// <summary>
-   /// Preload supported locales into the internal cache, then send every missing local catalog key
-   /// to the service (Neutral value as the default locale plus sibling-locale values). Keys already
-   /// present in a loaded snapshot are not overwritten. A failed send is logged and does not throw.
+   /// Send the Declaration (every local catalog key, with its Neutral value as the default locale plus
+   /// sibling-locale values) to the service, then preload supported locales into the internal cache.
+   /// The service stores a value only where it holds none, so it never overwrites a stored value.
+   /// A failed Declaration is logged and does not throw.
    /// </summary>
    Task Initialize(CancellationToken cancellationToken = default);
 

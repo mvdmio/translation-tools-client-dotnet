@@ -52,7 +52,7 @@ public static class DependencyInjectionExtensions
          var clientIdStore = serviceProvider.GetRequiredService<IClientIdStore>();
          var timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
          var logger = serviceProvider.GetService<ILoggerFactory>()?.CreateLogger<TranslationToolsClient>();
-         var client = new TranslationToolsClient(httpClient, clientOptions, new LocalTranslationToolsClientCache(), timeProvider, clientIdStore, logger, TranslationCatalog.Entries);
+         var client = new TranslationToolsClient(httpClient, clientOptions, new LocalTranslationToolsClientCache(), timeProvider, clientIdStore, logger, catalogSource: TranslationCatalog.DiscoverEntries);
          Translations.SetClient(client);
          return client;
       });
@@ -83,9 +83,9 @@ public static class DependencyInjectionExtensions
    }
 
    /// <summary>
-   /// Initializes the Translation Tools client: preloads supported locales, sends every missing local
-   /// catalog key (Neutral value as the default locale plus sibling-locale values; existing snapshot
-   /// keys are not overwritten), pushes declared global placeholder names, and starts live updates when
+   /// Initializes the Translation Tools client: sends the Declaration (every local catalog key with its
+   /// Neutral and sibling-locale values; the service stores a value only where it holds none), preloads
+   /// supported locales, pushes declared global placeholder names, and starts live updates when
    /// enabled. Failures are logged and do not fail application startup.
    /// </summary>
    public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)

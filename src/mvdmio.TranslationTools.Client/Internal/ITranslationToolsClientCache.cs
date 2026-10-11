@@ -15,8 +15,6 @@ internal interface ITranslationToolsClientCache
 
    TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>? GetLocale(EffectiveLocale locale);
 
-   IReadOnlyCollection<TranslationRef> GetKnownKeys();
-
    ValueTask<TranslationToolsClientCacheEntry<TranslationItemResponse>?> GetAsync(EffectiveLocale locale, TranslationRef translation, CancellationToken cancellationToken);
 
    ValueTask<TranslationToolsClientCacheEntry<TranslationLocaleSnapshot>?> GetLocaleAsync(EffectiveLocale locale, CancellationToken cancellationToken);

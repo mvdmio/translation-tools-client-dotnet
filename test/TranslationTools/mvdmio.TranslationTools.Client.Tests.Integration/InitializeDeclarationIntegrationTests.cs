@@ -13,14 +13,14 @@ using Xunit;
 namespace mvdmio.TranslationTools.Client.Tests.Integration;
 
 [Collection(IntegrationTestCollection.Name)]
-public sealed class InitializeMissingKeysIntegrationTests
+public sealed class InitializeDeclarationIntegrationTests
 {
    private const string ProjectOriginPrefix = "mvdmio.TranslationTools.Client.Tests.Integration:";
    private const string LocalizationsOrigin = ProjectOriginPrefix + "/Localizations.resx";
    private const string ErrorsOrigin = ProjectOriginPrefix + "/Resources/Shared/Errors.resx";
 
    [Fact]
-   public async Task InitializeTranslationToolsClientAsync_AfterSuccessfulPreload_PostsMissingKeysWithNeutralAndSiblingValues()
+   public async Task InitializeTranslationToolsClientAsync_PostsDeclarationWithNeutralAndSiblingValues()
    {
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
          new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
@@ -46,21 +46,54 @@ public sealed class InitializeMissingKeysIntegrationTests
       await using var app = builder.Build();
       await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
 
-      var push = server.ProjectPushes.Should().ContainSingle(body => body.Items.Length > 0).Subject;
-      push.Environment.Should().Be("staging");
-      push.Prune.Should().BeFalse();
-      push.Globals.Should().BeNull();
-      push.Items.Should().BeEquivalentTo(
+      var declaration = server.Declarations.Should().ContainSingle().Subject;
+      declaration.Environment.Should().Be("staging");
+      declaration.Items.Should().BeEquivalentTo(
          [
             new { Origin = LocalizationsOrigin, Locale = "en", Key = "Button.Save", Value = "Save fallback" },
             new { Origin = LocalizationsOrigin, Locale = "nl", Key = "Button.Save", Value = "Opslaan fallback" },
             new { Origin = ErrorsOrigin, Locale = "en", Key = "404.title", Value = "Fallback not found" }
          ]
       );
+      server.ProjectPushes.Should().BeEmpty();
    }
 
    [Fact]
-   public async Task InitializeTranslationToolsClientAsync_FailedLocaleGet_ProducesNoProjectPushOfKeys_AndStartupSucceeds()
+   public async Task InitializeTranslationToolsClientAsync_DeclaresKeysTheServiceAlreadyReturns()
+   {
+      await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
+         new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
+         {
+            ["en"] = new Dictionary<TranslationRef, string?>
+            {
+               [new TranslationRef(LocalizationsOrigin, "Button.Save")] = "Edited on service",
+               [new TranslationRef(ErrorsOrigin, "404.title")] = "Not found"
+            }
+         },
+         TestContext.Current.CancellationToken
+      );
+
+      var builder = WebApplication.CreateBuilder();
+      builder.Services.AddTranslationToolsClient(options =>
+      {
+         options.ApiKey = "test-api-key";
+         options.DefaultLocale = "en";
+         options.SupportedLocales = [new CultureInfo("en")];
+         options.EnableLiveUpdates = false;
+         options.EnableHeartbeat = false;
+         options.BaseUrlOverride = server.BaseUrl;
+      });
+
+      await using var app = builder.Build();
+      await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
+
+      var declaration = server.Declarations.Should().ContainSingle().Subject;
+      declaration.Items.Should().Contain(item => item.Origin == LocalizationsOrigin && item.Key == "Button.Save" && item.Locale == "en" && item.Value == "Save fallback");
+      declaration.Items.Should().Contain(item => item.Origin == ErrorsOrigin && item.Key == "404.title" && item.Locale == "en");
+   }
+
+   [Fact]
+   public async Task InitializeTranslationToolsClientAsync_FailedLocaleGet_StillSentTheDeclaration_AndStartupSucceeds()
    {
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
          new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
@@ -86,11 +119,13 @@ public sealed class InitializeMissingKeysIntegrationTests
       var init = async () => await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
       await init.Should().NotThrowAsync();
 
-      server.ProjectPushes.Should().BeEmpty();
+      server.Declarations.Should().ContainSingle();
    }
 
-   [Fact]
-   public async Task InitializeTranslationToolsClientAsync_FailedProjectPush_DoesNotThrow_AndHeartbeatStillStarts()
+   [Theory]
+   [InlineData(StatusCodes.Status500InternalServerError)]
+   [InlineData(StatusCodes.Status404NotFound)]
+   public async Task InitializeTranslationToolsClientAsync_FailedDeclaration_DoesNotThrow_AndHeartbeatStillStarts(int statusCode)
    {
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
          new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
@@ -99,7 +134,7 @@ public sealed class InitializeMissingKeysIntegrationTests
          },
          TestContext.Current.CancellationToken
       );
-      server.ProjectPushStatusCode = StatusCodes.Status500InternalServerError;
+      server.DeclarationStatusCode = statusCode;
 
       var time = new FakeTimeProvider();
       var builder = WebApplication.CreateBuilder();
@@ -123,12 +158,13 @@ public sealed class InitializeMissingKeysIntegrationTests
          () => Task.FromResult(server.HeartbeatRequestCount),
          count => count >= 1,
          TimeSpan.FromSeconds(5),
-         "heartbeat should still start after a failed missing-key send"
+         "heartbeat should still start after a failed Declaration"
       );
+      server.LocaleRequestCount.Should().Be(1);
    }
 
    [Fact]
-   public async Task InitializeTranslationToolsClientAsync_OmitsEnvironmentOnMissingKeyBody_WhenUnnamed()
+   public async Task InitializeTranslationToolsClientAsync_OmitsEnvironmentOnDeclarationBody_WhenUnnamed()
    {
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
          new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
@@ -151,16 +187,16 @@ public sealed class InitializeMissingKeysIntegrationTests
       await using var app = builder.Build();
       await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
 
-      var push = server.ProjectPushes.Should().ContainSingle(body => body.Items.Length > 0).Subject;
-      push.Environment.Should().BeNull();
-      server.ProjectPushRawBodies.Should().Contain(raw =>
-         raw.Contains("\"items\"", StringComparison.OrdinalIgnoreCase)
-         && !raw.Contains("\"environment\"", StringComparison.OrdinalIgnoreCase)
-      );
+      var declaration = server.Declarations.Should().ContainSingle().Subject;
+      declaration.Environment.Should().BeNull();
+      server.DeclarationRawBodies.Should().ContainSingle().Which.Should().Contain("\"items\"")
+         .And.NotContain("\"environment\"")
+         .And.NotContain("\"prune\"")
+         .And.NotContain("\"globals\"");
    }
 
    [Fact]
-   public async Task InitializeTranslationToolsClientAsync_PostsGlobalNamesAfterInitialize_WithoutRequiringMissingKeyItems()
+   public async Task InitializeTranslationToolsClientAsync_PostsGlobalNamesAsSeparateProjectPush()
    {
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
          new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
@@ -188,14 +224,14 @@ public sealed class InitializeMissingKeysIntegrationTests
       await using var app = builder.Build();
       await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
 
-      server.ProjectPushes.Should().NotContain(body => body.Items.Length > 0);
+      server.Declarations.Should().ContainSingle().Subject.Items.Should().NotBeEmpty();
       var globalsPush = server.ProjectPushes.Should().ContainSingle().Subject;
       globalsPush.Items.Should().BeEmpty();
       globalsPush.Globals.Should().BeEquivalentTo(["company"]);
    }
 
    [Fact]
-   public async Task GeneratedAccessor_ForExistingKey_StillSeedsOnFirstLookup()
+   public async Task GeneratedAccessor_ForKeyThePreloadDidNotReturn_StillSeedsOnFirstLookup()
    {
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
          new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
@@ -210,14 +246,14 @@ public sealed class InitializeMissingKeysIntegrationTests
       {
          options.ApiKey = "test-api-key";
          options.DefaultLocale = "en";
-         options.SupportedLocales = [];
+         options.SupportedLocales = [new CultureInfo("en")];
          options.EnableLiveUpdates = false;
          options.EnableHeartbeat = false;
          options.BaseUrlOverride = server.BaseUrl;
       });
 
       await using var app = builder.Build();
-      _ = app.Services.GetRequiredService<TranslationToolsClient>();
+      await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
 
       var previousCulture = CultureInfo.CurrentUICulture;
       try

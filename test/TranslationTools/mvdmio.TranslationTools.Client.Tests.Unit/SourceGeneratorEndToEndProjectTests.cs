@@ -47,6 +47,12 @@ public class SourceGeneratorEndToEndProjectTests
    public void FixtureProject_ShouldRegisterCatalogWithoutReferencingGeneratedTypes()
    {
       // ModuleInitializer registers the catalog when SourceGeneratorEndToEnd loads; no Localizations/Errors touch.
+      // Other tests Clear the process-wide catalog, so run the generated registration again; it is idempotent.
+      typeof(Localizations).Assembly
+         .GetType("mvdmio.TranslationTools.Client.Generated.TranslationCatalogRegistration")!
+         .GetMethod("Initialize", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+         .Invoke(null, null);
+
       var entries = TranslationCatalog.Entries
          .Where(entry => entry.Origin.StartsWith(ProjectOriginPrefix, StringComparison.OrdinalIgnoreCase))
          .ToArray();

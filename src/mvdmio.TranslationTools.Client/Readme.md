@@ -17,7 +17,7 @@ dotnet add package mvdmio.TranslationTools.Client
 - optional live updates for runtime translations
 - optional environment scoping and presence heartbeat
 - fallback to local `.resx` resources
-- initialize sends missing local keys after a successful locale preload
+- initialize sends a Declaration of every local key, then preloads the supported locales
 
 ## Configure
 
@@ -36,7 +36,7 @@ var app = builder.Build();
 await app.InitializeTranslationToolsClientAsync();
 ```
 
-`InitializeTranslationToolsClientAsync` preloads `SupportedLocales`, then sends every local catalog key that did not appear in those snapshots (Neutral value as `DefaultLocale`, plus sibling-locale `.resx` values). Keys already present in a loaded snapshot are not overwritten. A failed preload or send is logged and does not fail application startup.
+`InitializeTranslationToolsClientAsync` first sends the Declaration: every local catalog key under your Environment, including the keys of `.resx` files in class libraries the application depends on (even when no code in them has run yet), with its Neutral value as `DefaultLocale` and every sibling-locale `.resx` value. The service makes those keys the Environment's complete set. It stores a value only where it holds none for that key and locale, so a start never overwrites a value stored on the service, and edits made in TranslationTools stay. Changed text for an existing key reaches the service through `translations push`, or as a new key. Then the client preloads `SupportedLocales`, so the cache holds the service's values. A failed Declaration is logged and does not fail application startup.
 
 ### Options
 

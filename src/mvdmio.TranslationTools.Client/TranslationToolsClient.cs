@@ -31,7 +31,7 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    private readonly HttpClient _client;
    private readonly IOptions<TranslationToolsClientOptions> _options;
    private readonly ITranslationToolsClientCache _cache;
-   private readonly IReadOnlyList<TranslationCatalogKey> _catalog;
+   private readonly Func<IReadOnlyList<TranslationCatalogKey>> _catalogSource;
    private readonly TimeProvider _timeProvider;
    private readonly ILogger? _logger;
    private readonly Guid _clientId;
@@ -51,7 +51,7 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    /// Uses the assembly-level <see cref="TranslationCatalog"/> registered by generated code.
    /// </summary>
    public TranslationToolsClient(HttpClient client, IOptions<TranslationToolsClientOptions> options, ILogger<TranslationToolsClient>? logger = null)
-      : this(client, options, new LocalTranslationToolsClientCache(), catalog: TranslationCatalog.Entries, logger: logger)
+      : this(client, options, new LocalTranslationToolsClientCache(), catalogSource: TranslationCatalog.DiscoverEntries, logger: logger)
    {
    }
 
@@ -62,14 +62,15 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       TimeProvider? timeProvider = null,
       IClientIdStore? clientIdStore = null,
       ILogger? logger = null,
-      IEnumerable<TranslationCatalogKey>? catalog = null)
+      Func<IReadOnlyList<TranslationCatalogKey>>? catalogSource = null)
    {
       _client = client;
       _options = options;
       _cache = cache;
-      // Internal callers that omit catalog get an empty set so unit tests do not post keys from
-      // another assembly's generated ModuleInitializer. Public/DI pass TranslationCatalog.Entries.
-      _catalog = catalog?.ToArray() ?? Array.Empty<TranslationCatalogKey>();
+      // Callers that omit the source get an empty catalog, so unit tests do not post keys from
+      // another assembly's generated ModuleInitializer.
+      // Public/DI pass TranslationCatalog.DiscoverEntries, which is read when Initialize runs.
+      _catalogSource = catalogSource ?? (() => Array.Empty<TranslationCatalogKey>());
       _timeProvider = timeProvider ?? TimeProvider.System;
       _logger = logger;
       _clientId = (clientIdStore ?? new FileClientIdStore()).GetOrCreateClientId();
@@ -92,10 +93,10 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
 
       try
       {
+         await TrySendDeclarationAsync(cancellationToken);
+
          foreach (var locale in GetSupportedLocales())
             await RefreshLocaleAsync(locale, cancellationToken);
-
-         await TrySendMissingKeysAsync(cancellationToken);
       }
       finally
       {
@@ -113,19 +114,19 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    {
       var payload = new ProjectPushRequest
       {
-         Items = Array.Empty<ProjectPushItemRequest>(),
+         Items = Array.Empty<KeyValueItemRequest>(),
          Environment = _environment,
          Globals = globals
       };
 
-      await PostProjectPushAsync(payload, cancellationToken);
+      await PostJsonAsync("api/v1/translations/project", payload, cancellationToken);
    }
 
-   private async Task PostProjectPushAsync(ProjectPushRequest payload, CancellationToken cancellationToken)
+   private async Task PostJsonAsync<TPayload>(string path, TPayload payload, CancellationToken cancellationToken)
    {
       var json = JsonSerializer.Serialize(payload, _serializerOptions);
 
-      using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/translations/project")
+      using var request = new HttpRequestMessage(HttpMethod.Post, path)
       {
          Content = new StringContent(json, Encoding.UTF8, "application/json")
       };
