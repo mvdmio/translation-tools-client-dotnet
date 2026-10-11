@@ -56,6 +56,8 @@ public async Task QueryAsync_WithValidSql_ReturnsResults()
 public async Task BulkCopy_WithEmptyTable_CompletesSuccessfully()
 ```
 
+- A test that reads process-wide static state, such as the catalog registry, sets that state up itself. Other tests call `Clear`, so a test that relies on a module initializer having run fails depending on test order.
+
 ## Translation keys
 
 - Compare translation keys without regard to case: key the collection on `TranslationRef`, or use `StringComparer.OrdinalIgnoreCase`. The service treats keys that differ only in case as one key; an exact comparison makes the client miss its own cache and call the service on every lookup. The CLI tool's push matches keys without regard to case and sends the default-locale file's casing. The source generator matches locale `.resx` keys to neutral keys without regard to case and uses the neutral file's casing. Three places still compare keys exactly: pull's change summary (`PullHandler.CalculateChangeSummary`), the `.resx` parser's duplicate-key check (`ResxResourceSetParser`), and the generated local fallback table (`_localeValuesByKey`, emitted by `TranslationManifestEmitter`). The generated properties query that table with the neutral key's own casing, but the generated `Get(string key, ...)` and `GetAsync(string key, ...)` miss the local fallback for a key passed in another casing. Changing them is a separate decision.
