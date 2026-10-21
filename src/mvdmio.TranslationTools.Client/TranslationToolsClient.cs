@@ -96,7 +96,7 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
          await TrySendDeclarationAsync(cancellationToken);
 
          foreach (var locale in GetSupportedLocales())
-            await RefreshLocaleAsync(locale, cancellationToken);
+            await TryPreloadLocaleAsync(locale, cancellationToken);
       }
       finally
       {
@@ -205,6 +205,23 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
 
       var fetched = await FetchLocaleAsync(effectiveLocale, cancellationToken);
       return await StoreLocaleAsync(effectiveLocale, fetched, cancellationToken);
+   }
+
+   private async Task TryPreloadLocaleAsync(CultureInfo locale, CancellationToken cancellationToken)
+   {
+      try
+      {
+         await RefreshLocaleAsync(locale, cancellationToken);
+      }
+      catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+      {
+         throw;
+      }
+      catch (Exception exception)
+      {
+         // The first lookup that needs this locale fetches it, so a failed preload costs a warning.
+         _logger?.LogWarning(exception, "TranslationTools preload of locale {Locale} failed.", locale.Name);
+      }
    }
 
    internal async Task RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)

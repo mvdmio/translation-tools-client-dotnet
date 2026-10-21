@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-21: Failed startup request keeps the heartbeat and live updates
+
+A request that fails while the application starts, such as a `502` from TranslationTools during a deploy, now costs a logged warning and no longer stops the rest of startup. A locale that cannot be preloaded is logged by name, the next locale is still preloaded, and a failed push of the global placeholders is logged as well. The heartbeat and live updates start anyway, and a locale that failed to preload is fetched by the first lookup that needs it. Before, the first failed request stopped startup: the Environment sent no heartbeat and received no live updates until the application restarted.
+
 ## 2026-10-11: Initialize keeps Environment keys
 
 When the client initializes, it now sends every translation key from the application's `.resx` files to the Environment, before it loads the locales. A name like `production` no longer loses half its keys on every second start, and values edited in TranslationTools are no longer overwritten. Keys from `.resx` files in class libraries are included too, even when no code from the library has run yet.

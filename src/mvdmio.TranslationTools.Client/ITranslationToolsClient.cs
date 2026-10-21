@@ -17,7 +17,9 @@ public interface ITranslationToolsClient
    /// Send the Declaration (every local catalog key, with its Neutral value as the default locale plus
    /// sibling-locale values) to the service, then preload supported locales into the internal cache.
    /// The service stores a value only where it holds none, so it never overwrites a stored value.
-   /// A failed Declaration is logged and does not throw.
+   /// A failed Declaration is logged and does not throw. A locale that fails to preload is logged as a
+   /// warning and does not throw; the next locale is preloaded, the heartbeat starts, and the first lookup
+   /// that needs the failed locale fetches it. A cancelled <paramref name="cancellationToken"/> still throws.
    /// </summary>
    Task Initialize(CancellationToken cancellationToken = default);
 

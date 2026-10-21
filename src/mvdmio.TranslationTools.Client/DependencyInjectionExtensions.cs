@@ -86,7 +86,9 @@ public static class DependencyInjectionExtensions
    /// Initializes the Translation Tools client: sends the Declaration (every local catalog key with its
    /// Neutral and sibling-locale values; the service stores a value only where it holds none), preloads
    /// supported locales, pushes declared global placeholder names, and starts live updates when
-   /// enabled. Failures are logged and do not fail application startup.
+   /// enabled. A failed request is logged as a warning and does not stop the rest of startup: a locale
+   /// that fails to preload is fetched by its first lookup, and the heartbeat and live updates start
+   /// anyway. Other failures are logged and do not fail application startup.
    /// </summary>
    public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)
    {
@@ -96,12 +98,11 @@ public static class DependencyInjectionExtensions
 
       try
       {
-
          var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
 
          await client.Initialize(cancellationToken);
 
-         await PushGlobalsAsync(scope.ServiceProvider, client, cancellationToken);
+         await TryPushGlobalsAsync(scope.ServiceProvider, client, cancellationToken);
 
          var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
          if (options.EnableLiveUpdates)
@@ -112,8 +113,7 @@ public static class DependencyInjectionExtensions
       }
       catch (Exception e)
       {
-         var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
-         var logger = loggerFactory.CreateLogger<ITranslationToolsClient>();
+         var logger = CreateClientLogger(scope.ServiceProvider);
          logger.LogError(e, "Error initializing translation tools client");
       }
    }
@@ -131,6 +131,28 @@ public static class DependencyInjectionExtensions
 
       var resolver = new GlobalPlaceholderResolver(registry);
       PlaceholderRuntime.Configure(resolver, options.ThrowOnPlaceholderError, logger);
+   }
+
+   private static ILogger CreateClientLogger(IServiceProvider services)
+   {
+      return services.GetRequiredService<ILoggerFactory>().CreateLogger<ITranslationToolsClient>();
+   }
+
+   private static async Task TryPushGlobalsAsync(IServiceProvider scopedServices, ITranslationToolsClient client, CancellationToken cancellationToken)
+   {
+      try
+      {
+         await PushGlobalsAsync(scopedServices, client, cancellationToken);
+      }
+      catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+      {
+         throw;
+      }
+      catch (Exception exception)
+      {
+         // The next application start pushes the globals again, so a failed push costs a warning.
+         CreateClientLogger(scopedServices).LogWarning(exception, "TranslationTools global placeholder push failed.");
+      }
    }
 
    private static async Task PushGlobalsAsync(IServiceProvider scopedServices, ITranslationToolsClient client, CancellationToken cancellationToken)

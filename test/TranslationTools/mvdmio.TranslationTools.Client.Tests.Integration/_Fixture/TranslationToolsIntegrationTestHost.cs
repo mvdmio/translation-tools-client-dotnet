@@ -56,6 +56,9 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public int LocaleStatusCode { get; set; } = StatusCodes.Status200OK;
 
+   /// <summary>Status code per locale name; wins over <see cref="LocaleStatusCode"/> for that locale.</summary>
+   public ConcurrentDictionary<string, int> LocaleStatusCodes { get; } = new(StringComparer.OrdinalIgnoreCase);
+
    public int ProjectPushStatusCode { get; set; } = StatusCodes.Status200OK;
 
    public int DeclarationStatusCode { get; set; } = StatusCodes.Status200OK;
@@ -86,6 +89,9 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
          host.LastEnvironment = environment;
          Interlocked.Increment(ref host._localeRequestCount);
+
+         if (host.LocaleStatusCodes.TryGetValue(locale, out var localeStatusCode))
+            return Results.StatusCode(localeStatusCode);
 
          if (host.LocaleStatusCode != StatusCodes.Status200OK)
             return Results.StatusCode(host.LocaleStatusCode);

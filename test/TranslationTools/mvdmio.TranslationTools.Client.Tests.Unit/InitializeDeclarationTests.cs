@@ -280,7 +280,7 @@ public class InitializeDeclarationTests
    }
 
    [Fact]
-   public async Task Initialize_FailedLocaleGet_StillThrows_AndLeavesTheDeclarationSent()
+   public async Task Initialize_FailedLocaleGet_DoesNotThrow_AndLeavesTheDeclarationSent()
    {
       var handler = new RecordingHandler { LocaleStatusCode = HttpStatusCode.InternalServerError };
       var catalog = new[] { new TranslationCatalogKey(ORIGIN_A, "Button.Save", neutralValue: "Save") };
@@ -288,8 +288,60 @@ public class InitializeDeclarationTests
 
       var act = async () => await client.Initialize(TestContext.Current.CancellationToken);
 
-      await act.Should().ThrowAsync<HttpRequestException>();
+      await act.Should().NotThrowAsync();
       handler.Declarations.Should().ContainSingle();
+   }
+
+   [Fact]
+   public async Task Initialize_LocaleRequestTimesOut_IsAFailedRequest_AndStartsTheHeartbeat()
+   {
+      var handler = new RecordingHandler { OnLocaleRequest = static () => throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout.") };
+      var logger = new FakeLogger();
+      using var client = CreateClient(handler, supportedLocales: [new CultureInfo("en")], logger: logger);
+
+      var act = async () => await client.Initialize(TestContext.Current.CancellationToken);
+
+      await act.Should().NotThrowAsync();
+      await WaitForHeartbeatsAsync(handler, 1);
+      logger.Entries.Should().ContainSingle(entry => entry.Level == LogLevel.Warning)
+         .Which.Message.Should().Contain("en");
+   }
+
+   [Fact]
+   public async Task Initialize_CancelledWhilePreloading_ThrowsOperationCanceled_AndStartsNoHeartbeat()
+   {
+      using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+      var handler = new RecordingHandler
+      {
+         OnLocaleRequest = () =>
+         {
+            cts.Cancel();
+            cts.Token.ThrowIfCancellationRequested();
+         }
+      };
+      var logger = new FakeLogger();
+      using var client = CreateClient(handler, supportedLocales: [new CultureInfo("en"), new CultureInfo("nl")], logger: logger);
+
+      var act = async () => await client.Initialize(cts.Token);
+
+      await act.Should().ThrowAsync<OperationCanceledException>();
+      await Task.Delay(100, TestContext.Current.CancellationToken);
+      handler.Heartbeats.Should().Be(0);
+      handler.Requests.Should().NotContain("GET /api/v1/translations/nl");
+      logger.Entries.Should().NotContain(entry => entry.Level == LogLevel.Warning);
+   }
+
+   [Fact]
+   public async Task Initialize_CancelledBeforeStart_ThrowsOperationCanceled_AndStartsNoHeartbeat()
+   {
+      var handler = new RecordingHandler();
+      using var client = CreateClient(handler, supportedLocales: [new CultureInfo("en")]);
+
+      var act = async () => await client.Initialize(new CancellationToken(canceled: true));
+
+      await act.Should().ThrowAsync<OperationCanceledException>();
+      await Task.Delay(100, TestContext.Current.CancellationToken);
+      handler.Heartbeats.Should().Be(0);
    }
 
    [Fact]
@@ -486,6 +538,7 @@ public class InitializeDeclarationTests
       public HttpStatusCode LocaleStatusCode { get; set; } = HttpStatusCode.OK;
       public HttpStatusCode DeclarationStatusCode { get; set; } = HttpStatusCode.OK;
       public Exception? DeclarationException { get; set; }
+      public Action? OnLocaleRequest { get; set; }
 
       public Dictionary<string, TranslationItemResponse[]> LocaleResponses { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -536,6 +589,8 @@ public class InitializeDeclarationTests
 
             var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
             var locale = Uri.UnescapeDataString(segments[3]);
+
+            OnLocaleRequest?.Invoke();
 
             if (LocaleStatusCode != HttpStatusCode.OK)
                return new HttpResponseMessage(LocaleStatusCode);
