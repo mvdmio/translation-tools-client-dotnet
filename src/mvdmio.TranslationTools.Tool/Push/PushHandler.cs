@@ -1,4 +1,5 @@
 using mvdmio.TranslationTools.Client.Internal;
+using mvdmio.TranslationTools.Tool.Commands;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
 
@@ -32,7 +33,7 @@ internal sealed class PushHandler
    {
       if (string.IsNullOrWhiteSpace(config.ApiKey))
       {
-         _reporter.WriteError(ToolConfiguration.MISSING_API_KEY_MESSAGE);
+         _reporter.WriteError(ApiKeyMessages.MISSING_API_KEY_MESSAGE);
          return;
       }
 

@@ -1,4 +1,5 @@
 using mvdmio.TranslationTools.Client;
+using mvdmio.TranslationTools.Tool.Commands;
 using mvdmio.TranslationTools.Tool.Configuration;
 using System.Text;
 using System.Xml.Linq;
@@ -39,7 +40,7 @@ internal sealed class PullHandler
       var request = ResolveRequest(config);
       if (request is null)
       {
-         _reporter.WriteError(ToolConfiguration.MISSING_API_KEY_MESSAGE);
+         _reporter.WriteError(ApiKeyMessages.MISSING_API_KEY_MESSAGE);
          return;
       }
 

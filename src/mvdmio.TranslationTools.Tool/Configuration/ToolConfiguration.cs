@@ -13,7 +13,7 @@ internal sealed class ToolConfiguration
    public string ConfigDirectory { get; set; } = Directory.GetCurrentDirectory();
 
    /// <summary>
-   /// The project API key. The loader fills it from the <c>TRANSLATIONS_API_KEY</c> environment variable when the config file has none.
+   /// The project API key. The loader fills it from the environment variable named by <see cref="API_KEY_ENVIRONMENT_VARIABLE"/> when the config file has none.
    /// </summary>
    public string? ApiKey { get; set; }
    public string? DefaultLocale { get; set; }
@@ -25,11 +25,6 @@ internal sealed class ToolConfiguration
    /// and must not be '.' or '..'.
    /// </summary>
    public string? Environment { get; set; }
-
-   /// <summary>
-   /// The message the handlers report when neither the config file nor the environment variable holds an API key.
-   /// </summary>
-   public const string MISSING_API_KEY_MESSAGE = $"Error: No API key provided. Add apiKey to {CONFIG_FILE_NAME} or set the {API_KEY_ENVIRONMENT_VARIABLE} environment variable.";
 
    public void Save(string directoryPath)
    {
