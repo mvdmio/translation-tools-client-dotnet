@@ -9,34 +9,34 @@ internal static class InitCommand
    {
       var command = new Command("init", "Initialize a .mvdmio-translations.yml configuration file in the current directory");
 
-      command.SetAction(_ =>
-      {
-         var currentDirectory = Directory.GetCurrentDirectory();
-         var configPath = Path.Combine(currentDirectory, ToolConfiguration.CONFIG_FILE_NAME);
-
-         if (File.Exists(configPath))
-         {
-            Console.Error.WriteLine($"Error: Configuration file already exists: {configPath}");
-            return;
-         }
-
-         var config = new ToolConfiguration
-         {
-            ApiKey = "project-api-key",
-            DefaultLocale = "en"
-         };
-
-         config.Save(currentDirectory);
-
-         Console.WriteLine($"Created configuration file: {configPath}");
-         Console.WriteLine();
-         Console.WriteLine("Default settings:");
-         Console.WriteLine($"  defaultLocale:  {config.DefaultLocale}");
-         Console.WriteLine();
-         Console.WriteLine("Edit the file to configure your project API key and default locale.");
-         Console.WriteLine("All tool configuration is read from .mvdmio-translations.yml.");
-      });
+      command.SetAction(_ => Run(Directory.GetCurrentDirectory(), Console.Out, Console.Error));
 
       return command;
+   }
+
+   internal static void Run(string directory, TextWriter output, TextWriter error)
+   {
+      var configPath = Path.Combine(directory, ToolConfiguration.CONFIG_FILE_NAME);
+
+      if (File.Exists(configPath))
+      {
+         error.WriteLine($"Error: Configuration file already exists: {configPath}");
+         return;
+      }
+
+      var config = new ToolConfiguration
+      {
+         DefaultLocale = "en"
+      };
+
+      config.Save(directory);
+
+      output.WriteLine($"Created configuration file: {configPath}");
+      output.WriteLine();
+      output.WriteLine("Default settings:");
+      output.WriteLine($"  defaultLocale:  {config.DefaultLocale}");
+      output.WriteLine();
+      output.WriteLine($"Provide your project API key through the {ToolConfiguration.API_KEY_ENVIRONMENT_VARIABLE} environment variable, or add apiKey to the file.");
+      output.WriteLine("All other tool configuration is read from .mvdmio-translations.yml.");
    }
 }

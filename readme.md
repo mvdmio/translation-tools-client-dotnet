@@ -85,9 +85,10 @@ translations push --prune
 Example config file:
 
 ```yaml
-apiKey: project-api-key
 defaultLocale: en
 ```
+
+The CLI reads the project API key from the `TRANSLATIONS_API_KEY` environment variable. To keep the key in the file instead, add `apiKey: project-api-key`; a key in the file wins over the variable. If neither holds a key, `pull` and `push` stop and name both places.
 
 - `translations init` creates `.mvdmio-translations.yml`
 - `translations pull` downloads remote translations into local `.resx` files

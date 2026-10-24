@@ -25,12 +25,12 @@ The tool reads its settings from `.mvdmio-translations.yml` in your project dire
 Example:
 
 ```yaml
-apiKey: project-api-key
 defaultLocale: en
 environment: production # optional
+apiKey: project-api-key # optional, see below
 ```
 
-- `apiKey`: your TranslationTools project API key
+- `apiKey` (optional): your TranslationTools project API key. When the file has no `apiKey`, the tool reads the key from the `TRANSLATIONS_API_KEY` environment variable. A key in the file wins over the variable. If neither holds a key, `translations pull` and `translations push` stop and name both places. Leave `apiKey` out of a committed file and set the variable instead.
 - `defaultLocale`: locale used for neutral `Name.resx` files
 - `environment` (optional): deployment environment name, e.g. `production` or `staging`. When set, `translations push` declares your local key set into that environment's membership on the server, scoping which keys belong to this deployment. Blank, whitespace, or omitted means the unnamed environment. A set name may use letters, digits, `.`, `_`, or `-` only, must be at most 64 characters after trim, and must not be `.` or `..`. An illegal name fails the push before any API call. Leave it unset unless you maintain separate key sets per environment.
 
@@ -38,7 +38,7 @@ environment: production # optional
 
 ### `translations init`
 
-Creates a starter `.mvdmio-translations.yml` file in the current directory.
+Creates a starter `.mvdmio-translations.yml` file in the current directory. The file has no `apiKey`; set `TRANSLATIONS_API_KEY` or add `apiKey` to the file.
 
 ### `translations pull`
 
@@ -80,7 +80,7 @@ Use `--prune` for a destructive push that deletes remote translations that no lo
 ## Typical workflow
 
 1. Run `translations init` once per project.
-2. Set your project API key in `.mvdmio-translations.yml`.
+2. Set your project API key in the `TRANSLATIONS_API_KEY` environment variable, or as `apiKey` in `.mvdmio-translations.yml`.
 3. Run `translations pull` to bring remote translations into local `.resx` files.
 4. Edit translations locally when needed.
 5. Run `translations push` to send local changes back to TranslationTools.

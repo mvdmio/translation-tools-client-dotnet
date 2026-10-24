@@ -12,6 +12,7 @@ internal static class ToolConfigurationLoader
       if (configFilePath is null)
       {
          config = new ToolConfiguration();
+         ApplyApiKeyFallback(config);
          return false;
       }
 
@@ -21,7 +22,8 @@ internal static class ToolConfigurationLoader
 
    public static ToolConfiguration Load()
    {
-      return TryLoad(out var config) ? config : new ToolConfiguration();
+      TryLoad(out var config);
+      return config;
    }
 
    private static ToolConfiguration LoadFromPath(string configFilePath)
@@ -34,7 +36,17 @@ internal static class ToolConfigurationLoader
 
       var config = deserializer.Deserialize<ToolConfiguration>(yaml) ?? new ToolConfiguration();
       config.ConfigDirectory = Path.GetDirectoryName(configFilePath)!;
+      ApplyApiKeyFallback(config);
       return config;
+   }
+
+   private static void ApplyApiKeyFallback(ToolConfiguration config)
+   {
+      if (!string.IsNullOrWhiteSpace(config.ApiKey))
+         return;
+
+      var environmentKey = Environment.GetEnvironmentVariable(ToolConfiguration.API_KEY_ENVIRONMENT_VARIABLE);
+      config.ApiKey = string.IsNullOrWhiteSpace(environmentKey) ? null : environmentKey;
    }
 
    private static string? FindConfigFile()

@@ -39,7 +39,7 @@ internal sealed class PullHandler
       var request = ResolveRequest(config);
       if (request is null)
       {
-         _reporter.WriteError("Error: No API key provided. Add apiKey to .mvdmio-translations.yml.");
+         _reporter.WriteError(ToolConfiguration.MISSING_API_KEY_MESSAGE);
          return;
       }
 

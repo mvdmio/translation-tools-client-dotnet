@@ -86,6 +86,22 @@ public class PushHandlerTests
          .And.Contain("hyphens");
    }
 
+   [Fact]
+   public async Task HandleAsync_WhenNoApiKey_ShouldReportErrorNamingBothPlacesAndNotCallApi()
+   {
+      using var fixture = new PushProjectFixture();
+      var configuration = fixture.CreateConfiguration();
+      configuration.ApiKey = null;
+
+      await fixture.Handler.HandleAsync(configuration, prune: false, CancellationToken.None);
+
+      fixture.ApiService.Request.Should().BeNull();
+      fixture.Reporter.Errors.Should().ContainSingle()
+         .Which.Should().Contain("apiKey")
+         .And.Contain(".mvdmio-translations.yml")
+         .And.Contain("TRANSLATIONS_API_KEY");
+   }
+
    private sealed class PushProjectFixture : IDisposable
    {
       public string ProjectDirectory { get; }

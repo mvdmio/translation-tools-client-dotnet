@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-24: CLI reads the API key from TRANSLATIONS_API_KEY
+
+`translations pull` and `translations push` now read the project API key from the `TRANSLATIONS_API_KEY` environment variable when `.mvdmio-translations.yml` has no `apiKey`. A key in the file still wins, so a repo can commit the file without the key. When neither holds a key, the command stops and names both places. `translations init` no longer writes an `apiKey` line and says the key can come from `TRANSLATIONS_API_KEY`.
+
 ## 2026-10-21: Failed startup request keeps the heartbeat and live updates
 
 A request that fails while the application starts, such as a `502` from TranslationTools during a deploy, now costs a logged warning and no longer stops the rest of startup. A locale that cannot be preloaded is logged by name, the next locale is still preloaded, and a failed push of the global placeholders is logged as well. The heartbeat and live updates start anyway, and a locale that failed to preload is fetched by the first lookup that needs it. Before, the first failed request stopped startup: the Environment sent no heartbeat and received no live updates until the application restarted.
