@@ -1,10 +1,10 @@
 using AwesomeAssertions;
-using mvdmio.TranslationTools.Tool.Commands;
 using mvdmio.TranslationTools.Tool.Configuration;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Tool.Tests.Unit.Configuration;
 
+[Collection(ProcessStateCollection.Name)]
 public class ToolConfigurationTests
 {
    [Fact]
@@ -114,32 +114,9 @@ public class ToolConfigurationTests
       ToolConfigurationLoader.Load().ApiKey.Should().BeNull();
    }
 
-   [Fact]
-   public void InitRun_ShouldWriteConfigWithoutApiKeyAndMentionEnvironmentVariable()
-   {
-      var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(directory);
-
-      try
-      {
-         var output = new StringWriter();
-
-         InitCommand.Run(directory, output, new StringWriter());
-
-         var yaml = File.ReadAllText(Path.Combine(directory, ToolConfiguration.CONFIG_FILE_NAME));
-         yaml.Should().NotContain("apiKey");
-         yaml.Should().Contain("defaultLocale: en");
-         output.ToString().Should().Contain("TRANSLATIONS_API_KEY");
-      }
-      finally
-      {
-         Directory.Delete(directory, recursive: true);
-      }
-   }
-
    /// <summary>
    /// Sets the process-wide current directory and TRANSLATIONS_API_KEY for one test and restores both on dispose.
-   /// The tests that use it share this class, so xunit does not run them in parallel.
+   /// The tests that use it belong to <see cref="ProcessStateCollection" />, so xunit does not run them in parallel.
    /// </summary>
    private sealed class ConfigScope : IDisposable
    {
