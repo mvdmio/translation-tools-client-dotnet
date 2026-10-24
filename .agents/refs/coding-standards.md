@@ -56,6 +56,7 @@ public async Task QueryAsync_WithValidSql_ReturnsResults()
 public async Task BulkCopy_WithEmptyTable_CompletesSuccessfully()
 ```
 
+- To assert the text of a reported error, write `.Should().ContainSingle().Which.Should().Be("…")`. The string argument of `ContainSingle("…")` is the failure message, not the expected value, so that call passes whatever the item says.
 - A test that reads process-wide static state, such as the catalog registry, sets that state up itself. Other tests call `Clear`, so a test that relies on a module initializer having run fails depending on test order.
 
 ## Translation keys
