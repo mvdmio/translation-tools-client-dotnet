@@ -24,7 +24,7 @@ public class PullHandlerLoggingTests
          TestContext.Current.CancellationToken
       );
 
-      reporter.Errors.Should().ContainSingle("Error: No API key provided. Add apiKey to .mvdmio-translations.yml or set the TRANSLATIONS_API_KEY environment variable.");
+      reporter.Errors.Should().ContainSingle().Which.Should().Be("Error: No API key provided. Add apiKey to .mvdmio-translations.yml or set the TRANSLATIONS_API_KEY environment variable.");
    }
 
    [Fact]
@@ -50,7 +50,7 @@ public class PullHandlerLoggingTests
             TestContext.Current.CancellationToken
          );
 
-         reporter.Errors.Should().ContainSingle("Error: No default locale provided. Add defaultLocale to .mvdmio-translations.yml.");
+         reporter.Errors.Should().ContainSingle().Which.Should().Be("Error: No default locale provided. Add defaultLocale to .mvdmio-translations.yml.");
       }
       finally
       {
