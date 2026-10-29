@@ -30,11 +30,23 @@ The value a translation key has in its `.resx` file with no locale suffix. It is
 developer wrote, not a translation of anything.
 _Avoid_: default value, fallback text, source string
 
+**Default locale**:
+The locale the application names as its own. A Declaration sends each Neutral value under it, and
+the client puts it in place of any locale it cannot use.
+_Avoid_: fallback locale, base locale
+
 **Effective locale**:
-The locale a lookup actually runs against, after the client has replaced a locale it cannot use.
-A caller may pass the invariant culture, whose name is empty; the effective locale is what the
-client substitutes for it.
+The locale a lookup or a Preload actually runs against, after the client has replaced a locale it
+cannot use. A locale the client cannot use is one with no name, such as the invariant culture. Its
+effective locale is the Default locale.
 _Avoid_: resolved culture, target locale
+
+**Preload**:
+A fetch of one whole locale when the client initializes, so that later lookups in that locale
+answer from the client's cache instead of calling the service. The client preloads the Effective
+locale of each locale the application supports, or of the culture it started under when it names
+none.
+_Avoid_: warm-up, prefetch, locale sync
 
 **Local fallback**:
 The value a lookup returns when the service cannot answer it, taken from the `.resx` data the
