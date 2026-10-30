@@ -37,6 +37,8 @@ var app = builder.Build();
 await app.InitializeTranslationToolsClientAsync();
 ```
 
+A worker on the .NET Generic Host calls the same `await host.InitializeTranslationToolsClientAsync();`; see [Workers and console apps](src/mvdmio.TranslationTools.Client/Readme.md#workers-and-console-apps).
+
 Set `Environment` to scope the translations this deployment fetches to a named environment (e.g. `production`, `staging`). Blank means unnamed; a set name may use letters, digits, `.`, `_`, or `-` only (max 64, not `.`/`..`) and is validated when the client is constructed. It should match the `environment` declared by `mvdmio.TranslationTools.Tool` when keys were pushed. See the [package docs](src/mvdmio.TranslationTools.Client/Readme.md) for details.
 
 Use generated translations and the runtime client:

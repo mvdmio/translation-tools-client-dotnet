@@ -236,11 +236,101 @@ public class InitializeDeclarationTests
          await client.Initialize(TestContext.Current.CancellationToken);
 
          handler.Declarations.Should().ContainSingle();
+         handler.Requests.Should().Equal("POST /api/v1/translations/declaration", "GET /api/v1/translations/en");
       }
       finally
       {
          CultureInfo.CurrentUICulture = originalCulture;
       }
+   }
+
+   [Fact]
+   public async Task Initialize_UnderInvariantCultureWithDefaultLocaleNl_PreloadsOnlyNl()
+   {
+      await RunUnderUICultureAsync(
+         CultureInfo.InvariantCulture,
+         async () =>
+         {
+            var handler = new RecordingHandler();
+            using var client = CreateClient(handler, defaultLocale: "nl", enableHeartbeat: false);
+
+            await client.Initialize(TestContext.Current.CancellationToken);
+
+            handler.Requests.Should().Equal("GET /api/v1/translations/nl");
+         }
+      );
+   }
+
+   [Fact]
+   public async Task Initialize_WithInvariantAndDuplicateEnglishSupportedLocales_PreloadsEnglishOnce()
+   {
+      var handler = new RecordingHandler();
+      using var client = CreateClient(handler, supportedLocales: [CultureInfo.InvariantCulture, new CultureInfo("en"), new CultureInfo("en")], enableHeartbeat: false);
+
+      await client.Initialize(TestContext.Current.CancellationToken);
+
+      handler.Requests.Should().Equal("GET /api/v1/translations/en");
+   }
+
+   [Fact]
+   public async Task Initialize_WithNlThenInvariantSupportedLocales_PreloadsNlThenDefaultLocale()
+   {
+      var handler = new RecordingHandler();
+      using var client = CreateClient(handler, supportedLocales: [new CultureInfo("nl"), CultureInfo.InvariantCulture], enableHeartbeat: false);
+
+      await client.Initialize(TestContext.Current.CancellationToken);
+
+      handler.Requests.Should().Equal("GET /api/v1/translations/nl", "GET /api/v1/translations/en");
+   }
+
+   [Fact]
+   public async Task Initialize_UnderInvariantCultureWithNoSupportedLocales_AnswersLaterLookupsFromTheCache()
+   {
+      await RunUnderUICultureAsync(
+         CultureInfo.InvariantCulture,
+         async () =>
+         {
+            var handler = new RecordingHandler
+            {
+               LocaleResponses =
+               {
+                  ["en"] =
+                  [
+                     new TranslationItemResponse { Origin = ORIGIN_A, Key = "Check.One", Value = "One" },
+                     new TranslationItemResponse { Origin = ORIGIN_A, Key = "Check.Two", Value = "Two" },
+                     new TranslationItemResponse { Origin = ORIGIN_A, Key = "Check.Three", Value = "Three" }
+                  ]
+               }
+            };
+            using var client = CreateClient(handler, enableHeartbeat: false);
+
+            await client.Initialize(TestContext.Current.CancellationToken);
+
+            var one = await client.GetAsync(new TranslationRef(ORIGIN_A, "Check.One"), CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
+            var two = await client.GetAsync(new TranslationRef(ORIGIN_A, "Check.Two"), CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
+            var three = await client.GetAsync(new TranslationRef(ORIGIN_A, "Check.Three"), CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
+
+            new[] { one.Value, two.Value, three.Value }.Should().Equal("One", "Two", "Three");
+            handler.SingleKeyGets.Should().Be(0);
+         }
+      );
+   }
+
+   [Fact]
+   public async Task Initialize_UnderRegionalCultureWithNoSupportedLocales_PreloadsOnlyThatCulture()
+   {
+      await RunUnderUICultureAsync(
+         new CultureInfo("nl-NL"),
+         async () =>
+         {
+            var handler = new RecordingHandler();
+            using var client = CreateClient(handler, enableHeartbeat: false);
+
+            await client.Initialize(TestContext.Current.CancellationToken);
+
+            handler.Requests.Should().Equal("GET /api/v1/translations/nl-NL");
+         }
+      );
    }
 
    [Theory]
@@ -477,9 +567,25 @@ public class InitializeDeclarationTests
       warning.Message.Should().Contain("declaration");
    }
 
+   private static async Task RunUnderUICultureAsync(CultureInfo culture, Func<Task> body)
+   {
+      var originalCulture = CultureInfo.CurrentUICulture;
+      try
+      {
+         CultureInfo.CurrentUICulture = culture;
+
+         await body();
+      }
+      finally
+      {
+         CultureInfo.CurrentUICulture = originalCulture;
+      }
+   }
+
    private static TranslationToolsClient CreateClient(
       RecordingHandler handler,
       IEnumerable<TranslationCatalogKey>? catalog = null,
+      string defaultLocale = "en",
       string? environment = null,
       CultureInfo[]? supportedLocales = null,
       FakeTimeProvider? time = null,
@@ -494,7 +600,7 @@ public class InitializeDeclarationTests
             new TranslationToolsClientOptions
             {
                ApiKey = "api-key",
-               DefaultLocale = "en",
+               DefaultLocale = defaultLocale,
                Environment = environment,
                EnableHeartbeat = enableHeartbeat,
                HeartbeatInterval = TimeSpan.FromHours(1),

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using mvdmio.TranslationTools.Client.Internal;
@@ -88,13 +89,14 @@ public static class DependencyInjectionExtensions
    /// supported locales, pushes declared global placeholder names, and starts live updates when
    /// enabled. A failed request is logged as a warning and does not stop the rest of startup: a locale
    /// that fails to preload is fetched by its first lookup, and the heartbeat and live updates start
-   /// anyway. Other failures are logged and do not fail application startup.
+   /// anyway. Other failures are logged and do not fail application startup. Serves web apps and
+   /// Generic Host workers alike.
    /// </summary>
-   public static async Task InitializeTranslationToolsClientAsync(this WebApplication app, CancellationToken cancellationToken = default)
+   public static async Task InitializeTranslationToolsClientAsync(this IHost host, CancellationToken cancellationToken = default)
    {
-      ConfigurePlaceholderRuntime(app.Services);
+      ConfigurePlaceholderRuntime(host.Services);
 
-      using var scope = app.Services.CreateScope();
+      using var scope = host.Services.CreateScope();
 
       try
       {
@@ -107,8 +109,9 @@ public static class DependencyInjectionExtensions
          var options = scope.ServiceProvider.GetRequiredService<IOptions<TranslationToolsClientOptions>>().Value;
          if (options.EnableLiveUpdates)
          {
-            var liveUpdateService = app.Services.GetRequiredService<TranslationToolsLiveUpdateService>();
-            await liveUpdateService.StartAsync(app.Lifetime.ApplicationStopping);
+            var liveUpdateService = host.Services.GetRequiredService<TranslationToolsLiveUpdateService>();
+            var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+            await liveUpdateService.StartAsync(lifetime.ApplicationStopping);
          }
       }
       catch (Exception e)

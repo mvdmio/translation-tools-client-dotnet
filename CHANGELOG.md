@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-30: Workers preload the Default locale, and a Generic Host worker can initialize the client
+
+A worker that runs under the invariant culture and names no supported locales now preloads the Default locale (`en` unless the app sets another) when the client initializes, so its lookups answer from the cache instead of one request per key. An invariant entry in `SupportedLocales` preloads the Default locale too, and a locale that resolves to the same name as an earlier one is fetched once. An app whose locales all have names preloads what it did before. `InitializeTranslationToolsClientAsync` now extends `IHost` instead of `WebApplication`, so a Generic Host worker calls it the same way a web app does and gets the Declaration, the Preload, the global placeholder push, the heartbeat, and live updates; every existing web app call compiles unchanged. The package readme gains a section for worker and console apps.
+
 ## 2026-10-24: CLI reads the API key from TRANSLATIONS_API_KEY
 
 `translations pull` and `translations push` now read the project API key from the `TRANSLATIONS_API_KEY` environment variable when `.mvdmio-translations.yml` has no `apiKey`. A key in the file still wins, so a repo can commit the file without the key. When neither holds a key, the command stops and names both places. `translations init` no longer writes an `apiKey` line and says the key can come from `TRANSLATIONS_API_KEY`.

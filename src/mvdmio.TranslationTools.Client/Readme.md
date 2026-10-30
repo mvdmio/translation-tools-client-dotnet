@@ -17,7 +17,7 @@ dotnet add package mvdmio.TranslationTools.Client
 - optional live updates for runtime translations
 - optional environment scoping and presence heartbeat
 - fallback to local `.resx` resources
-- initialize sends a Declaration of every local key, then preloads the supported locales
+- initialize sends a Declaration of every local key, then preloads the Effective locale of each supported locale
 
 ## Configure
 
@@ -36,7 +36,7 @@ var app = builder.Build();
 await app.InitializeTranslationToolsClientAsync();
 ```
 
-`InitializeTranslationToolsClientAsync` first sends the Declaration: every local catalog key under your Environment, including the keys of `.resx` files in class libraries the application depends on (even when no code in them has run yet), with its Neutral value as `DefaultLocale` and every sibling-locale `.resx` value. The service makes those keys the Environment's complete set. It stores a value only where it holds none for that key and locale, so a start never overwrites a value stored on the service, and edits made in TranslationTools stay. Changed text for an existing key reaches the service through `translations push`, or as a new key. Then the client preloads `SupportedLocales`, so the cache holds the service's values. A failed Declaration is logged and does not fail application startup. A failed locale preload or globals push is logged as a warning too, and the heartbeat and live updates start anyway; a locale that failed to preload is fetched by the first lookup that needs it.
+`InitializeTranslationToolsClientAsync` first sends the Declaration: every local catalog key under your Environment, including the keys of `.resx` files in class libraries the application depends on (even when no code in them has run yet), with its Neutral value as `DefaultLocale` and every sibling-locale `.resx` value. The service makes those keys the Environment's complete set. It stores a value only where it holds none for that key and locale, so a start never overwrites a value stored on the service, and edits made in TranslationTools stay. Changed text for an existing key reaches the service through `translations push`, or as a new key. Then the client preloads the Effective locale of each of `SupportedLocales` (or of the culture the app started under when it names none), so the cache holds the service's values. A failed Declaration is logged and does not fail application startup. A failed locale preload or globals push is logged as a warning too, and the heartbeat and live updates start anyway; a locale that failed to preload is fetched by the first lookup that needs it.
 
 ### Options
 
@@ -44,7 +44,7 @@ await app.InitializeTranslationToolsClientAsync();
 | --- | --- | --- | --- |
 | `ApiKey` | `string` | _(required)_ | Your TranslationTools project API key, sent as the `Authorization` header. |
 | `DefaultLocale` | `string` | `"en"` | Substituted for a lookup's locale whenever that locale's name is blank (the invariant culture) before the lookup consults the cache or calls the service, so that background jobs and other invariant-culture callers resolve to a real locale instead of a collapsed request path. Must be blank-free and recognised by the runtime; validated when the client is constructed. |
-| `SupportedLocales` | `CultureInfo[]` | `[]` | Locales preloaded during initialization. When left empty, the app's `RequestLocalizationOptions` cultures are used. |
+| `SupportedLocales` | `CultureInfo[]` | `[]` | Locales preloaded during initialization. When left empty, the app's `RequestLocalizationOptions` cultures are used. When the app names none and has no request localization, the client preloads the Effective locale of the culture the app started under, which is `DefaultLocale` for the invariant culture. An entry with no name (the invariant culture) preloads `DefaultLocale`, and a locale that resolves to the same name as an earlier entry is fetched once. |
 | `EnableLiveUpdates` | `bool` | `false` | Enables built-in WebSocket live translation updates. See [Live updates](#live-updates). |
 | `Environment` | `string?` | `null` | Deployment environment name used to scope fetched translations. Blank or whitespace means the unnamed Environment. A set name may use letters, digits, `.`, `_`, or `-` only, must be at most 64 characters after trim, and must not be `.` or `..`. Validated when the client is constructed. See [Environment scoping](#environment-scoping). |
 | `EnableHeartbeat` | `bool` | `true` | Periodically reports client presence to the server. See [Heartbeat and client identity](#heartbeat-and-client-identity). |
@@ -52,6 +52,31 @@ await app.InitializeTranslationToolsClientAsync();
 | `ThrowOnPlaceholderError` | `bool` | `false` | Throw `PlaceholderSubstitutionException` on an unresolved placeholder instead of degrading. See [Placeholders](#placeholders). |
 | `ThrowOnLookupError` | `bool` | `false` | Let a failed single-key lookup throw instead of degrading to the local fallback. See [Local fallback](#local-fallback). |
 | `LookupTimeout` | `TimeSpan` | `5 seconds` | Upper bound on how long a single-key lookup waits for the service before it degrades (or throws, with `ThrowOnLookupError`). Does not bound a whole-locale lookup, and never changes the `HttpClient`'s own timeout. |
+
+### Workers and console apps
+
+A worker on the .NET Generic Host initializes the client the same way a web app does, and gets the Declaration, the Preload, the global placeholder push, the heartbeat, and live updates when enabled. Live updates stop when the host stops.
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddTranslationToolsClient(options => options.ApiKey = "project-api-key");
+
+using var host = builder.Build();
+await host.InitializeTranslationToolsClientAsync();
+```
+
+A worker usually runs under the invariant culture and names no `SupportedLocales`. The client then preloads `DefaultLocale`, so a job that reads many translations makes one request instead of one per key.
+
+A console app with no host resolves `ITranslationToolsClient` from its service provider and calls `Initialize`. That sends the Declaration and runs the Preload, but skips the global placeholder push and live updates.
+
+```csharp
+var services = new ServiceCollection();
+services.AddTranslationToolsClient(options => options.ApiKey = "project-api-key");
+
+using var provider = services.BuildServiceProvider();
+var client = provider.GetRequiredService<ITranslationToolsClient>();
+await client.Initialize();
+```
 
 ## Use the client
 

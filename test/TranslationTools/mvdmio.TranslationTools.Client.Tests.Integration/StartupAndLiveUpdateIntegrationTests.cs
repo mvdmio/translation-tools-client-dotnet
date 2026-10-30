@@ -3,6 +3,8 @@ using IntegrationFixture.App;
 using IntegrationFixture.App.Resources.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using mvdmio.TranslationTools.Client;
 using mvdmio.TranslationTools.Client.Tests.Integration._Fixture;
 using System.Globalization;
@@ -104,8 +106,8 @@ public sealed class StartupAndLiveUpdateIntegrationTests
       {
          options.ApiKey = "test-api-key";
          options.DefaultLocale = "en";
-         // Explicit SupportedLocales so Initialize still preloads DefaultLocale even when the
-         // process UI culture is invariant (which is dropped from the fallback SupportedLocales).
+         // Explicit SupportedLocales win over the culture fallback, so this run preloads exactly
+         // one locale even though the process UI culture is invariant.
          options.SupportedLocales = [new CultureInfo("en")];
          options.EnableLiveUpdates = false;
          options.BaseUrlOverride = server.BaseUrl;
@@ -211,6 +213,69 @@ public sealed class StartupAndLiveUpdateIntegrationTests
          );
 
          updatedLocale.Values[Localizations.Keys.Button_Save].Should().Be("Save live");
+      }
+      finally
+      {
+         CultureInfo.CurrentUICulture = previousCulture;
+      }
+   }
+
+   [Fact]
+   public async Task InitializeTranslationToolsClientAsync_OnGenericHost_ShouldPreloadDefaultLocale_AndStopLiveUpdatesWhenHostStops()
+   {
+      await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
+         new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
+         {
+            ["en"] = new Dictionary<TranslationRef, string?>
+            {
+               [new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save")] = "Save from API"
+            }
+         },
+         TestContext.Current.CancellationToken
+      );
+
+      var logs = new CapturingLoggerProvider();
+      var builder = Host.CreateApplicationBuilder();
+      builder.Logging.AddProvider(logs);
+      builder.Services.AddTranslationToolsClient(options =>
+      {
+         options.ApiKey = "test-api-key";
+         options.EnableLiveUpdates = true;
+         options.BaseUrlOverride = server.BaseUrl;
+      });
+
+      using var host = builder.Build();
+
+      var previousCulture = CultureInfo.CurrentUICulture;
+
+      try
+      {
+         CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+         await host.StartAsync(TestContext.Current.CancellationToken);
+         await host.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
+
+         var client = host.Services.GetRequiredService<TranslationToolsClient>();
+         var locale = await client.GetLocaleAsync(CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
+
+         server.LocaleRequestCount.Should().Be(1);
+         locale.Values[Localizations.Keys.Button_Save].Should().Be("Save from API");
+
+         await Eventually.AssertAsync(
+            () => Task.FromResult(server.SocketTokenRequestCount),
+            count => count == 1,
+            TimeSpan.FromSeconds(5),
+            "live updates should request a socket token during startup"
+         );
+
+         await host.StopAsync(TestContext.Current.CancellationToken);
+
+         await Eventually.AssertAsync(
+            () => Task.FromResult(logs.Entries.Any(entry => entry.Message == "TranslationTools live updates stopped")),
+            stopped => stopped,
+            TimeSpan.FromSeconds(5),
+            "live updates should stop when the host stops"
+         );
       }
       finally
       {

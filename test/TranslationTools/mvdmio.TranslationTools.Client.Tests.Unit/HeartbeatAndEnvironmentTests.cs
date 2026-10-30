@@ -108,11 +108,11 @@ public class HeartbeatAndEnvironmentTests
    }
 
    [Fact]
-   public async Task Initialize_ShouldNotThrow_WhenCurrentCultureIsInvariant_AndNoSupportedLocalesConfigured()
+   public async Task Initialize_ShouldPreloadOnlyTheDefaultLocale_WhenCurrentCultureIsInvariant_AndNoSupportedLocalesConfigured()
    {
       // CI runners often run under the invariant culture (empty Name). With no SupportedLocales
-      // configured, Initialize() falls back to CurrentUICulture; an empty locale name must not
-      // reach locale normalization (which rejects it) and crash startup.
+      // configured, Initialize() falls back to CurrentUICulture; its empty locale name must resolve
+      // to the Default locale before the preload, so startup neither crashes nor preloads nothing.
       var originalCulture = CultureInfo.CurrentUICulture;
       try
       {
@@ -124,8 +124,7 @@ public class HeartbeatAndEnvironmentTests
          var init = async () => await client.Initialize(TestContext.Current.CancellationToken);
          await init.Should().NotThrowAsync();
 
-         // The invariant culture is skipped, so no locale pull is attempted on init.
-         handler.LastGetPath.Should().BeNull();
+         handler.GetPaths.Should().Equal("/api/v1/translations/en");
       }
       finally
       {
@@ -318,6 +317,8 @@ public class HeartbeatAndEnvironmentTests
 
       public string? LastGetPath { get; private set; }
 
+      public ConcurrentQueue<string> GetPaths { get; } = new();
+
       protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
       {
          var path = request.RequestUri?.AbsolutePath ?? string.Empty;
@@ -331,7 +332,10 @@ public class HeartbeatAndEnvironmentTests
          }
 
          if (request.Method == HttpMethod.Get)
+         {
             LastGetPath = path;
+            GetPaths.Enqueue(path);
+         }
 
          return new HttpResponseMessage(HttpStatusCode.OK)
          {

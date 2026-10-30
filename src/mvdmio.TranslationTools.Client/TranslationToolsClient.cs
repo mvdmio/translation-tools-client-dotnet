@@ -95,7 +95,7 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       {
          await TrySendDeclarationAsync(cancellationToken);
 
-         foreach (var locale in GetSupportedLocales())
+         foreach (var locale in GetLocalesToPreload())
             await TryPreloadLocaleAsync(locale, cancellationToken);
       }
       finally
@@ -207,7 +207,7 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       return await StoreLocaleAsync(effectiveLocale, fetched, cancellationToken);
    }
 
-   private async Task TryPreloadLocaleAsync(CultureInfo locale, CancellationToken cancellationToken)
+   private async Task TryPreloadLocaleAsync(EffectiveLocale locale, CancellationToken cancellationToken)
    {
       try
       {
@@ -224,11 +224,15 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       }
    }
 
-   internal async Task RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
+   internal Task RefreshLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
    {
-      var effectiveLocale = ResolveEffectiveLocale(locale);
-      var fetched = await FetchLocaleAsync(effectiveLocale, cancellationToken);
-      await StoreLocaleAsync(effectiveLocale, fetched, cancellationToken);
+      return RefreshLocaleAsync(ResolveEffectiveLocale(locale), cancellationToken);
+   }
+
+   private async Task RefreshLocaleAsync(EffectiveLocale locale, CancellationToken cancellationToken)
+   {
+      var fetched = await FetchLocaleAsync(locale, cancellationToken);
+      await StoreLocaleAsync(locale, fetched, cancellationToken);
    }
 
    /// <summary>
@@ -326,15 +330,18 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       return item;
    }
 
-   private CultureInfo[] GetSupportedLocales()
+   private EffectiveLocale[] GetLocalesToPreload()
    {
       var configured = Options.SupportedLocales.Length == 0
          ? new[] { CultureInfo.CurrentUICulture }
          : Options.SupportedLocales;
 
-      // Skip the invariant culture (empty name): it has no locale to prefetch and would
-      // fail locale normalization. This keeps Initialize() from throwing when the process
-      // runs under the invariant culture (common on CI runners and globalization-invariant hosts).
-      return configured.Where(static locale => !string.IsNullOrWhiteSpace(locale.Name)).ToArray();
+      // A locale with no name (the invariant culture, common on CI runners and in containers) preloads
+      // the Default locale, because that is the locale its lookups run against. Two candidates that
+      // resolve to the same name make one request.
+      return configured
+         .Select(ResolveEffectiveLocale)
+         .DistinctBy(static locale => locale.Name, StringComparer.Ordinal)
+         .ToArray();
    }
 }
