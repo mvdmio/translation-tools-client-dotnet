@@ -21,6 +21,7 @@ jobs:
       runs-on: ubuntu-22.04
       permissions:
          contents: read
+         id-token: write # request the OIDC token that NuGet exchanges for a temporary API key
 
       steps:
       -  uses: actions/checkout@v4
@@ -44,5 +45,11 @@ jobs:
             dotnet pack src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj --configuration Release --no-build -o ./artifacts
             dotnet pack src/mvdmio.TranslationTools.Tool/mvdmio.TranslationTools.Tool.csproj --configuration Release --no-build -o ./artifacts
 
+      -  name: NuGet login
+         id: login
+         uses: NuGet/login@v1
+         with:
+            user: mvdmio
+
       -  name: Publish packages
-         run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+         run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source "https://api.nuget.org/v3/index.json" --skip-duplicate
