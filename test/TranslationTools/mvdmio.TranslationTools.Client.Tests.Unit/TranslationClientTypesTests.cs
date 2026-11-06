@@ -36,6 +36,19 @@ public class TranslationClientTypesTests
       act.Should().Throw<ArgumentException>().WithMessage("*Translation origin must use '<project>:<path>' format.*");
    }
 
+   [Theory]
+   [InlineData("Jewel.Unified.staging:/WorkProcessTemplates.txt")]
+   [InlineData("Jewel.Unified.staging:WorkProcessTemplates.resx")]
+   [InlineData("Jewel.Unified:staging:/WorkProcessTemplates.resx")]
+   [InlineData(":/WorkProcessTemplates.resx")]
+   [InlineData("")]
+   public void TranslationRef_ShouldRejectRuntimeOriginThatIsNotProjectPathResx(string origin)
+   {
+      var act = () => new TranslationRef(origin, "WorkProcessTemplate.3f2a0c1e-5b7d-4e8a-9c11-2d6f0a7b9e44.Name");
+
+      act.Should().Throw<ArgumentException>();
+   }
+
    [Fact]
    public void TranslationCatalogKey_ShouldHoldTranslationRefAndExposeOriginAsProjectPath()
    {

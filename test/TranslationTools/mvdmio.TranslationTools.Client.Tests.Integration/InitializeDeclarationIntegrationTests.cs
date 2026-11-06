@@ -73,23 +73,35 @@ public sealed class InitializeDeclarationIntegrationTests
          TestContext.Current.CancellationToken
       );
 
-      var builder = WebApplication.CreateBuilder();
-      builder.Services.AddTranslationToolsClient(options =>
+      async Task StartAppAsync()
       {
-         options.ApiKey = "test-api-key";
-         options.DefaultLocale = "en";
-         options.SupportedLocales = [new CultureInfo("en")];
-         options.EnableLiveUpdates = false;
-         options.EnableHeartbeat = false;
-         options.BaseUrlOverride = server.BaseUrl;
-      });
+         var builder = WebApplication.CreateBuilder();
+         builder.Services.AddTranslationToolsClient(options =>
+         {
+            options.ApiKey = "test-api-key";
+            options.DefaultLocale = "en";
+            options.SupportedLocales = [new CultureInfo("en")];
+            options.EnableLiveUpdates = false;
+            options.EnableHeartbeat = false;
+            options.BaseUrlOverride = server.BaseUrl;
+         });
 
-      await using var app = builder.Build();
-      await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
+         await using var app = builder.Build();
+         await app.InitializeTranslationToolsClientAsync(TestContext.Current.CancellationToken);
+      }
+
+      await StartAppAsync();
 
       var declaration = server.Declarations.Should().ContainSingle().Subject;
       declaration.Items.Should().Contain(item => item.Origin == LocalizationsOrigin && item.Key == "Button.Save" && item.Locale == "en" && item.Value == "Save fallback");
       declaration.Items.Should().Contain(item => item.Origin == ErrorsOrigin && item.Key == "404.title" && item.Locale == "en");
+      server.ProjectPushes.Should().NotContain(push => push.Items.Length > 0);
+
+      await StartAppAsync();
+
+      server.Declarations.Should().HaveCount(2);
+      server.Declarations.Should().OnlyContain(item => item.Items.Length > 0);
+      server.ProjectPushes.Should().NotContain(push => push.Items.Length > 0);
    }
 
    [Fact]

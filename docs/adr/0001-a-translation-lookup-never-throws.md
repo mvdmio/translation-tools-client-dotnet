@@ -31,6 +31,7 @@ A caller using `ITranslationToolsClient` directly passes no neutral value, so it
 fallback and receives a response whose `Value` is null. That is indistinguishable from a key the
 service holds with no value yet, and the log is the only way to tell the two apart. We accepted
 this rather than add provenance to the response type, because no caller has asked to branch on it.
+The stored-value Read answers null only for "nothing stored" and throws on failure; see the carve-out below.
 
 Because a lookup no longer fails fast, two safeguards stop it from hanging instead. A lookup times
 out after five seconds by default, and a failure that indicates the service itself is unreachable
@@ -39,3 +40,14 @@ or broken suppresses further calls for one minute. Without those, "never throws"
 
 A local fallback is never written to the cache. Cache entries have no expiry, so caching one would
 let a single outage serve stale local text until the process restarted.
+
+## Carve-out: the stored-value Read
+
+The value lookup still never throws. The stored-value Read (`GetStoredValueAsync`) is not a render
+lookup: it fills an edit form. A failed read shown as an empty field is the data-loss path, because
+the person saves the empty field over the stored text, and the cosmetic-text reasoning above does
+not cover it. So the Read always throws when the service cannot answer (a failing status, a
+transport failure, a timeout, or a body it cannot read) and does not follow `ThrowOnLookupError`.
+It answers null only for "nothing stored", so unlike a value lookup's null it never stands for a
+failure. It bypasses the cache, the local fallback, and the suppression window, so it neither
+degrades to local text nor is silenced by an earlier outage.

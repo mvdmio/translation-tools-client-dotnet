@@ -4,7 +4,7 @@ status: accepted
 
 # Initialize sends the Declaration
 
-Translation keys used to reach the service only through `translations push`, or through a single-key lookup that seeds missing rows. An application that preloads locales never looks up unused keys, so those keys never appeared on the service. So Initialize first sends the application's Declaration under its Environment: every key in its `.resx` files, with the Neutral value and every sibling-locale value. Then it preloads. The service makes those keys the Environment's complete set and stores the values by Seeding, so a restart never overwrites a value edited in TranslationTools. The client collects keys from every assembly the application depends on, not only from assemblies whose code has already run. A failed Declaration is logged and does not fail startup.
+Translation keys used to reach the service only through `translations push`, or through a single-key lookup that seeds missing rows. An application that preloads locales never looks up unused keys, so those keys never appeared on the service. So Initialize first sends the application's Declaration under its Environment: every key in its `.resx` files, with the Neutral value and every sibling-locale value. Then it preloads. The service adds those keys to the Environment, stamps each one, and removes none (a key expires after 7 days of Declarations without it), and stores the values by Seeding, so a restart never overwrites a value edited in TranslationTools. The client collects keys from every assembly the application depends on, not only from assemblies whose code has already run. A failed Declaration is logged and does not fail startup.
 
 ## Considered options
 

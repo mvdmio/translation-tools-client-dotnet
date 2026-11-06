@@ -32,6 +32,9 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public string? LastTranslationRequestQuery { get; private set; }
 
+   /// <summary>Every single-key GET the service received, in arrival order.</summary>
+   public ConcurrentQueue<SingleKeyRequest> SingleKeyRequests { get; } = new();
+
    public int SocketTokenRequestCount => _socketTokenRequestCount;
 
    public int HeartbeatRequestCount => _heartbeatRequestCount;
@@ -62,6 +65,18 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
    public int ProjectPushStatusCode { get; set; } = StatusCodes.Status200OK;
 
    public int DeclarationStatusCode { get; set; } = StatusCodes.Status200OK;
+
+   /// <summary>Status code the single-key GET answers with; anything but 200 wins over <see cref="TranslationAnswer"/> and <see cref="Locales"/>.</summary>
+   public int TranslationStatusCode { get; set; } = StatusCodes.Status200OK;
+
+   /// <summary>
+   /// When set, the single-key GET answers 200 with the value this returns (text, empty, or null) instead of
+   /// answering from <see cref="Locales"/>.
+   /// </summary>
+   public Func<SingleKeyRequest, string?>? TranslationAnswer { get; set; }
+
+   /// <summary>When set, the single-key GET waits for this task (or for the request to be aborted) before it answers.</summary>
+   public Task? TranslationDelay { get; set; }
 
    private int _localeRequestCount;
 
@@ -112,7 +127,7 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
       app.MapGet("/api/v1/translations/{locale}", (HttpContext context, string locale) => ServeLocale(context, locale, environment: null));
       app.MapGet("/api/v1/translations/{locale}/{environment}", (HttpContext context, string locale, string environment) => ServeLocale(context, locale, environment));
 
-      IResult ServeTranslation(HttpContext context, string origin, string locale, string key)
+      async Task<IResult> ServeTranslation(HttpContext context, string origin, string locale, string key, string? environment)
       {
          host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
          host.LastTranslationRequestQuery = context.Request.QueryString.Value;
@@ -122,6 +137,34 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          // segment to avoid path-traversal ambiguity, even though it decodes other escapes
          // (like %3A). Fully unescape here to recover the original "<project>:/path.resx" origin.
          origin = Uri.UnescapeDataString(origin);
+
+         var singleKeyRequest = new SingleKeyRequest(origin, locale, key, environment, context.Request.QueryString.Value);
+         host.SingleKeyRequests.Enqueue(singleKeyRequest);
+
+         if (host.TranslationDelay is { } delay)
+         {
+            try
+            {
+               await delay.WaitAsync(context.RequestAborted);
+            }
+            catch (OperationCanceledException)
+            {
+               return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+            }
+         }
+
+         if (host.TranslationStatusCode != StatusCodes.Status200OK)
+            return Results.StatusCode(host.TranslationStatusCode);
+
+         if (host.TranslationAnswer is { } answer)
+         {
+            return Results.Json(new TranslationItemResponse
+            {
+               Origin = origin,
+               Key = key,
+               Value = answer(singleKeyRequest)
+            }, SerializerOptions);
+         }
 
          if (host.Locales.TryGetValue(locale, out var values) && values.TryGetValue(new TranslationRef(origin, key), out var value))
          {
@@ -136,7 +179,8 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          return Results.NotFound();
       }
 
-      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}", (HttpContext context, string origin, string locale, string key) => ServeTranslation(context, origin, locale, key));
+      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}", async (HttpContext context, string origin, string locale, string key) => await ServeTranslation(context, origin, locale, key, environment: null));
+      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}/{environment}", async (HttpContext context, string origin, string locale, string key, string environment) => await ServeTranslation(context, origin, locale, key, environment));
 
       app.MapGet("/api/v1/translations/socket-token", (HttpContext context) =>
       {
@@ -267,6 +311,8 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
       _disposeCancellationTokenSource.Dispose();
    }
+
+   public sealed record SingleKeyRequest(string Origin, string Locale, string Key, string? Environment, string? Query);
 
    public sealed record HeartbeatBody(string? ClientId, string? Environment, string? Platform, string? Version);
 

@@ -36,7 +36,7 @@ var app = builder.Build();
 await app.InitializeTranslationToolsClientAsync();
 ```
 
-`InitializeTranslationToolsClientAsync` first sends the Declaration: every local catalog key under your Environment, including the keys of `.resx` files in class libraries the application depends on (even when no code in them has run yet), with its Neutral value as `DefaultLocale` and every sibling-locale `.resx` value. The service makes those keys the Environment's complete set. It stores a value only where it holds none for that key and locale, so a start never overwrites a value stored on the service, and edits made in TranslationTools stay. Changed text for an existing key reaches the service through `translations push`, or as a new key. Then the client preloads the Effective locale of each of `SupportedLocales` (or of the culture the app started under when it names none), so the cache holds the service's values. A failed Declaration is logged and does not fail application startup. A failed locale preload or globals push is logged as a warning too, and the heartbeat and live updates start anyway; a locale that failed to preload is fetched by the first lookup that needs it.
+`InitializeTranslationToolsClientAsync` first sends the Declaration: every local catalog key under your Environment, including the keys of `.resx` files in class libraries the application depends on (even when no code in them has run yet), with its Neutral value as `DefaultLocale` and every sibling-locale `.resx` value. The service adds those keys to the Environment and removes none. It stores a value only where it holds none for that key and locale, so a start never overwrites a value stored on the service, and edits made in TranslationTools stay. Changed text for an existing key reaches the service through `translations push`, or as a new key. Then the client preloads the Effective locale of each of `SupportedLocales` (or of the culture the app started under when it names none), so the cache holds the service's values. A failed Declaration is logged and does not fail application startup. A failed locale preload or globals push is logged as a warning too, and the heartbeat and live updates start anyway; a locale that failed to preload is fetched by the first lookup that needs it.
 
 ### Options
 
@@ -91,6 +91,34 @@ var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 ```
 
 Translation keys match without regard to case within an origin, as the service matches them. A lookup for `Action.Edit` is answered by a cached `action.edit`, so a key the service stores in another casing hits the cache. The `TranslationItemResponse` that comes back holds the key in the casing the service stores, so that lookup returns `Key = "action.edit"`. The source generator matches locale `.resx` keys to neutral `.resx` keys without regard to case too: a Dutch `action.edit` feeds the generated local fallback and the catalog entry of the neutral `Action.Edit`, and both use the neutral file's casing.
+
+## Runtime keys
+
+An app that creates keys while it runs, such as a record whose name is a translated text, declares, writes, and reads them through `ITranslationToolsClient`. The key lives under any Origin you choose, for example `MyApp.staging:/WorkProcessTemplates.resx`, and never enters the catalog.
+
+```csharp
+using System.Globalization;
+using mvdmio.TranslationTools.Client;
+
+var client = app.Services.GetRequiredService<ITranslationToolsClient>();
+var name = new TranslationRef("MyApp.staging:/WorkProcessTemplates.resx", "WorkProcessTemplate.3f2a0c1e.Name");
+
+// Declare: add the key to the Environment, with a starting text.
+await client.DeclareAsync([new TranslationCatalogKey(name.Origin, name.Key, "Intake")]);
+
+// Write: store the text people edited.
+await client.WriteAsync([new TranslationValueWrite(name, new CultureInfo("nl"), "Intake NL")]);
+
+// Read: the text the service stores, or null when it stores nothing.
+string? stored = await client.GetStoredValueAsync(name, new CultureInfo("nl"));
+```
+
+- `DeclareAsync` never overwrites a stored value and renews the key's 7-day expiry, so call it on every start for the keys that still exist. It throws when the request fails.
+- `WriteAsync` overwrites each value that differs, keeps the previous text in the key's history, queues Auto-translation, and opens Review requests. The client's own cache answers the written text at once. A null value is rejected before any request; an empty string clears the text. It throws when the request fails, and the cache stays as it was.
+- `GetStoredValueAsync` answers null for nothing stored (no row, or a null, empty, or whitespace value) and the stored text otherwise, untrimmed. It always asks the service, never reads or writes the cache, and ignores the local fallback. It always throws when the service cannot answer, whatever `ThrowOnLookupError` says: an `HttpRequestException` for a failing status or a transport failure, a `TranslationLookupException` when `LookupTimeout` passes, and an `OperationCanceledException` for a cancelled token. A failed read must never look like an empty field.
+- `GetAsync` is unchanged: it answers from the cache, never throws, and degrades to the local fallback.
+
+The startup Declaration and the keys from your `.resx` files work as before.
 
 ## Environment scoping
 

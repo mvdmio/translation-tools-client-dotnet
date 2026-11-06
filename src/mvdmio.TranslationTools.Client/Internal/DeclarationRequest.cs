@@ -5,8 +5,8 @@ namespace mvdmio.TranslationTools.Client.Internal;
 
 /// <summary>
 /// Body for <c>POST api/v1/translations/declaration</c>: every catalog key with the values the
-/// <c>.resx</c> files hold. The service makes the keys the Environment's complete set and stores
-/// the values by Seeding.
+/// <c>.resx</c> files hold. The service adds the keys to the Environment and stores the values by
+/// Seeding. Each key expires after 7 days of Declarations without it.
 /// </summary>
 internal sealed class DeclarationRequest
 {

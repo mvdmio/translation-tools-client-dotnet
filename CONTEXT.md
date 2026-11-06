@@ -13,8 +13,20 @@ and `action.edit` in one origin are the same key, as the service treats them. Wr
 _Avoid_: resource name, string id
 
 **Declaration**:
-Every translation key in the application's `.resx` files, with every value those files hold, sent under its Environment each time the client initializes. The service makes those keys the Environment's complete set, replacing the previous one, and stores the values by Seeding.
+Every translation key in the application's `.resx` files, with every value those files hold, sent under its Environment each time the client initializes. The service adds those keys to the Environment, stamps every key the Declaration names, and removes none; a key expires after 7 days of Declarations without it. It stores the values by Seeding.
 _Avoid_: missing keys, key sync, startup push
+
+**Declare**:
+A Declaration the app sends at any time after the client is built, for keys it chooses and under any Origin, with `DeclareAsync`. It is the startup Declaration's request, so it never overwrites a stored value and renews each key's expiry. It never enters the catalog. Unlike the startup Declaration, it throws on failure.
+_Avoid_: register, runtime catalog
+
+**Write**:
+A Push from an app, with `WriteAsync`: values per Origin, key, and locale. The service overwrites each value that differs, keeps the previous text in history, queues Auto-translation, opens Review requests, and declares a key that is new to the Environment. A null value is rejected before any request; an empty string clears the text. After the service accepts it, the client's cache answers the written values at once. It throws on failure.
+_Avoid_: update, save, upload
+
+**Read**:
+The text the service stores for one key and locale, with `GetStoredValueAsync`, for an app that fills an edit form. It asks the service on every call and bypasses the cache, the local fallback, and the suppression window. Null means nothing is stored (no row, or a null, empty, or whitespace value). It always throws when the service cannot answer, whatever `ThrowOnLookupError` says, so a failed read never looks like an empty field.
+_Avoid_: fetch, lookup, get
 
 **Seeding**:
 How the service stores a value from a Declaration: only where it holds no value for that key and locale. A value already on the service stays, whoever wrote it, so a restart never overwrites an edit made in TranslationTools.

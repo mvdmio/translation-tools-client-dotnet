@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-06: The client declares keys, writes values, and reads a stored value at runtime
+
+`ITranslationToolsClient` gains three calls for keys an app creates while it runs, under any Origin. `DeclareAsync` adds keys to the Environment without overwriting a stored value and renews their 7-day expiry. `WriteAsync` overwrites values, keeps the previous text in history, queues Auto-translation, opens Review requests, and the client's own cache answers the written text at once. `GetStoredValueAsync` answers the text the service stores for one key and locale, null for nothing stored, always asks the service, and always throws when it cannot answer, whatever `ThrowOnLookupError` says. All three throw on failure, unlike a lookup. The startup Declaration and `GetAsync` are unchanged. Depend on 3.12.0 for them. The package readme gains a section for runtime keys.
+
 ## 2026-10-30: Workers preload the Default locale, and a Generic Host worker can initialize the client
 
 A worker that runs under the invariant culture and names no supported locales now preloads the Default locale (`en` unless the app sets another) when the client initializes, so its lookups answer from the cache instead of one request per key. An invariant entry in `SupportedLocales` preloads the Default locale too, and a locale that resolves to the same name as an earlier one is fetched once. An app whose locales all have names preloads what it did before. `InitializeTranslationToolsClientAsync` now extends `IHost` instead of `WebApplication`, so a Generic Host worker calls it the same way a web app does and gets the Declaration, the Preload, the global placeholder push, the heartbeat, and live updates; every existing web app call compiles unchanged. The package readme gains a section for worker and console apps.

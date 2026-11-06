@@ -55,6 +55,8 @@ var item = await client.GetAsync(Localizations.Keys.Button_Save, new CultureInfo
 var locale = await client.GetLocaleAsync(new CultureInfo("en"));
 ```
 
+Keys created at runtime are declared, written, and read with `DeclareAsync`, `WriteAsync`, and `GetStoredValueAsync`; see [Runtime keys](src/mvdmio.TranslationTools.Client/Readme.md#runtime-keys).
+
 Package docs: `src/mvdmio.TranslationTools.Client/Readme.md`
 
 ### `mvdmio.TranslationTools.Tool`
