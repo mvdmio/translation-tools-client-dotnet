@@ -4,14 +4,7 @@ This document provides instructions for AI coding assistants working on this cod
 
 ## General instructions
 
-- Ask questions if you need clarification.
-- Search early; quote exact errors; prefer newer sources.
-- Style: telegraph. Drop filler/grammar. Min tokens (global AGENTS + replies).
-- Keep files shorter than ~500 LOC; split/refactor as needed. Does not apply to test files.
-- Always add tests when adding functionality.
-- Always create or modify tests when fixing a bug.
 - Always build the solution and run the tests after making changes. Fix all build errors and test failures before finishing your work.
-- If the build fails because some process is running and locking the file, kill the process.
 - Always update the README.md file so that it reflects the latest state of the project
 - Keep README.md focused on stable product description, usage, and reference material. Do not add changelog-style notes, implementation history, or release-specific callouts unless the information is required for users to understand current behavior or usage.
 - Always bump `TranslationToolsVersion` in `Directory.Build.props` (it versions every package) when making changes that affect a published package. Follow semantic versioning principles (MAJOR.MINOR.PATCH):
@@ -21,7 +14,7 @@ This document provides instructions for AI coding assistants working on this cod
 
 ## Project Overview
 
-.NET client, source generator, and CLI tool (`translations`) for the TranslationTools service. Glossary: `CONTEXT.md`. Decisions: `docs/adr/`. Coding standards — read before writing or reviewing code: `.agents/refs/coding-standards.md` (style, naming, XML docs, test conventions, rules learned from mistakes).
+.NET client, source generator, and CLI tool (`translations`) for the TranslationTools service. Glossary: `CONTEXT.md`. Decisions: `docs/adr/`. Coding standards — read before writing or reviewing code: `.agents/refs/coding-standards.md` (test conventions, rules learned from mistakes).
 
 ```
 src/
