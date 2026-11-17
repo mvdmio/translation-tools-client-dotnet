@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-18: Packages target .NET 10 and .NET 11, drop .NET 8 and 9
+
+`mvdmio.TranslationTools.Client` and `mvdmio.TranslationTools.Tool` now target `net10.0` and `net11.0`; `net8.0` and `net9.0` are gone, so apps and tool installs on .NET 8 or 9 stay on 3.x. The source generator still targets `netstandard2.0`. No API change. Depend on 4.0.0 for it.
+
 ## 2026-11-17: translations pull --prune is hidden and does nothing
 
 `translations pull --prune` is hidden from `translations pull --help` and does nothing: a pull with the flag behaves exactly like a pull without it and prints no "not fully implemented" message. The flag never deleted anything. Every pull already rewrites each locale `.resx` file the service holds values for, so it drops entries the service no longer holds; a pull never writes the Neutral file and deletes no file. Existing scripts that pass the flag keep working. The tool readme and the root readme no longer describe a destructive pull. Depend on 3.12.2 for it.

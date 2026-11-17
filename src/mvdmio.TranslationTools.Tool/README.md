@@ -8,6 +8,8 @@ Use `mvdmio.TranslationTools.Tool` to sync TranslationTools translations with lo
 dotnet tool install --global mvdmio.TranslationTools.Tool
 ```
 
+Runs on .NET 10 or .NET 11. Users on .NET 8 or 9 stay on 3.x.
+
 Command name: `translations`
 
 ## Quick start

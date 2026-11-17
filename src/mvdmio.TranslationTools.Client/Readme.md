@@ -8,6 +8,8 @@ Use `mvdmio.TranslationTools.Client` in a .NET application to load translations 
 dotnet add package mvdmio.TranslationTools.Client
 ```
 
+Targets `net10.0` and `net11.0`. Apps on .NET 8 or 9 stay on 3.x.
+
 ## What you get
 
 - DI registration for the TranslationTools client

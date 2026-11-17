@@ -21,6 +21,8 @@ Install:
 dotnet add package mvdmio.TranslationTools.Client
 ```
 
+Targets `net10.0` and `net11.0`. Apps on .NET 8 or 9 stay on 3.x.
+
 Basic setup:
 
 ```csharp
@@ -68,6 +70,8 @@ Install:
 ```bash
 dotnet tool install --global mvdmio.TranslationTools.Tool
 ```
+
+Runs on .NET 10 or .NET 11 (SDK or runtime). Users on .NET 8 or 9 stay on 3.x.
 
 Command name: `translations`
 
