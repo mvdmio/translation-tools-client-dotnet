@@ -27,7 +27,6 @@ public class PullHandlerResxWritingTests
                ApiKey = "api-key",
                DefaultLocale = "en"
             },
-            prune: false,
             TestContext.Current.CancellationToken
          );
 
@@ -79,7 +78,6 @@ public class PullHandlerResxWritingTests
                ApiKey = "api-key",
                DefaultLocale = "en"
             },
-            prune: false,
             TestContext.Current.CancellationToken
          );
 

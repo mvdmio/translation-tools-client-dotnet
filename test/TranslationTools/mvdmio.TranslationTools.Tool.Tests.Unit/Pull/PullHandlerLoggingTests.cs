@@ -20,7 +20,6 @@ public class PullHandlerLoggingTests
             ApiKey = null,
             DefaultLocale = "en"
          },
-         prune: false,
          TestContext.Current.CancellationToken
       );
 
@@ -46,7 +45,6 @@ public class PullHandlerLoggingTests
                ApiKey = "api-key",
                DefaultLocale = null
             },
-            prune: false,
             TestContext.Current.CancellationToken
          );
 
@@ -94,7 +92,6 @@ public class PullHandlerLoggingTests
                ApiKey = "api-key",
                DefaultLocale = "en"
             },
-            prune: false,
             TestContext.Current.CancellationToken
          );
 

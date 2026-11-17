@@ -29,13 +29,18 @@ internal sealed class PullHandler
       _reporter = reporter;
    }
 
-   public Task HandleAsync(bool prune, CancellationToken cancellationToken = default)
+   /// <summary>
+   ///    Loads the tool configuration and pulls the project's translations from the service into local .resx files.
+   /// </summary>
+   /// <param name="cancellationToken">Token to cancel the pull.</param>
+   /// <returns>A task that completes when the pull has finished.</returns>
+   public Task HandleAsync(CancellationToken cancellationToken = default)
    {
       var config = ToolConfigurationLoader.Load();
-      return HandleAsync(config, prune, cancellationToken);
+      return HandleAsync(config, cancellationToken);
    }
 
-   internal async Task HandleAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken = default)
+   internal async Task HandleAsync(ToolConfiguration config, CancellationToken cancellationToken = default)
    {
       var request = ResolveRequest(config);
       if (request is null)
@@ -145,9 +150,6 @@ internal sealed class PullHandler
          var summary = localeChanges[locale];
          _reporter.WriteInfo($"Locale '{locale}': +{summary.Added} ~{summary.Updated} -{summary.Deleted}");
       }
-
-      if (prune)
-         _reporter.WriteInfo("Prune requested. Remote-aligned file deletion not fully implemented yet.");
    }
 
    internal static TranslationPullRequest? ResolveRequest(ToolConfiguration config)

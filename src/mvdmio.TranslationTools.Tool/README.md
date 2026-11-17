@@ -46,7 +46,6 @@ Downloads translations from TranslationTools and writes them to local `.resx` fi
 
 ```bash
 translations pull
-translations pull --prune
 ```
 
 - Matches the stored origin project segment to the local `.csproj` name case-insensitively (`mvdmio.localization` matches `mvdmio.Localization`).
@@ -54,7 +53,7 @@ translations pull --prune
 - Does not overwrite the default-locale / neutral `.resx` (the authored source file).
 - Writes `.mvdmio-translations.pull.json` in the project directory as the baseline for the next push.
 
-Use `--prune` for a destructive pull that deletes local `.resx` files and entries that no longer exist remotely.
+A pull rewrites each locale `.resx` file the service holds values for so that it holds exactly those values, so an entry the service no longer holds disappears. A pull never writes the file that holds the Neutral values and never deletes a file.
 
 ### `translations push`
 

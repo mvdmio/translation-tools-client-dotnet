@@ -10,15 +10,15 @@ internal static class PullCommand
       var handler = new PullHandler();
       var pruneOption = new Option<bool>("--prune")
       {
-         Description = "Delete local .resx files and entries missing from the remote project"
+         Hidden = true
       };
 
       var command = new Command("pull", "Pull translations from the API into local .resx files");
       command.Options.Add(pruneOption);
 
-      command.SetAction(async (parseResult, cancellationToken) =>
+      command.SetAction(async (_, cancellationToken) =>
       {
-         await handler.HandleAsync(parseResult.GetValue(pruneOption), cancellationToken);
+         await handler.HandleAsync(cancellationToken);
       });
 
       return command;

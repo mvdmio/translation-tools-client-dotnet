@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-17: translations pull --prune is hidden and does nothing
+
+`translations pull --prune` is hidden from `translations pull --help` and does nothing: a pull with the flag behaves exactly like a pull without it and prints no "not fully implemented" message. The flag never deleted anything. Every pull already rewrites each locale `.resx` file the service holds values for, so it drops entries the service no longer holds; a pull never writes the Neutral file and deletes no file. Existing scripts that pass the flag keep working. The tool readme and the root readme no longer describe a destructive pull. Depend on 3.12.2 for it.
+
 ## 2026-11-17: translations push --prune is hidden and does nothing
 
 `translations push --prune` is hidden from `translations push --help` and does nothing: a push with the flag behaves exactly like a push without it and prints no warning. The service has not pruned on push since 2026-06-27, so the flag already had no effect. Existing scripts that pass the flag keep working, and the push request no longer carries a `prune` field. The tool readme and the root readme no longer describe a destructive push; they now explain how a deleted key leaves the service: the key leaves its Environment once 7 days of Declarations pass without it, the service deletes it 24 hours after no Environment holds it, and `translations pull` still returns it until then. Depend on 3.12.1 for it.
