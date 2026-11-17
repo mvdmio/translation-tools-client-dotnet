@@ -89,3 +89,11 @@ _Avoid_: ambient token, context variable
 **Key-scoped token**:
 A `{token}` whose value the caller supplies per call, as a parameter on the generated accessor.
 _Avoid_: local placeholder, argument token
+
+**Plural**:
+A translation value that holds one whole sentence per Plural form and picks one by a whole number the caller supplies, such as "1 item" or "5 items". It is one ICU plural argument that wraps the entire value: `{count, plural, one {# item} other {# items}}`, where `#` prints the number. A key is a Plural when its Neutral value is one. A Plural is never a fragment inside other text, never nested, and never driven by a Global placeholder. Key-scoped tokens may appear inside its forms.
+_Avoid_: plural block, ICU message, quantity string
+
+**Plural form**:
+The sentence of a Plural for one CLDR plural category of a locale (`zero`, `one`, `two`, `few`, `many`, `other`), or for an exact number the value names, such as `=0`. An exact number wins over a category.
+_Avoid_: variant, plural case, quantity
