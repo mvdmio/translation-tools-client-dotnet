@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using mvdmio.TranslationTools.Tool.Configuration;
 using mvdmio.TranslationTools.Tool.Pull;
 using mvdmio.TranslationTools.Tool.Push;
+using System.Text.Json;
 using Xunit;
 
 namespace mvdmio.TranslationTools.Tool.Tests.Unit.Push;
@@ -37,15 +38,18 @@ public class PushHandlerTests
    }
 
    [Fact]
-   public async Task HandleAsync_ShouldSendPruneFlagInPushRequest()
+   public async Task HandleAsync_ShouldSendItemsAndNoPruneInSerializedPushRequest()
    {
       using var fixture = new PushProjectFixture();
 
-      await fixture.Handler.HandleAsync(fixture.CreateConfiguration(), prune: true, CancellationToken.None);
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration(), CancellationToken.None);
 
       fixture.ApiService.Request.Should().NotBeNull();
-      fixture.ApiService.Request!.Prune.Should().BeTrue();
-      fixture.ApiService.Request.Items.Should().ContainSingle(x => x.Key == "Home.Title" && x.Locale == "en" && x.Value == "Hello");
+      fixture.ApiService.Request!.Items.Should().ContainSingle(x => x.Key == "Home.Title" && x.Locale == "en" && x.Value == "Hello");
+
+      var json = JsonSerializer.SerializeToElement(fixture.ApiService.Request, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+      json.TryGetProperty("items", out _).Should().BeTrue();
+      json.TryGetProperty("prune", out _).Should().BeFalse();
    }
 
    [Fact]
@@ -53,7 +57,7 @@ public class PushHandlerTests
    {
       using var fixture = new PushProjectFixture();
 
-      await fixture.Handler.HandleAsync(fixture.CreateConfiguration("production"), prune: false, CancellationToken.None);
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration("production"), CancellationToken.None);
 
       fixture.ApiService.Request.Should().NotBeNull();
       fixture.ApiService.Request!.Environment.Should().Be("production");
@@ -64,7 +68,7 @@ public class PushHandlerTests
    {
       using var fixture = new PushProjectFixture();
 
-      await fixture.Handler.HandleAsync(fixture.CreateConfiguration(), prune: false, CancellationToken.None);
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration(), CancellationToken.None);
 
       fixture.ApiService.Request.Should().NotBeNull();
       fixture.ApiService.Request!.Environment.Should().BeNull();
@@ -75,7 +79,7 @@ public class PushHandlerTests
    {
       using var fixture = new PushProjectFixture();
 
-      await fixture.Handler.HandleAsync(fixture.CreateConfiguration("prod:sha"), prune: false, CancellationToken.None);
+      await fixture.Handler.HandleAsync(fixture.CreateConfiguration("prod:sha"), CancellationToken.None);
 
       fixture.ApiService.Request.Should().BeNull();
       fixture.Reporter.Errors.Should().ContainSingle()
@@ -93,7 +97,7 @@ public class PushHandlerTests
       var configuration = fixture.CreateConfiguration();
       configuration.ApiKey = null;
 
-      await fixture.Handler.HandleAsync(configuration, prune: false, CancellationToken.None);
+      await fixture.Handler.HandleAsync(configuration, CancellationToken.None);
 
       fixture.ApiService.Request.Should().BeNull();
       fixture.Reporter.Errors.Should().ContainSingle()
@@ -182,7 +186,7 @@ public class PushHandlerTests
          var apiService = new TestTranslationApiService();
          var handler = new PushHandler(apiService, new ProjectManifestScanner(), new TestPushReporter());
 
-         await handler.HandleAsync(CreateConfig(projectDirectory), prune: false, CancellationToken.None);
+         await handler.HandleAsync(CreateConfig(projectDirectory), CancellationToken.None);
 
          apiService.Request.Should().NotBeNull();
          apiService.Request!.Items.Should().OnlyContain(static item => item.Value == null);
@@ -230,7 +234,7 @@ public class PushHandlerTests
          var apiService = new TestTranslationApiService();
          var handler = new PushHandler(apiService, new ProjectManifestScanner(), new TestPushReporter());
 
-         await handler.HandleAsync(CreateConfig(projectDirectory), prune: false, CancellationToken.None);
+         await handler.HandleAsync(CreateConfig(projectDirectory), CancellationToken.None);
 
          apiService.Request.Should().NotBeNull();
          apiService.Request!.Items.Should().ContainSingle(x => x.Key == "Button.Save" && x.Locale == "nl" && x.Value == "Bewaar");
@@ -399,7 +403,7 @@ public class PushHandlerTests
       var apiService = new TestTranslationApiService();
       var handler = new PushHandler(apiService, new ProjectManifestScanner(), reporter ?? new TestPushReporter());
 
-      await handler.HandleAsync(CreateConfig(projectDirectory), prune: false, CancellationToken.None);
+      await handler.HandleAsync(CreateConfig(projectDirectory), CancellationToken.None);
 
       apiService.Request.Should().NotBeNull();
       return apiService.Request!;

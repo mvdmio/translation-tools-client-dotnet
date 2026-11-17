@@ -62,7 +62,6 @@ Uploads local `.resx` values to TranslationTools.
 
 ```bash
 translations push
-translations push --prune
 ```
 
 Push matches translation keys within one origin without regard to case, as the service does. It sends one item per key and locale, so `Action.Edit` in `Localizations.resx` and `action.edit` in `Localizations.nl.resx` push as one key. Every item for a key uses the default-locale file's casing. A key found only in locale files uses the casing of the locale file whose locale name sorts first.
@@ -75,7 +74,7 @@ When `.mvdmio-translations.pull.json` is present from a previous pull:
 
 Without a pull baseline, push still posts every local value (bootstrap / first upload).
 
-Use `--prune` for a destructive push that deletes remote translations that no longer exist in local `.resx` files.
+A push adds the keys it sends to the project's Environment and removes none. A key deleted from the `.resx` files leaves the Environment once 7 days of Declarations pass without it, and the service deletes it 24 hours after no Environment holds it. Until then, `translations pull` still returns it.
 
 ## Typical workflow
 

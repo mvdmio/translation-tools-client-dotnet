@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-17: translations push --prune is hidden and does nothing
+
+`translations push --prune` is hidden from `translations push --help` and does nothing: a push with the flag behaves exactly like a push without it and prints no warning. The service has not pruned on push since 2026-06-27, so the flag already had no effect. Existing scripts that pass the flag keep working, and the push request no longer carries a `prune` field. The tool readme and the root readme no longer describe a destructive push; they now explain how a deleted key leaves the service: the key leaves its Environment once 7 days of Declarations pass without it, the service deletes it 24 hours after no Environment holds it, and `translations pull` still returns it until then. Depend on 3.12.1 for it.
+
 ## 2026-11-06: The client declares keys, writes values, and reads a stored value at runtime
 
 `ITranslationToolsClient` gains three calls for keys an app creates while it runs, under any Origin. `DeclareAsync` adds keys to the Environment without overwriting a stored value and renews their 7-day expiry. `WriteAsync` overwrites values, keeps the previous text in history, queues Auto-translation, opens Review requests, and the client's own cache answers the written text at once. `GetStoredValueAsync` answers the text the service stores for one key and locale, null for nothing stored, always asks the service, and always throws when it cannot answer, whatever `ThrowOnLookupError` says. All three throw on failure, unlike a lookup. The startup Declaration and `GetAsync` are unchanged. Depend on 3.12.0 for them. The package readme gains a section for runtime keys.

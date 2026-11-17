@@ -6,6 +6,4 @@ internal sealed class TranslationPushRequest
 
    /// <summary>Self-declared deployment environment name; null/blank declares into the unnamed environment.</summary>
    public string? Environment { get; init; }
-
-   public bool Prune { get; init; }
 }

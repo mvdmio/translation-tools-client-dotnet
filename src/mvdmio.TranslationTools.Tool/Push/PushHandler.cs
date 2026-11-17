@@ -23,13 +23,18 @@ internal sealed class PushHandler
       _reporter = reporter;
    }
 
-   public Task HandleAsync(bool prune, CancellationToken cancellationToken = default)
+   /// <summary>
+   ///    Loads the tool configuration and pushes the project's scanned translations to the service.
+   /// </summary>
+   /// <param name="cancellationToken">Token to cancel the push.</param>
+   /// <returns>A task that completes when the push has finished.</returns>
+   public Task HandleAsync(CancellationToken cancellationToken = default)
    {
       var config = ToolConfigurationLoader.Load();
-      return HandleAsync(config, prune, cancellationToken);
+      return HandleAsync(config, cancellationToken);
    }
 
-   internal async Task HandleAsync(ToolConfiguration config, bool prune, CancellationToken cancellationToken = default)
+   internal async Task HandleAsync(ToolConfiguration config, CancellationToken cancellationToken = default)
    {
       if (string.IsNullOrWhiteSpace(config.ApiKey))
       {
@@ -76,7 +81,6 @@ internal sealed class PushHandler
          config.ApiKey,
          new TranslationPushRequest
          {
-            Prune = prune,
             Environment = environment,
             Items = items
          },

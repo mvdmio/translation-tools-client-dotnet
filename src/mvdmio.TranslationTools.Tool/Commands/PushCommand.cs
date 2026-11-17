@@ -10,14 +10,14 @@ internal static class PushCommand
       var handler = new PushHandler();
       var pruneOption = new Option<bool>("--prune")
       {
-         Description = "Delete remote translations missing from local .resx files"
+         Hidden = true
       };
       var command = new Command("push", "Push project translation keys to the API");
       command.Options.Add(pruneOption);
 
-      command.SetAction(async (parseResult, cancellationToken) =>
+      command.SetAction(async (_, cancellationToken) =>
       {
-         await handler.HandleAsync(parseResult.GetValue(pruneOption), cancellationToken);
+         await handler.HandleAsync(cancellationToken);
       });
 
       return command;

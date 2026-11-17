@@ -83,7 +83,6 @@ Destructive sync options:
 
 ```bash
 translations pull --prune
-translations push --prune
 ```
 
 Example config file:
@@ -96,9 +95,8 @@ The CLI reads the project API key from the `TRANSLATIONS_API_KEY` environment va
 
 - `translations init` creates `.mvdmio-translations.yml`
 - `translations pull` downloads remote translations into local `.resx` files
-- `translations push` uploads local `.resx` values to TranslationTools
+- `translations push` uploads local `.resx` values to TranslationTools. A push removes no key: a key deleted from the `.resx` files leaves the Environment after 7 days of Declarations without it, the service deletes it 24 hours after no Environment holds it, and a pull returns it until then.
 - `translations pull --prune` also deletes local `.resx` files and entries that no longer exist remotely
-- `translations push --prune` also deletes remote translations that no longer exist in local `.resx` files
 
 Package docs: `src/mvdmio.TranslationTools.Tool/README.md`
 
