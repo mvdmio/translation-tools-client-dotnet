@@ -20,6 +20,10 @@ _Avoid_: missing keys, key sync, startup push
 A Declaration the app sends at any time after the client is built, for keys it chooses and under any Origin, with `DeclareAsync`. It is the startup Declaration's request, so it never overwrites a stored value and renews each key's expiry. It never enters the catalog. Unlike the startup Declaration, it throws on failure.
 _Avoid_: register, runtime catalog
 
+**Push**:
+An upload of the Translation keys and values in the project's `.resx` files to the service, under the project's Environment, with `translations push`. The service adds those keys to the Environment, overwrites each value that differs from the stored one, and removes no key. A key deleted from the `.resx` files leaves the Environment once 7 days of Declarations pass without it, and the service deletes it 24 hours after no Environment holds it.
+_Avoid_: sync, upload, prune
+
 **Write**:
 A Push from an app, with `WriteAsync`: values per Origin, key, and locale. The service overwrites each value that differs, keeps the previous text in history, queues Auto-translation, opens Review requests, and declares a key that is new to the Environment. A null value is rejected before any request; an empty string clears the text. After the service accepts it, the client's cache answers the written values at once. It throws on failure.
 _Avoid_: update, save, upload
