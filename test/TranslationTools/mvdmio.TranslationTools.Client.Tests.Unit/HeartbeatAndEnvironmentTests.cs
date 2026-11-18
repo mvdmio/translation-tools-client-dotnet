@@ -70,7 +70,6 @@ public class HeartbeatAndEnvironmentTests
       var count = await AdvanceUntilHeartbeatsAsync(handler, time, TimeSpan.FromHours(1), 2);
       count.Should().BeGreaterThanOrEqualTo(2);
 
-      // No environment configured => environment is null in the heartbeat body.
       var body = JsonSerializer.Deserialize<HeartbeatBody>(handler.Heartbeats.First().Body, JsonOptions)!;
       body.Environment.Should().BeNull();
    }
@@ -110,9 +109,6 @@ public class HeartbeatAndEnvironmentTests
    [Fact]
    public async Task Initialize_ShouldPreloadOnlyTheDefaultLocale_WhenCurrentCultureIsInvariant_AndNoSupportedLocalesConfigured()
    {
-      // CI runners often run under the invariant culture (empty Name). With no SupportedLocales
-      // configured, Initialize() falls back to CurrentUICulture; its empty locale name must resolve
-      // to the Default locale before the preload, so startup neither crashes nor preloads nothing.
       var originalCulture = CultureInfo.CurrentUICulture;
       try
       {
@@ -216,7 +212,6 @@ public class HeartbeatAndEnvironmentTests
    [Fact]
    public void FileClientIdStore_WithUnavailablePath_ShouldReturnGuid_WithoutThrowing()
    {
-      // A path that points at an existing file used as a directory: writes will fail.
       var tempFile = Path.GetTempFileName();
       try
       {
@@ -288,8 +283,6 @@ public class HeartbeatAndEnvironmentTests
 
    private static async Task<int> AdvanceUntilHeartbeatsAsync(RecordingHandler handler, FakeTimeProvider time, TimeSpan interval, int expected)
    {
-      // The background loop may not yet be parked on WaitForNextTickAsync when we advance.
-      // Repeatedly advance until the expected tick is observed, so the test is not racy.
       var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
       while (DateTime.UtcNow < deadline)
       {

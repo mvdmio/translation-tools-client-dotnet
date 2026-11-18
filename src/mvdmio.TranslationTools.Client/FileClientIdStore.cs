@@ -73,8 +73,6 @@ public sealed class FileClientIdStore : IClientIdStore
       }
       catch (Exception)
       {
-         // Persistence unavailable (IO error, access denied, etc.).
-         // Fall back to an in-memory GUID; never throw.
          return Guid.NewGuid();
       }
    }

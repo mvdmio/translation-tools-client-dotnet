@@ -9,15 +9,6 @@ using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
-/// <summary>
-/// With <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/> set, a single-key lookup
-/// rethrows each failure class instead of degrading to the local fallback. Named and shaped after
-/// the existing <c>ThrowOnPlaceholderError</c>.
-///
-/// "Rethrows" is literal: the exception the fetch produced is preserved, so an application opting
-/// back into throwing catches the same types the client raised before the degrade-by-default
-/// contract existed.
-/// </summary>
 public class ThrowOnLookupErrorTests
 {
    private const string ProjectOriginPrefix = "Fixture.App:";

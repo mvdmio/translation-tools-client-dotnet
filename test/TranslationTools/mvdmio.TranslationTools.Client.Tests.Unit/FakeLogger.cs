@@ -5,10 +5,6 @@ using System.Collections.Generic;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
-/// <summary>
-/// Records every log line written through it, so a test can assert on what an operator
-/// would see without reaching into the client's internals.
-/// </summary>
 internal sealed class FakeLogger : ILogger
 {
    public ConcurrentBag<FakeLogEntry> Entries { get; } = new();

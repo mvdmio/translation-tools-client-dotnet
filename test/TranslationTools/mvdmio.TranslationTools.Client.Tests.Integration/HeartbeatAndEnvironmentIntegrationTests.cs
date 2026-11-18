@@ -96,7 +96,6 @@ public sealed class HeartbeatAndEnvironmentIntegrationTests
       server.LastHeartbeatBody.Platform.Should().Be("dotnet");
       server.LastHeartbeatBody.Version.Should().NotBeNullOrWhiteSpace();
 
-      // The background loop may not yet be parked on the timer; advance repeatedly until the next tick lands.
       await Eventually.AssertAsync(
          () =>
          {

@@ -682,8 +682,6 @@ public class InitializeDeclarationTests
 
          if (request.Method == HttpMethod.Get && path.StartsWith("/api/v1/translations/", StringComparison.Ordinal))
          {
-            // Single-key: /api/v1/translations/{origin}/{locale}/{key}[/{environment}] — origin contains ':'.
-            // Locale: /api/v1/translations/{locale}[/{environment}].
             if (path.Contains("%3A", StringComparison.OrdinalIgnoreCase) || path.Contains(':', StringComparison.Ordinal))
             {
                SingleKeyGets++;

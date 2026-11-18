@@ -12,18 +12,9 @@ internal sealed class ToolConfiguration
    [YamlIgnore]
    public string ConfigDirectory { get; set; } = Directory.GetCurrentDirectory();
 
-   /// <summary>
-   /// The project API key. The loader fills it from the environment variable named by <see cref="API_KEY_ENVIRONMENT_VARIABLE"/> when the config file has none.
-   /// </summary>
    public string? ApiKey { get; set; }
    public string? DefaultLocale { get; set; }
 
-   /// <summary>
-   /// Optional deployment environment name (e.g. "production", "staging"). When set, the push declares
-   /// the key set into that environment's membership; blank or whitespace means the unnamed environment.
-   /// A set name may use letters, digits, '.', '_', or '-' only, must be at most 64 characters after trim,
-   /// and must not be '.' or '..'.
-   /// </summary>
    public string? Environment { get; set; }
 
    public void Save(string directoryPath)

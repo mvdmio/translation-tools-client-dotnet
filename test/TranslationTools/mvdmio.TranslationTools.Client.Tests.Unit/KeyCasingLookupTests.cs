@@ -58,9 +58,6 @@ public class KeyCasingLookupTests
       );
    }
 
-   /// <summary>
-   /// Answers like the service: it stores the key as <c>action.edit</c>, whatever casing was asked for.
-   /// </summary>
    private sealed class LowerCaseKeyHandler : HttpMessageHandler
    {
       public int RequestCount { get; private set; }

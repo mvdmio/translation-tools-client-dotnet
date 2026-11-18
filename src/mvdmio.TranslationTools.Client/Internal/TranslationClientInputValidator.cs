@@ -17,10 +17,6 @@ internal static partial class TranslationClientInputValidator
       return locale.Trim().ToLowerInvariant();
    }
 
-   /// <summary>
-   /// Trims a configured Environment name and checks it against the API rule. Blank or whitespace
-   /// means the unnamed Environment and returns <c>null</c>. Does not lowercase; the server does.
-   /// </summary>
    public static string? NormalizeEnvironment(string? environment, string parameterName)
    {
       if (string.IsNullOrWhiteSpace(environment))

@@ -86,9 +86,6 @@ public sealed class StartupAndLiveUpdateIntegrationTests
    [Fact]
    public async Task Lookup_UnderInvariantCulture_ShouldResolveToDefaultLocale_AndReturnServedValue()
    {
-      // Regression test: a job-like caller running under the invariant culture (empty locale
-      // name) must have its lookup resolve to Options.DefaultLocale end to end, through a
-      // generated accessor, rather than collapsing the request path.
       await using var server = await TranslationToolsIntegrationTestHost.StartAsync(
          new Dictionary<string, IReadOnlyDictionary<TranslationRef, string?>>
          {
@@ -106,8 +103,6 @@ public sealed class StartupAndLiveUpdateIntegrationTests
       {
          options.ApiKey = "test-api-key";
          options.DefaultLocale = "en";
-         // Explicit SupportedLocales win over the culture fallback, so this run preloads exactly
-         // one locale even though the process UI culture is invariant.
          options.SupportedLocales = [new CultureInfo("en")];
          options.EnableLiveUpdates = false;
          options.BaseUrlOverride = server.BaseUrl;

@@ -26,10 +26,6 @@ public static class TranslationCatalog
       }
    }
 
-   /// <summary>
-   /// Runs the module initializer of every assembly in the application that carries generated catalog data,
-   /// then returns all registered keys. Assemblies whose code has not run yet are included.
-   /// </summary>
    internal static IReadOnlyList<TranslationCatalogKey> DiscoverEntries()
    {
       TranslationCatalogDiscovery.RegisterAllAssemblies();
@@ -64,19 +60,12 @@ public static class TranslationCatalog
       }
    }
 
-   /// <summary>
-   /// Clears all registered keys. Intended for tests.
-   /// </summary>
    internal static void Clear()
    {
       lock (Gate)
          _entries = new Dictionary<TranslationRef, TranslationCatalogKey>();
    }
 
-   /// <summary>
-   /// Replaces the entire catalog. Intended for tests.
-   /// A later entry for the same origin and key replaces the earlier one.
-   /// </summary>
    internal static void Replace(IEnumerable<TranslationCatalogKey> keys)
    {
       ArgumentNullException.ThrowIfNull(keys);

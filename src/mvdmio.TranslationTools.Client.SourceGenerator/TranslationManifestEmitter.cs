@@ -32,7 +32,6 @@ internal static class TranslationManifestEmitter
       builder.AppendLine(";");
       builder.AppendLine();
 
-      // Per-key locale value lookup table.
       builder.AppendLine("   private static readonly global::System.Collections.Generic.IReadOnlyDictionary<string, global::System.Collections.Generic.IReadOnlyDictionary<string, string?>> _localeValuesByKey = BuildLocaleValuesByKey();");
       builder.AppendLine();
       builder.AppendLine("   private static global::System.Collections.Generic.IReadOnlyDictionary<string, global::System.Collections.Generic.IReadOnlyDictionary<string, string?>> BuildLocaleValuesByKey()");
@@ -144,7 +143,6 @@ internal static class TranslationManifestEmitter
 
    private static void EmitPlaceholderMethod(StringBuilder builder, TranslationManifestModel model, TranslationManifestPropertyModel property)
    {
-      // Method signature: one required string parameter per key-scoped token, first-seen order.
       builder.Append("   public static string ");
       builder.Append(property.Name);
       builder.Append("(");
@@ -159,7 +157,6 @@ internal static class TranslationManifestEmitter
       builder.AppendLine(")");
       builder.AppendLine("   {");
 
-      // bindings dict: token name -> parameter.
       builder.Append("      var __bindings = new global::System.Collections.Generic.Dictionary<string, string?>(global::System.StringComparer.Ordinal) { ");
       for (var i = 0; i < property.Tokens.Length; i++)
       {
@@ -173,7 +170,6 @@ internal static class TranslationManifestEmitter
       }
       builder.AppendLine(" };");
 
-      // knownSet = key-scoped tokens ∪ declared global names.
       builder.Append("      var __knownSet = new string[] { ");
       var first = true;
       foreach (var token in property.Tokens)

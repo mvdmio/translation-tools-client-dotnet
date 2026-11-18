@@ -67,9 +67,6 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       _client = client;
       _options = options;
       _cache = cache;
-      // Callers that omit the source get an empty catalog, so unit tests do not post keys from
-      // another assembly's generated ModuleInitializer.
-      // Public/DI pass TranslationCatalog.DiscoverEntries, which is read when Initialize runs.
       _catalogSource = catalogSource ?? (() => Array.Empty<TranslationCatalogKey>());
       _timeProvider = timeProvider ?? TimeProvider.System;
       _logger = logger;
@@ -106,10 +103,6 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       StartHeartbeat();
    }
 
-   /// <summary>
-   /// Push the declared global placeholder names for this deployment's Environment.
-   /// Globals-only push: empty items (keys untouched), non-null globals (full-replaced for this Environment).
-   /// </summary>
    internal async Task PushGlobalsAsync(string[] globals, CancellationToken cancellationToken = default)
    {
       var payload = new ProjectPushRequest
@@ -167,12 +160,6 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       return GetInternalAsync(translation, locale, defaultValue, localeValues, cancellationToken);
    }
 
-   /// <summary>
-   /// Resolves the locale a lookup actually runs against, against this client's configured
-   /// <see cref="TranslationToolsClientOptions.DefaultLocale"/>. Every path that needs a locale name
-   /// goes through here, because <see cref="EffectiveLocale"/> is the only thing the cache and the
-   /// request builder accept.
-   /// </summary>
    private EffectiveLocale ResolveEffectiveLocale(CultureInfo locale)
    {
       return EffectiveLocale.Resolve(locale, Options.DefaultLocale);
@@ -219,7 +206,6 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       }
       catch (Exception exception)
       {
-         // The first lookup that needs this locale fetches it, so a failed preload costs a warning.
          _logger?.LogWarning(exception, "TranslationTools preload of locale {Locale} failed.", locale.Name);
       }
    }
@@ -235,9 +221,6 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       await StoreLocaleAsync(locale, fetched, cancellationToken);
    }
 
-   /// <summary>
-   /// Try to get a cached translation for a specific locale.
-   /// </summary>
    internal TranslationItemResponse? TryGetCached(TranslationRef translation, CultureInfo locale)
    {
       return _cache.Get(ResolveEffectiveLocale(locale), translation)?.Value;
@@ -294,7 +277,6 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
          }
          catch (ObjectDisposedException)
          {
-            // Already disposed; nothing to cancel.
          }
 
          _heartbeatCts.Dispose();
@@ -336,9 +318,6 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
          ? new[] { CultureInfo.CurrentUICulture }
          : Options.SupportedLocales;
 
-      // A locale with no name (the invariant culture, common on CI runners and in containers) preloads
-      // the Default locale, because that is the locale its lookups run against. Two candidates that
-      // resolve to the same name make one request.
       return configured
          .Select(ResolveEffectiveLocale)
          .DistinctBy(static locale => locale.Name, StringComparer.Ordinal)

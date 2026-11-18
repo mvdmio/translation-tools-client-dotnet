@@ -55,7 +55,6 @@ public sealed partial class TranslationToolsClient
             valuesByLocale[pair.Key] = pair.Value;
          }
 
-         // A key with no value anywhere is still declared, so the service keeps it.
          if (valuesByLocale.Count == 0)
             valuesByLocale[defaultLocale] = string.Empty;
 

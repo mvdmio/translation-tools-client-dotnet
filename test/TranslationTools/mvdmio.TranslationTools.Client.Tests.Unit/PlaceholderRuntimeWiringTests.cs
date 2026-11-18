@@ -145,7 +145,6 @@ public sealed class PlaceholderRuntimeWiringTests : IDisposable
       public string CompanyName => Company;
    }
 
-   // A client that echoes a fixed value, so substitution is observable.
    private sealed class EchoClient : ITranslationToolsClient
    {
       private readonly string _value;

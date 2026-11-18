@@ -9,12 +9,6 @@ using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
-/// <summary>
-/// A single-key lookup is bounded by <see cref="TranslationToolsClientOptions.LookupTimeout"/>,
-/// applied as a <see cref="TimeProvider"/>-derived cancellation token so a <see cref="FakeTimeProvider"/>
-/// can drive it deterministically, rather than by setting <see cref="HttpClient.Timeout"/>. A whole-locale
-/// lookup is not bounded by it.
-/// </summary>
 public class LookupTimeoutTests
 {
    private const string ProjectOriginPrefix = "Fixture.App:";
@@ -143,7 +137,6 @@ public class LookupTimeoutTests
 
       var task = client.GetLocaleAsync(new CultureInfo("en"), cts.Token);
 
-      // Advance the clock well past LookupTimeout; a whole-locale lookup must not observe it.
       time.Advance(TimeSpan.FromSeconds(10));
       await Task.Delay(50, TestContext.Current.CancellationToken);
 
@@ -184,10 +177,6 @@ public class LookupTimeoutTests
       }
    }
 
-   /// <summary>
-   /// Answers with headers straight away, then never produces a body. The timeout has to cover
-   /// reading the body too, not only getting the headers.
-   /// </summary>
    private sealed class StallingBodyHandler : HttpMessageHandler
    {
       protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

@@ -32,7 +32,6 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public string? LastTranslationRequestQuery { get; private set; }
 
-   /// <summary>Every single-key GET the service received, in arrival order.</summary>
    public ConcurrentQueue<SingleKeyRequest> SingleKeyRequests { get; } = new();
 
    public int SocketTokenRequestCount => _socketTokenRequestCount;
@@ -59,23 +58,16 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 
    public int LocaleStatusCode { get; set; } = StatusCodes.Status200OK;
 
-   /// <summary>Status code per locale name; wins over <see cref="LocaleStatusCode"/> for that locale.</summary>
    public ConcurrentDictionary<string, int> LocaleStatusCodes { get; } = new(StringComparer.OrdinalIgnoreCase);
 
    public int ProjectPushStatusCode { get; set; } = StatusCodes.Status200OK;
 
    public int DeclarationStatusCode { get; set; } = StatusCodes.Status200OK;
 
-   /// <summary>Status code the single-key GET answers with; anything but 200 wins over <see cref="TranslationAnswer"/> and <see cref="Locales"/>.</summary>
    public int TranslationStatusCode { get; set; } = StatusCodes.Status200OK;
 
-   /// <summary>
-   /// When set, the single-key GET answers 200 with the value this returns (text, empty, or null) instead of
-   /// answering from <see cref="Locales"/>.
-   /// </summary>
    public Func<SingleKeyRequest, string?>? TranslationAnswer { get; set; }
 
-   /// <summary>When set, the single-key GET waits for this task (or for the request to be aborted) before it answers.</summary>
    public Task? TranslationDelay { get; set; }
 
    private int _localeRequestCount;
@@ -133,9 +125,6 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          host.LastTranslationRequestQuery = context.Request.QueryString.Value;
          Interlocked.Increment(ref host._translationRequestCount);
 
-         // ASP.NET Core route binding leaves an escaped '/' (%2F) undecoded within a path
-         // segment to avoid path-traversal ambiguity, even though it decodes other escapes
-         // (like %3A). Fully unescape here to recover the original "<project>:/path.resx" origin.
          origin = Uri.UnescapeDataString(origin);
 
          var singleKeyRequest = new SingleKeyRequest(origin, locale, key, environment, context.Request.QueryString.Value);
@@ -294,12 +283,9 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          }
          catch (ObjectDisposedException)
          {
-            // The underlying HttpContext may already be torn down by the time we dispose the
-            // server-side socket; closing it then aborts a disposed context. Safe to ignore.
          }
          catch (WebSocketException)
          {
-            // Socket already aborted during shutdown; nothing further to clean up.
          }
       }
 

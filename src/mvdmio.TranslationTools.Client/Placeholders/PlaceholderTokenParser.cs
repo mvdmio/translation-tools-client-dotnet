@@ -3,16 +3,8 @@ using System.Text;
 
 namespace mvdmio.TranslationTools.Client.Placeholders;
 
-/// <summary>
-/// Tokenizer for placeholder values. Implements the canonical Phase 1 grammar:
-/// a token is <c>{</c> + identifier + <c>}</c> where identifier matches <c>[a-z][a-zA-Z0-9]*</c>,
-/// with ICU-subset apostrophe escaping restricted to literal braces.
-/// </summary>
 internal static class PlaceholderTokenParser
 {
-   /// <summary>
-   /// One parsed segment: either literal text or a token reference.
-   /// </summary>
    internal readonly struct Segment
    {
       private Segment(bool isToken, string text)
@@ -21,19 +13,14 @@ internal static class PlaceholderTokenParser
          Text = text;
       }
 
-      /// <summary>True when this segment is a token reference; false for literal text.</summary>
       public bool IsToken { get; }
 
-      /// <summary>Literal text (for literals) or token identifier (for tokens).</summary>
       public string Text { get; }
 
       public static Segment Literal(string text) => new(false, text);
       public static Segment Token(string name) => new(true, name);
    }
 
-   /// <summary>
-   /// Parse <paramref name="input"/> into an ordered list of literal/token segments.
-   /// </summary>
    public static List<Segment> Parse(string input)
    {
       var segments = new List<Segment>();
@@ -62,7 +49,6 @@ internal static class PlaceholderTokenParser
          {
             var next = i + 1 < length ? input[i + 1] : '\0';
 
-            // '' -> literal apostrophe.
             if (next == '\'')
             {
                buffer.Append('\'');
@@ -70,7 +56,6 @@ internal static class PlaceholderTokenParser
                continue;
             }
 
-            // Apostrophe immediately before { or } opens a quoted span where braces are literal.
             if (next == '{' || next == '}')
             {
                i += 1;
@@ -85,7 +70,6 @@ internal static class PlaceholderTokenParser
                         continue;
                      }
 
-                     // Lone apostrophe closes the span; consume it.
                      i += 1;
                      break;
                   }
@@ -97,7 +81,6 @@ internal static class PlaceholderTokenParser
                continue;
             }
 
-            // Apostrophe before anything else is a literal apostrophe.
             buffer.Append('\'');
             i += 1;
             continue;
@@ -118,7 +101,6 @@ internal static class PlaceholderTokenParser
             continue;
          }
 
-         // '}' and every other character are literal.
          buffer.Append(c);
          i += 1;
       }
@@ -127,9 +109,6 @@ internal static class PlaceholderTokenParser
       return segments;
    }
 
-   /// <summary>
-   /// Distinct token identifiers in first-seen order.
-   /// </summary>
    public static List<string> TokenNames(string input)
    {
       var seen = new HashSet<string>(System.StringComparer.Ordinal);
@@ -144,17 +123,13 @@ internal static class PlaceholderTokenParser
       return result;
    }
 
-   /// <summary>
-   /// Attempt to match a token starting at <paramref name="start"/> (which must point at '{').
-   /// Matches <c>\{[a-z][a-zA-Z0-9]*\}</c>.
-   /// </summary>
    private static bool TryMatchToken(string input, int start, out string name, out int consumed)
    {
       name = string.Empty;
       consumed = 0;
 
       var length = input.Length;
-      var i = start + 1; // skip '{'
+      var i = start + 1;
 
       if (i >= length)
          return false;
@@ -180,7 +155,7 @@ internal static class PlaceholderTokenParser
          return false;
 
       name = input.Substring(nameStart, i - nameStart);
-      consumed = i - start + 1; // include closing '}'
+      consumed = i - start + 1;
       return true;
    }
 }

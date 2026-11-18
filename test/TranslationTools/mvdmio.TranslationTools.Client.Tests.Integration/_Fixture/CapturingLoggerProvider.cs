@@ -3,10 +3,6 @@ using System.Collections.Concurrent;
 
 namespace mvdmio.TranslationTools.Client.Tests.Integration._Fixture;
 
-/// <summary>
-/// Records every log line written through the host's logging, so a test can assert on what an
-/// operator would see.
-/// </summary>
 internal sealed class CapturingLoggerProvider : ILoggerProvider
 {
    public ConcurrentQueue<CapturedLogEntry> Entries { get; } = new();

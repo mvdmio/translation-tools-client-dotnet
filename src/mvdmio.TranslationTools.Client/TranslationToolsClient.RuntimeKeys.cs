@@ -39,7 +39,6 @@ public sealed partial class TranslationToolsClient
 
       var items = writes.Select(BuildWriteItem).ToArray();
 
-      // No globals: a Write never touches the Environment's Global Placeholders.
       var payload = new ProjectPushRequest
       {
          Items = items,
@@ -48,7 +47,6 @@ public sealed partial class TranslationToolsClient
 
       await PostJsonAsync("api/v1/translations/project", payload, cancellationToken);
 
-      // The service accepted the Write, so the writer's own lookups answer the new text at once.
       foreach (var write in writes)
          await ApplyUpdateAsync(write.Translation, write.Value, write.Locale, cancellationToken);
    }
@@ -59,8 +57,6 @@ public sealed partial class TranslationToolsClient
       var lookup = new TranslationLookupRequest(translation, ResolveEffectiveLocale(locale), neutralValue: null, localeValues: null);
       using var request = lookup.ToHttpRequest(_environment);
 
-      // Bounded like a lookup, but it neither checks nor opens the suppression window, and it never
-      // reads or writes the cache: the text fills an edit form, so it must come from the service.
       using var timeoutCts = new CancellationTokenSource(Options.LookupTimeout, _timeProvider);
       using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 

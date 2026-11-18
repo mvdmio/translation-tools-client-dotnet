@@ -25,20 +25,6 @@ public sealed partial class TranslationToolsClient
       return await FetchAsync<TranslationItemResponse[]>(request, cancellationToken);
    }
 
-   /// <summary>
-   /// Fetches a single translation. Never throws (other than for the caller's own cancellation, and
-   /// unless <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/> is set): an unsuccessful
-   /// response, a transport exception, a timeout, and an undeserialisable body are all logged and
-   /// answered with the local fallback instead. Degraded results are never cached, so the next call
-   /// retries the service.
-   ///
-   /// Bounded by <see cref="TranslationToolsClientOptions.LookupTimeout"/>, applied as a
-   /// <see cref="TimeProvider"/>-derived cancellation token linked to the caller's own token —
-   /// never by setting <see cref="HttpClient.Timeout"/>, which belongs to the consumer that
-   /// supplied the <see cref="HttpClient"/>. The bound covers reading the response body as well as
-   /// getting its headers. A caller's own cancellation is distinguished from the client's timeout
-   /// and always propagates rather than degrading.
-   /// </summary>
    private async Task<(TranslationItemResponse Value, bool Degraded)> FetchTranslationOrFallbackAsync(TranslationLookupRequest lookup, CancellationToken cancellationToken)
    {
       if (_suppression.IsOpen)
@@ -55,7 +41,6 @@ public sealed partial class TranslationToolsClient
       }
       catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
       {
-         // The caller asked to stop. That is not a failure, and it is never swallowed.
          throw;
       }
       catch (Exception exception)
@@ -69,18 +54,6 @@ public sealed partial class TranslationToolsClient
       }
    }
 
-   /// <summary>
-   /// Logs a classified failure at its level and answers the lookup with the local fallback.
-   ///
-   /// With <see cref="TranslationToolsClientOptions.ThrowOnLookupError"/> set it rethrows instead,
-   /// preserving the exception the fetch produced so an application that opts back into throwing
-   /// catches the same types it caught before this contract existed: an
-   /// <see cref="HttpRequestException"/> for an unsuccessful response or a connection failure, a
-   /// <see cref="JsonException"/> for a body the client cannot read. The client's own timeout and
-   /// the suppression window have no such exception to preserve, and surface as a
-   /// <see cref="TranslationLookupException"/>, which also keeps a timeout distinguishable from the
-   /// caller's own cancellation.
-   /// </summary>
    private (TranslationItemResponse Value, bool Degraded) HandleLookupFailure(TranslationLookupRequest lookup, TranslationLookupFailure failure, Exception? exception)
    {
       if (Options.ThrowOnLookupError)

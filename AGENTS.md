@@ -14,13 +14,14 @@ This document provides instructions for AI coding assistants working on this cod
 
 ## Project Overview
 
-.NET client, source generator, and CLI tool (`translations`) for the TranslationTools service. Glossary: `CONTEXT.md`. Decisions: `docs/adr/`. Coding standards — read before writing or reviewing code: `.agents/refs/coding-standards.md` (test conventions, rules learned from mistakes).
+.NET client, source generator, and CLI tool (`translations`) for the TranslationTools service. Glossary: `CONTEXT.md`. Decisions: `docs/adr/`. Coding standards — read before writing or reviewing code: `.agents/refs/coding-standards.md` (test conventions, comments, rules learned from mistakes).
 
 ```
 src/
   mvdmio.TranslationTools.Client/                   # runtime client
   mvdmio.TranslationTools.Client.SourceGenerator/   # generates accessors + catalog from .resx
   mvdmio.TranslationTools.Tool/                     # CLI tool: init, pull, push
+  mvdmio.TranslationTools.Lint/                     # never-packed comment rule (MVDM0053)
 test/TranslationTools/                              # every test project + SourceGeneratorEndToEnd fixture
 ```
 

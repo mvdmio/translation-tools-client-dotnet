@@ -29,11 +29,6 @@ internal sealed class PullHandler
       _reporter = reporter;
    }
 
-   /// <summary>
-   ///    Loads the tool configuration and pulls the project's translations from the service into local .resx files.
-   /// </summary>
-   /// <param name="cancellationToken">Token to cancel the pull.</param>
-   /// <returns>A task that completes when the pull has finished.</returns>
    public Task HandleAsync(CancellationToken cancellationToken = default)
    {
       var config = ToolConfigurationLoader.Load();

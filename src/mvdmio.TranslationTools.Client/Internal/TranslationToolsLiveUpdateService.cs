@@ -73,21 +73,17 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
       }
       catch (ObjectDisposedException)
       {
-         // CancellationTokenSource was already disposed; nothing to cancel.
       }
 
       if (_backgroundTask is not null)
       {
          try
          {
-            // Wait for the background loop to observe cancellation and exit before disposing the CTS.
-            // Bounded wait so Dispose can never hang indefinitely.
             if (!_backgroundTask.Wait(TimeSpan.FromSeconds(5)))
                _logger.LogWarning("TranslationTools live update background task did not stop within the timeout");
          }
          catch (AggregateException exception) when (exception.InnerExceptions.All(e => e is OperationCanceledException))
          {
-            // Expected when the task observes cancellation.
          }
          catch (Exception exception)
          {

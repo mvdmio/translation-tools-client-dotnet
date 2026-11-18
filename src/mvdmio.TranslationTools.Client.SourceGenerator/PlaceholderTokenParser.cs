@@ -3,16 +3,8 @@ using System.Text;
 
 namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
-/// <summary>
-/// Tokenizer for placeholder values (generator-side copy of the canonical Phase 1 grammar). A token is
-/// <c>{</c> + identifier + <c>}</c> where identifier matches <c>[a-z][a-zA-Z0-9]*</c>, with ICU-subset
-/// apostrophe escaping restricted to literal braces.
-/// </summary>
 internal static class PlaceholderTokenParser
 {
-   /// <summary>
-   /// Distinct token identifiers in first-seen order.
-   /// </summary>
    public static List<string> TokenNames(string? input)
    {
       var result = new List<string>();

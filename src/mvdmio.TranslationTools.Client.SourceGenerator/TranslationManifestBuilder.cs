@@ -47,7 +47,6 @@ internal static class TranslationManifestBuilder
          ? ImmutableArray<string>.Empty
          : declaredGlobals.Distinct(StringComparer.Ordinal).ToImmutableArray();
 
-      // Group files by base resx (neutral) path. Locale-suffixed files share the same base file name.
       var groups = new Dictionary<string, GroupBuilder>(StringComparer.OrdinalIgnoreCase);
 
       foreach (var file in files)
@@ -143,7 +142,6 @@ internal static class TranslationManifestBuilder
       var relativePath = TranslationManifestPaths.BuildProjectRelativePath(pathForOrigin!, options.ProjectDirectory);
       var origin = TranslationManifestPaths.BuildOrigin(options.ProjectName, relativePath);
 
-      // Keys match without regard to case within an origin.
       var neutralByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
       if (group.NeutralFile is not null)
       {
@@ -157,7 +155,6 @@ internal static class TranslationManifestBuilder
 
       var localeValuesByKey = ReadLocaleValuesByKey(group, cancellationToken);
 
-      // The neutral file's casing wins: a locale key adds a catalog entry only when no neutral key matches it.
       var keys = neutralByKey.Keys
          .Concat(localeValuesByKey.Keys.Where(key => !neutralByKey.ContainsKey(key)))
          .OrderBy(static key => key, StringComparer.Ordinal);
@@ -203,10 +200,8 @@ internal static class TranslationManifestBuilder
 
       foreach (var entry in entries.GroupBy(e => TranslationManifestPaths.SanitizeIdentifier(e.Key), StringComparer.Ordinal).Select(g => g.First()))
       {
-         // All tokens in the default-locale value, first-seen order.
          var allTokens = PlaceholderTokenParser.TokenNames(entry.Value);
 
-         // Key-scoped tokens = value tokens excluding declared globals (these become required parameters).
          var keyScopedTokens = allTokens
             .Where(token => !globalNames.Contains(token))
             .ToImmutableArray();
@@ -240,10 +235,6 @@ internal static class TranslationManifestBuilder
       };
    }
 
-   /// <summary>
-   /// Detect distinct tokens in one key whose generated parameter identifiers coalesce. Token grammar yields
-   /// valid identifiers, so collisions are rare (keyword escaping is distinct), but guard defensively.
-   /// </summary>
    private static bool TryDetectParameterCollision(string key, ImmutableArray<string> tokens, ImmutableArray<Diagnostic>.Builder diagnostics)
    {
       var collision = PlaceholderParameterNaming.FindCollision(tokens);
@@ -263,7 +254,6 @@ internal static class TranslationManifestBuilder
 
    private static Dictionary<string, Dictionary<string, string>> ReadLocaleValuesByKey(GroupBuilder group, CancellationToken cancellationToken)
    {
-      // Read locale files in locale-name order, so a key that appears only in locale files gets the same casing on every build.
       var localeValuesByKey = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
       var orderedLocaleFiles = group.LocaleFiles
          .OrderBy(static x => x.Locale, StringComparer.OrdinalIgnoreCase)

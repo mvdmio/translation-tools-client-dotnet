@@ -36,7 +36,6 @@ public sealed partial class TranslationToolsClient
       }
       catch (OperationCanceledException)
       {
-         // Heartbeat loop cancelled during shutdown; nothing to do.
       }
    }
 
@@ -52,7 +51,6 @@ public sealed partial class TranslationToolsClient
       }
       catch (Exception exception)
       {
-         // A failed heartbeat must never bubble into app code; best-effort log and retry next tick.
          _logger?.LogWarning(exception, "TranslationTools heartbeat failed.");
       }
    }

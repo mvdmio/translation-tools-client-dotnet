@@ -8,13 +8,6 @@ using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
-/// <summary>
-/// Placeholder substitution is unchanged by the failure contract and runs over whatever the
-/// fallback chain produced, so a `{token}` in local fallback text still renders. Shares the
-/// "PlaceholderRuntime" collection with <see cref="PlaceholderRuntimeWiringTests"/> and
-/// <see cref="DependencyInjectionExtensionsTests"/> because all three mutate the same
-/// process-wide <see cref="Translations"/> and <see cref="PlaceholderRuntime"/> state.
-/// </summary>
 [Collection("PlaceholderRuntime")]
 public sealed class LookupFailureFallbackPlaceholderTests : IDisposable
 {
@@ -82,7 +75,6 @@ public sealed class LookupFailureFallbackPlaceholderTests : IDisposable
 
       var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
 
-      // The fluent builder path has no dictionary, so the chain is the supplied neutral value, then the key.
       var result = Translations.WithPlaceholders(translation, defaultValue: "Save").Render();
 
       result.Should().Be("Save");

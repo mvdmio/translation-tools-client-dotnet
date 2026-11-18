@@ -10,14 +10,6 @@ using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
-/// <summary>
-/// After a failure that says the service itself is unreachable or broken (a connection failure, a
-/// timeout, or a 5xx), the client stops calling out for one minute and answers every single-key
-/// lookup from its local fallback. A response the service actually produced about one request — a
-/// 401 or a 404 — never opens the window. The window is process-wide (shared across locales and
-/// keys), tracked against the injected <see cref="TimeProvider"/>, and nothing probes the service
-/// in the background to close it early.
-/// </summary>
 public class LookupSuppressionTests
 {
    private const string ProjectOriginPrefix = "Fixture.App:";
@@ -69,8 +61,6 @@ public class LookupSuppressionTests
       time.Advance(TimeSpan.FromSeconds(5));
       await firstTask;
 
-      // The window is now open: a lookup for a different key returns immediately from the
-      // local fallback without needing the clock advanced again, because no request is sent.
       var second = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Cancel");
       var secondTask = client.GetAsync(second, new CultureInfo("en"), defaultValue: "Cancel", localeValues: null, TestContext.Current.CancellationToken);
       var completed = await Task.WhenAny(secondTask, Task.Delay(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken));
@@ -147,8 +137,6 @@ public class LookupSuppressionTests
       await client.GetAsync(first, new CultureInfo("en"), defaultValue: "Save", localeValues: null, TestContext.Current.CancellationToken);
       handler.RequestCount.Should().Be(1);
 
-      // Advance the clock through most of the window with no further lookups. If anything probed
-      // the service in the background, the request count would move without a caller asking.
       time.Advance(TimeSpan.FromSeconds(45));
       await Task.Delay(50, TestContext.Current.CancellationToken);
 
@@ -180,8 +168,6 @@ public class LookupSuppressionTests
       await client.GetAsync(failing, new CultureInfo("en"), defaultValue: "Save", localeValues: null, TestContext.Current.CancellationToken);
       handler.RequestCount.Should().Be(2, "the window opens only after this failure");
 
-      // The window is now open. The already-cached key is still answered from the cache, not
-      // suppressed local fallback logic, and still without a request.
       var stillCached = await client.GetAsync(cached, new CultureInfo("en"), TestContext.Current.CancellationToken);
       stillCached.Value.Should().Be("Served");
       handler.RequestCount.Should().Be(2);

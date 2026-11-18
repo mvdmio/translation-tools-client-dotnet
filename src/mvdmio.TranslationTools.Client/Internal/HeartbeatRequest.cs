@@ -2,10 +2,6 @@ using System;
 
 namespace mvdmio.TranslationTools.Client.Internal;
 
-/// <summary>
-/// Liveness ping to <c>api/v1/translations/heartbeat</c>, telling the service which client, which
-/// deployment environment, and which package version is running.
-/// </summary>
 internal sealed class HeartbeatRequest
 {
    public Guid ClientId { get; init; }

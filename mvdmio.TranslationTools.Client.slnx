@@ -5,6 +5,7 @@
     <Project Path="test/TranslationTools/SourceGeneratorEndToEnd/SourceGeneratorEndToEnd.csproj" />
     <Project Path="test/TranslationTools/SourceGeneratorClassLibrary/SourceGeneratorClassLibrary.csproj" />
     <Project Path="test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit/mvdmio.TranslationTools.Tool.Tests.Unit.csproj" />
+    <Project Path="test/TranslationTools/mvdmio.TranslationTools.Lint.Tests.Unit/mvdmio.TranslationTools.Lint.Tests.Unit.csproj" />
   </Folder>
   <Folder Name="/Git Workflows/">
     <File Path=".github/workflows/publish.translationtools-packages-nuget.yml" />
@@ -14,9 +15,11 @@
     <File Path=".gitignore" />
     <File Path="AGENTS.md" />
     <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
     <File Path="LICENSE" />
     <File Path="readme.md" />
   </Folder>
+  <Project Path="src/mvdmio.TranslationTools.Lint/mvdmio.TranslationTools.Lint.csproj" />
   <Project Path="src/mvdmio.TranslationTools.Client.SourceGenerator/mvdmio.TranslationTools.Client.SourceGenerator.csproj" />
   <Project Path="src/mvdmio.TranslationTools.Client/mvdmio.TranslationTools.Client.csproj" />
   <Project Path="src/mvdmio.TranslationTools.Tool/mvdmio.TranslationTools.Tool.csproj" />

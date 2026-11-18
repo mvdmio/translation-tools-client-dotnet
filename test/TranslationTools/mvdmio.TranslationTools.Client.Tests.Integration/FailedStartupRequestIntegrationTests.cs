@@ -59,7 +59,6 @@ public sealed class FailedStartupRequestIntegrationTests
 
       server.LocaleRequestCount.Should().Be(2);
 
-      // The service now fails "nl"; the lookup succeeds only when the preload cached it.
       server.LocaleStatusCodes["nl"] = StatusCodes.Status502BadGateway;
       var client = app.Services.GetRequiredService<TranslationToolsClient>();
       var dutch = await client.GetLocaleAsync(new CultureInfo("nl"), TestContext.Current.CancellationToken);

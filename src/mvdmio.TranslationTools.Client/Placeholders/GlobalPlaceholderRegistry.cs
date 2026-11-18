@@ -5,10 +5,6 @@ using System.Reflection;
 
 namespace mvdmio.TranslationTools.Client.Placeholders;
 
-/// <summary>
-/// Immutable map of declared global placeholder names to the property that produces their value.
-/// Built once at startup by reflecting over a configuration type's <see cref="GlobalPlaceholderAttribute"/> properties.
-/// </summary>
 internal sealed class GlobalPlaceholderRegistry
 {
    private readonly IReadOnlyDictionary<string, PropertyInfo> _propertiesByName;
@@ -19,36 +15,17 @@ internal sealed class GlobalPlaceholderRegistry
       _propertiesByName = propertiesByName;
    }
 
-   /// <summary>
-   /// Empty registry (no globals declared).
-   /// </summary>
    public static GlobalPlaceholderRegistry Empty { get; } =
       new(configType: null, new Dictionary<string, PropertyInfo>(StringComparer.Ordinal));
 
-   /// <summary>
-   /// The configuration type whose properties supply the global values, or null when no globals are declared.
-   /// </summary>
    public Type? ConfigType { get; }
 
-   /// <summary>
-   /// Declared global placeholder names, in declaration order.
-   /// </summary>
    public IReadOnlyList<string> Names { get; private set; } = Array.Empty<string>();
 
-   /// <summary>
-   /// True when <paramref name="name"/> is a declared global.
-   /// </summary>
    public bool IsRegistered(string name) => _propertiesByName.ContainsKey(name);
 
-   /// <summary>
-   /// The property that produces the value for <paramref name="name"/>, or null when not registered.
-   /// </summary>
    public PropertyInfo? GetProperty(string name) => _propertiesByName.TryGetValue(name, out var property) ? property : null;
 
-   /// <summary>
-   /// Build a registry by reflecting over <paramref name="configType"/>'s instance properties bearing
-   /// <see cref="GlobalPlaceholderAttribute"/>.
-   /// </summary>
    public static GlobalPlaceholderRegistry Build(Type configType)
    {
       ArgumentNullException.ThrowIfNull(configType);
@@ -78,9 +55,6 @@ internal sealed class GlobalPlaceholderRegistry
       return new GlobalPlaceholderRegistry(configType, byName) { Names = names };
    }
 
-   /// <summary>
-   /// Token name = attribute Name override, else the property name with its first character lowercased.
-   /// </summary>
    internal static string ResolveTokenName(PropertyInfo property, GlobalPlaceholderAttribute attribute)
    {
       if (!string.IsNullOrWhiteSpace(attribute.Name))

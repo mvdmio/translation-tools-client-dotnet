@@ -6,9 +6,6 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
 public class TranslationCatalogDiscoveryTests
 {
-   // These tests scan a temporary directory, not the application directory, so they never load the
-   // class library that ClassLibraryDeclarationEndToEndTests expects to be untouched before Initialize.
-
    [Fact]
    public void RegisterAllAssemblies_WhenDirectoryHoldsAnUnreadableDll_ShouldNotThrow()
    {

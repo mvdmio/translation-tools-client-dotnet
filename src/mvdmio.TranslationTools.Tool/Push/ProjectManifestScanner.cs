@@ -72,10 +72,6 @@ internal sealed class ProjectManifestScanner
          .ToArray();
    }
 
-   /// <summary>
-   /// Indexes one file's values by translation key, matching keys without regard to case.
-   /// The first entry for a key sets both its casing and its value.
-   /// </summary>
    private static Dictionary<string, string?> IndexEntries(ResxParsedFile file)
    {
       var valuesByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -85,10 +81,6 @@ internal sealed class ProjectManifestScanner
       return valuesByKey;
    }
 
-   /// <summary>
-   /// Collects the translation keys of one origin, matching keys without regard to case.
-   /// The default-locale file's casing wins; otherwise the casing of the locale file whose locale sorts first.
-   /// </summary>
    private static string[] CollectKeys(Dictionary<string, IndexedFile> filesByLocale, string defaultLocale)
    {
       var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -110,9 +102,6 @@ internal sealed class ProjectManifestScanner
       return projectName + ":/" + resourceSetPath + ".resx";
    }
 
-   /// <summary>
-   /// One locale's <c>.resx</c> file with its values indexed by translation key, ignoring case.
-   /// </summary>
    private sealed record IndexedFile(ResxSourceFile SourceFile, Dictionary<string, string?> ValuesByKey);
 }
 

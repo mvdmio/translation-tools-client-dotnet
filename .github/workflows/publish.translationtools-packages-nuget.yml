@@ -8,13 +8,16 @@ on:
       paths:
       - ".github/workflows/publish.translationtools-packages-nuget.yml"
       - "Directory.Build.props"
+      - "Directory.Build.targets"
       - "mvdmio.TranslationTools.Client.slnx"
       - "src/mvdmio.TranslationTools.Client/**"
       - "src/mvdmio.TranslationTools.Client.SourceGenerator/**"
+      - "src/mvdmio.TranslationTools.Lint/**"
       - "src/mvdmio.TranslationTools.Tool/**"
       - "test/TranslationTools/mvdmio.TranslationTools.Client.Tests.Unit/**"
       - "test/TranslationTools/SourceGeneratorEndToEnd/**"
       - "test/TranslationTools/mvdmio.TranslationTools.Tool.Tests.Unit/**"
+      - "test/TranslationTools/mvdmio.TranslationTools.Lint.Tests.Unit/**"
 
 jobs:
    Build_Test_And_Publish_TranslationTools_Packages:

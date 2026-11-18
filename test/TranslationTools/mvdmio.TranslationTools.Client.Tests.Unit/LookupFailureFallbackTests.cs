@@ -9,11 +9,6 @@ using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
-/// <summary>
-/// A single-key lookup never throws: a missing key, an unsuccessful response, a transport
-/// exception, and an undeserialisable body are all answered with the local fallback chain
-/// (dictionary entry for the effective locale, then the neutral value) instead.
-/// </summary>
 public class LookupFailureFallbackTests
 {
    private const string ProjectOriginPrefix = "Fixture.App:";
@@ -52,8 +47,6 @@ public class LookupFailureFallbackTests
 
       var response = await client.GetAsync(translation, new CultureInfo("nl-NL"), TestContext.Current.CancellationToken);
 
-      // The client interface answers with a null value; the translation key is the last resort
-      // one layer up, in the static Translations entry point's unchanged `?? defaultValue ?? translation.Key`.
       response.Value.Should().BeNull();
    }
 

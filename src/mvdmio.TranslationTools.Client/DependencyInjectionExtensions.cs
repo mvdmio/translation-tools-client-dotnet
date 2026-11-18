@@ -76,7 +76,6 @@ public static class DependencyInjectionExtensions
 
       var registry = GlobalPlaceholderRegistry.Build(typeof(TConfig));
 
-      // Replace the default (Empty) registry registration with the built one.
       services.RemoveAll<GlobalPlaceholderRegistry>();
       services.AddSingleton(registry);
 
@@ -128,7 +127,6 @@ public static class DependencyInjectionExtensions
       var loggerFactory = rootServices.GetService<ILoggerFactory>();
       var logger = loggerFactory?.CreateLogger("mvdmio.TranslationTools.Client.Placeholders");
 
-      // Resolve globals through the current request's RequestServices when available, else the root container.
       var httpContextAccessor = rootServices.GetService<IHttpContextAccessor>();
       AmbientScope.SetAccessor(() => httpContextAccessor?.HttpContext?.RequestServices ?? rootServices);
 
@@ -153,7 +151,6 @@ public static class DependencyInjectionExtensions
       }
       catch (Exception exception)
       {
-         // The next application start pushes the globals again, so a failed push costs a warning.
          CreateClientLogger(scopedServices).LogWarning(exception, "TranslationTools global placeholder push failed.");
       }
    }

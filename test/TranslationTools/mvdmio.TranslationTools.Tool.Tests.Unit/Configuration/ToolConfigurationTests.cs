@@ -114,10 +114,6 @@ public class ToolConfigurationTests
       ToolConfigurationLoader.Load().ApiKey.Should().BeNull();
    }
 
-   /// <summary>
-   /// Sets the process-wide current directory and TRANSLATIONS_API_KEY for one test and restores both on dispose.
-   /// The tests that use it belong to <see cref="ProcessStateCollection" />, so xunit does not run them in parallel.
-   /// </summary>
    private sealed class ConfigScope : IDisposable
    {
       private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

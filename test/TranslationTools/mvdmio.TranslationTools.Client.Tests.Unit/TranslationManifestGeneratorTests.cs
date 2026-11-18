@@ -52,12 +52,9 @@ public class TranslationManifestGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
       result.GeneratedSource.Should().Contain("Button_Save");
-      // Neutral default value still present in property getter.
       result.GeneratedSource.Should().Contain("get => Get(\"Button.Save\", \"Save\");");
-      // Locale values included in lookup table.
       result.GeneratedSource.Should().Contain("[\"nl\"] = \"Opslaan\"");
       result.GeneratedSource.Should().Contain("[\"de\"] = \"Speichern\"");
-      // Only one generated class for the neutral file.
       result.GeneratedSource.Split("public static partial class Localizations").Length.Should().Be(2);
    }
 

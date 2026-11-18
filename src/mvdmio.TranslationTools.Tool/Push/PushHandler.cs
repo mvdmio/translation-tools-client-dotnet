@@ -23,11 +23,6 @@ internal sealed class PushHandler
       _reporter = reporter;
    }
 
-   /// <summary>
-   ///    Loads the tool configuration and pushes the project's scanned translations to the service.
-   /// </summary>
-   /// <param name="cancellationToken">Token to cancel the push.</param>
-   /// <returns>A task that completes when the push has finished.</returns>
    public Task HandleAsync(CancellationToken cancellationToken = default)
    {
       var config = ToolConfigurationLoader.Load();

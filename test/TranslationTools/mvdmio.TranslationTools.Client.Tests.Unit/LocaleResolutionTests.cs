@@ -71,8 +71,6 @@ public class LocaleResolutionTests
 
       var translation = new TranslationRef(ProjectOriginPrefix + "/Localizations.resx", "Button.Save");
 
-      // Every write path resolves the effective locale too, so a cache entry written under the
-      // invariant culture is readable under the default locale and satisfies its lookups.
       await client.ApplyUpdateAsync(translation, "Save now", CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
 
       client.TryGetCached(translation, new CultureInfo("en"))!.Value.Should().Be("Save now");

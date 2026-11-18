@@ -4,11 +4,6 @@ using System.Threading.Tasks;
 
 namespace mvdmio.TranslationTools.Client.Internal;
 
-/// <summary>
-/// The client's translation cache. Every entry is keyed by an <see cref="EffectiveLocale"/> rather
-/// than by a raw locale name, so a lookup made under the invariant culture and a lookup made under
-/// the default locale share one entry instead of the empty string becoming its own bucket.
-/// </summary>
 internal interface ITranslationToolsClientCache
 {
    TranslationToolsClientCacheEntry<TranslationItemResponse>? Get(EffectiveLocale locale, TranslationRef translation);

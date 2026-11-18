@@ -15,8 +15,6 @@ public class ClassLibraryDeclarationEndToEndTests
    [Fact]
    public async Task Initialize_OnPublicPath_DeclaresKeysOfClassLibraryWhoseCodeNeverRan()
    {
-      // Nothing in this test project touches a type of the library, and no other test starts a client on
-      // the public path, so the library is neither loaded nor registered until Initialize runs.
       AppDomain.CurrentDomain.GetAssemblies().Should().NotContain(assembly => assembly.GetName().Name == LIBRARY_ASSEMBLY_NAME);
       TranslationCatalog.Entries.Should().NotContain(entry => entry.Origin == LIBRARY_ORIGIN);
 

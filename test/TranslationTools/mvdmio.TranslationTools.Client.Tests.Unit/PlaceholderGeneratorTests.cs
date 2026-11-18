@@ -24,13 +24,11 @@ public class PlaceholderGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
 
-      // Method (not property) with one required string param per token, first-seen order.
       result.GeneratedSource.Should().Contain("public static string Greeting(string userName, string orderCount)");
       result.GeneratedSource.Should().Contain("[\"userName\"] = userName");
       result.GeneratedSource.Should().Contain("[\"orderCount\"] = orderCount");
       result.GeneratedSource.Should().Contain("GetWithPlaceholders");
 
-      // Verify the emitted public API surface compiles into a method with the expected signature.
       var method = GetGeneratedMethod(result, "Greeting");
       method.Should().NotBeNull();
       method!.Parameters.Select(p => p.Name).Should().Equal("userName", "orderCount");
@@ -76,14 +74,12 @@ public class PlaceholderGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
 
-      // companyName is a declared global -> excluded from params; userName remains required.
       result.GeneratedSource.Should().Contain("public static string Welcome(string userName)");
       result.GeneratedSource.Should().NotContain("string companyName");
 
       var method = GetGeneratedMethod(result, "Welcome");
       method!.Parameters.Select(p => p.Name).Should().Equal("userName");
 
-      // knownSet includes both the key-scoped token and the declared global name.
       result.GeneratedSource.Should().Contain("\"userName\"");
       result.GeneratedSource.Should().Contain("\"companyName\"");
    }
@@ -101,7 +97,6 @@ public class PlaceholderGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
 
-      // 'class' is a C# keyword -> escaped with @ in the parameter list; binding key stays raw.
       result.GeneratedSource.Should().Contain("public static string Choice(string @class)");
       result.GeneratedSource.Should().Contain("[\"class\"] = @class");
 
@@ -132,9 +127,7 @@ public class PlaceholderGeneratorTests
       result.GeneratorDiagnostics.Should().BeEmpty();
       result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
 
-      // brand is a declared global (via override) -> excluded from parameters...
       result.GeneratedSource.Should().NotContain("string brand");
-      // ...but the value still has a token, so a no-arg method runs substitution (globals resolve at runtime).
       result.GeneratedSource.Should().Contain("public static string Tag()");
       result.GeneratedSource.Should().Contain("GetWithPlaceholders");
       result.GeneratedSource.Should().Contain("\"brand\"");
