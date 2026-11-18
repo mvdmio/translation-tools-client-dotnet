@@ -41,6 +41,11 @@ or broken suppresses further calls for one minute. Without those, "never throws"
 A local fallback is never written to the cache. Cache entries have no expiry, so caching one would
 let a single outage serve stale local text until the process restarted.
 
+Keyless mode (`AllowMissingApiKey` with a blank key) holds this decision unchanged. A keyless lookup
+is a lookup that never reaches the service: it answers with the local fallback without a request,
+skips the cache, the suppression window, and the failure log, and `ThrowOnLookupError` does not
+apply because nothing failed.
+
 ## Carve-out: the stored-value Read
 
 The value lookup still never throws. The stored-value Read (`GetStoredValueAsync`) is not a render

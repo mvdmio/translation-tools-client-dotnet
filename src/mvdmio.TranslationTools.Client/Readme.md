@@ -45,7 +45,8 @@ await app.InitializeTranslationToolsClientAsync();
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `ApiKey` | `string` | _(required)_ | Your TranslationTools project API key, sent as the `Authorization` header. |
+| `ApiKey` | `string` | _(required)_ | Your TranslationTools project API key, sent as the `Authorization` header. A blank key is allowed only with `AllowMissingApiKey`; otherwise the client refuses to build. |
+| `AllowMissingApiKey` | `bool` | `false` | Run without an API key: with a blank `ApiKey`, every lookup answers with the local fallback and nothing is sent to the service. A present key wins. See [Running without an API key](#running-without-an-api-key). |
 | `DefaultLocale` | `string` | `"en"` | Substituted for a lookup's locale whenever that locale's name is blank (the invariant culture) before the lookup consults the cache or calls the service, so that background jobs and other invariant-culture callers resolve to a real locale instead of a collapsed request path. Must be blank-free and recognised by the runtime; validated when the client is constructed. |
 | `SupportedLocales` | `CultureInfo[]` | `[]` | Locales preloaded during initialization. When left empty, the app's `RequestLocalizationOptions` cultures are used. When the app names none and has no request localization, the client preloads the Effective locale of the culture the app started under, which is `DefaultLocale` for the invariant culture. An entry with no name (the invariant culture) preloads `DefaultLocale`, and a locale that resolves to the same name as an earlier entry is fetched once. |
 | `EnableLiveUpdates` | `bool` | `false` | Enables built-in WebSocket live translation updates. See [Live updates](#live-updates). |
@@ -366,6 +367,23 @@ builder.Services.AddTranslationToolsClient(options => {
 The exception is the one the fetch produced, so the types you caught before this contract existed still apply: `HttpRequestException` for an unsuccessful response or a connection failure, `JsonException` for a body the client cannot read. A timeout and a suppressed lookup have no such exception of their own and throw `TranslationLookupException`.
 
 A cancellation your own code requested is never treated as a failure; it always propagates as a cancellation, regardless of `ThrowOnLookupError`.
+
+### Running without an API key
+
+A throwaway deployment, such as a test bed or a developer machine without the secret store, has no use for a key. Set `AllowMissingApiKey = true` and leave `ApiKey` blank, and the client runs in keyless mode:
+
+```csharp
+builder.Services.AddTranslationToolsClient(options => {
+   options.ApiKey = "";
+   options.AllowMissingApiKey = true;
+});
+```
+
+- Every single-key lookup answers with the local fallback for the asked locale, or the neutral value when the app ships none for that locale, and nothing is ever sent to the service. A key with no local fallback answers as a failed lookup does: a null value from `ITranslationToolsClient.GetAsync`, the key's name from `Translations.Get` and the generated accessors. `ThrowOnLookupError` does not apply, because nothing failed.
+- `InitializeTranslationToolsClientAsync` sends no Declaration, preloads nothing, pushes no global placeholders, and starts neither the heartbeat nor live updates. It logs one warning each time it runs, and no warning per lookup.
+- `WriteAsync`, `DeclareAsync`, `GetStoredValueAsync`, and `GetLocaleAsync` throw `InvalidOperationException` at once, before any request, because they need the service.
+
+The option changes nothing when `ApiKey` holds a key. A blank key without the option fails: startup logs `ApiKey is required.`, and generated accessors throw `Translations is not initialized`.
 
 ## Live updates
 

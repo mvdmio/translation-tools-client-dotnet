@@ -86,7 +86,8 @@ public static class DependencyInjectionExtensions
    /// Initializes the Translation Tools client: sends the Declaration (every local catalog key with its
    /// Neutral and sibling-locale values; the service stores a value only where it holds none), preloads
    /// supported locales, pushes declared global placeholder names, and starts live updates when
-   /// enabled. A failed request is logged as a warning and does not stop the rest of startup: a locale
+   /// enabled. A client without an API key under <see cref="TranslationToolsClientOptions.AllowMissingApiKey"/>
+   /// sends nothing and starts nothing: it logs one warning instead. A failed request is logged as a warning and does not stop the rest of startup: a locale
    /// that fails to preload is fetched by its first lookup, and the heartbeat and live updates start
    /// anyway. Other failures are logged and do not fail application startup. Serves web apps and
    /// Generic Host workers alike.
@@ -102,6 +103,12 @@ public static class DependencyInjectionExtensions
          var client = scope.ServiceProvider.GetRequiredService<ITranslationToolsClient>();
 
          await client.Initialize(cancellationToken);
+
+         if (client is TranslationToolsClient { IsKeyless: true })
+         {
+            CreateClientLogger(scope.ServiceProvider).LogWarning("TranslationTools client has no API key and AllowMissingApiKey is set. Every lookup answers with the local fallback, and nothing is sent to the service.");
+            return;
+         }
 
          await TryPushGlobalsAsync(scope.ServiceProvider, client, cancellationToken);
 

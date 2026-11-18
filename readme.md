@@ -44,6 +44,8 @@ A worker on the .NET Generic Host calls the same `await host.InitializeTranslati
 
 Set `Environment` to scope the translations this deployment fetches to a named environment (e.g. `production`, `staging`). Blank means unnamed; a set name may use letters, digits, `.`, `_`, or `-` only (max 64, not `.`/`..`) and is validated when the client is constructed. It should match the `environment` declared by `mvdmio.TranslationTools.Tool` when keys were pushed. See the [package docs](src/mvdmio.TranslationTools.Client/Readme.md) for details.
 
+Set `AllowMissingApiKey = true` with a blank `ApiKey` to run without a key: every lookup then answers with the local fallback and nothing is sent to the service. See [Running without an API key](src/mvdmio.TranslationTools.Client/Readme.md#running-without-an-api-key).
+
 Use generated translations and the runtime client:
 
 ```csharp

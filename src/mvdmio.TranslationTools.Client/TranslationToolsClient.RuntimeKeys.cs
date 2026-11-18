@@ -13,6 +13,7 @@ public sealed partial class TranslationToolsClient
    /// <inheritdoc />
    public async Task DeclareAsync(IEnumerable<TranslationCatalogKey> keys, CancellationToken cancellationToken = default)
    {
+      ThrowIfKeyless();
       ArgumentNullException.ThrowIfNull(keys);
 
       var catalog = keys.ToArray();
@@ -31,6 +32,7 @@ public sealed partial class TranslationToolsClient
    /// <inheritdoc />
    public async Task WriteAsync(IEnumerable<TranslationValueWrite> values, CancellationToken cancellationToken = default)
    {
+      ThrowIfKeyless();
       ArgumentNullException.ThrowIfNull(values);
 
       var writes = values.ToArray();
@@ -54,6 +56,8 @@ public sealed partial class TranslationToolsClient
    /// <inheritdoc />
    public async Task<string?> GetStoredValueAsync(TranslationRef translation, CultureInfo locale, CancellationToken cancellationToken = default)
    {
+      ThrowIfKeyless();
+
       var lookup = new TranslationLookupRequest(translation, ResolveEffectiveLocale(locale), neutralValue: null, localeValues: null);
       using var request = lookup.ToHttpRequest(_environment);
 

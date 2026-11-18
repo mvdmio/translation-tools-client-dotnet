@@ -74,6 +74,12 @@ source generator embedded in the application. A local fallback is real text the 
 shipped with, not a placeholder.
 _Avoid_: offline value, cached value, degraded value
 
+**Keyless mode**:
+The state of a client built with `AllowMissingApiKey` set and a blank API key. Every single-key
+lookup answers with the Local fallback and nothing is ever sent to the service. A call that needs
+the service throws. A present API key ends it: the option changes nothing then.
+_Avoid_: offline mode, no-key mode, demo mode
+
 **Environment**:
 A name a deployment reports itself under, such as `production` or `staging`, so the service can
 scope which translation keys it serves to that deployment. Blank or whitespace means the unnamed

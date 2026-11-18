@@ -38,6 +38,7 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    private readonly string? _environment;
    private readonly SemaphoreSlim _initializeLock = new(1, 1);
    private readonly LookupSuppressionWindow _suppression;
+   private readonly bool _isKeyless;
 
    private CancellationTokenSource? _heartbeatCts;
    private int _heartbeatStarted;
@@ -73,19 +74,34 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
       _clientId = (clientIdStore ?? new FileClientIdStore()).GetOrCreateClientId();
       _suppression = new LookupSuppressionWindow(_timeProvider);
 
-      if (string.IsNullOrWhiteSpace(Options.ApiKey))
+      _isKeyless = Options.IsKeyless;
+
+      if (!_isKeyless && string.IsNullOrWhiteSpace(Options.ApiKey))
          throw new ArgumentException("ApiKey is required.", nameof(options));
 
       EffectiveLocale.ValidateDefault(Options.DefaultLocale, nameof(options));
       _environment = TranslationClientInputValidator.NormalizeEnvironment(Options.Environment, nameof(options));
 
       _client.BaseAddress = BaseUri;
-      _client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", Options.ApiKey);
+
+      if (!_isKeyless)
+         _client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", Options.ApiKey);
+   }
+
+   internal bool IsKeyless => _isKeyless;
+
+   private void ThrowIfKeyless()
+   {
+      if (_isKeyless)
+         throw new InvalidOperationException("TranslationTools client has no API key (AllowMissingApiKey is set), so it cannot call the service.");
    }
 
    /// <inheritdoc />
    public async Task Initialize(CancellationToken cancellationToken = default)
    {
+      if (_isKeyless)
+         return;
+
       await _initializeLock.WaitAsync(cancellationToken);
 
       try
@@ -168,12 +184,14 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    internal async Task<TranslationItemResponse> GetInternalAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, CancellationToken cancellationToken = default)
    {
       var effectiveLocale = ResolveEffectiveLocale(locale);
+      var lookup = new TranslationLookupRequest(translation, effectiveLocale, defaultValue, localeValues);
+
+      if (_isKeyless)
+         return lookup.LocalFallback();
 
       var cached = await _cache.GetAsync(effectiveLocale, translation, cancellationToken);
       if (cached is not null)
          return cached.Value;
-
-      var lookup = new TranslationLookupRequest(translation, effectiveLocale, defaultValue, localeValues);
 
       var (fetched, degraded) = await FetchTranslationOrFallbackAsync(lookup, cancellationToken);
       if (degraded)
@@ -185,6 +203,8 @@ public sealed partial class TranslationToolsClient : ITranslationToolsClient, ID
    /// <inheritdoc />
    public async Task<TranslationLocaleSnapshot> GetLocaleAsync(CultureInfo locale, CancellationToken cancellationToken = default)
    {
+      ThrowIfKeyless();
+
       var effectiveLocale = ResolveEffectiveLocale(locale);
       var cached = await _cache.GetLocaleAsync(effectiveLocale, cancellationToken);
       if (cached is not null)

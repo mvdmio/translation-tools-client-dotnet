@@ -23,6 +23,17 @@ public sealed class TranslationToolsClientOptions
    public required string ApiKey { get; set; }
 
    /// <summary>
+   /// Run without an API key. Default (<c>false</c>): a blank <see cref="ApiKey"/> fails client construction.
+   /// When <c>true</c> and <see cref="ApiKey"/> is blank, the client runs keyless: every single-key lookup answers
+   /// with the local fallback, nothing is ever sent to the service, and <c>WriteAsync</c>, <c>DeclareAsync</c>,
+   /// <c>GetStoredValueAsync</c>, and <c>GetLocaleAsync</c> throw <see cref="InvalidOperationException"/>.
+   /// A present <see cref="ApiKey"/> wins: the option changes nothing then.
+   /// </summary>
+   public bool AllowMissingApiKey { get; set; }
+
+   internal bool IsKeyless => AllowMissingApiKey && string.IsNullOrWhiteSpace(ApiKey);
+
+   /// <summary>
    /// Locales preloaded during initialization.
    /// </summary>
    public CultureInfo[] SupportedLocales { get; set; } = [];
