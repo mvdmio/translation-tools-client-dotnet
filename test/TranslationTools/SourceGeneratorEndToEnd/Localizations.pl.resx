@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Cart.ItemCount">
+    <value>{count, plural, =0 {Koszyk jest pusty} one {# produkt w {cartName}} few {# produkty w {cartName}} many {# produktów w {cartName}} other {# produktu w {cartName}}}</value>
+  </data>
+</root>

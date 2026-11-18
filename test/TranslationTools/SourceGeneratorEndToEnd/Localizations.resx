@@ -6,4 +6,7 @@
   <data name="Action-Save">
     <value>Save now</value>
   </data>
+  <data name="Cart.ItemCount">
+    <value>{count, plural, =0 {Your cart is empty} one {# item in {cartName}} other {# items in {cartName}}}</value>
+  </data>
 </root>

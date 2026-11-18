@@ -10,6 +10,7 @@ using Xunit;
 
 namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
+[Collection("PlaceholderRuntime")]
 public class SourceGeneratorEndToEndProjectTests
 {
    private const string ProjectOriginPrefix = "SourceGeneratorEndToEnd:";
@@ -140,6 +141,39 @@ public class SourceGeneratorEndToEndProjectTests
          var errorKey = result.ErrorKey;
          errorKey.Origin.Should().Be(ProjectOriginPrefix + "/Resources/Shared/Errors.resx");
          errorKey.Key.Should().Be("404.title");
+      }
+      finally
+      {
+         CultureInfo.CurrentUICulture = previousCulture;
+      }
+   }
+
+   [Theory]
+   [InlineData("pl", 1, "1 produkt w Groceries")]
+   [InlineData("pl", 2, "2 produkty w Groceries")]
+   [InlineData("pl", 5, "5 produktów w Groceries")]
+   [InlineData("pl", 22, "22 produkty w Groceries")]
+   [InlineData("pl", 25, "25 produktów w Groceries")]
+   [InlineData("en", 0, "Your cart is empty")]
+   [InlineData("en", 1, "1 item in Groceries")]
+   [InlineData("en", 5, "5 items in Groceries")]
+   [InlineData("en", 1000, "1,000 items in Groceries")]
+   public void FixtureProject_PluralAccessor_RendersTheFormForTheNumber(string locale, long count, string expected)
+   {
+      var previousCulture = CultureInfo.CurrentUICulture;
+
+      try
+      {
+         using var client = new TranslationToolsClient(
+            new HttpClient(new EmptySuccessHandler()),
+            Options.Create(new TranslationToolsClientOptions { ApiKey = "api-key" }),
+            new LocalTranslationToolsClientCache()
+         );
+
+         Translations.SetClient(client);
+         CultureInfo.CurrentUICulture = new CultureInfo(locale);
+
+         Localizations.Cart_ItemCount(count, cartName: "Groceries").Should().Be(expected);
       }
       finally
       {

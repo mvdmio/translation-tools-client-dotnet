@@ -16,6 +16,7 @@ Targets `net10.0` and `net11.0`. Apps on .NET 8 or 9 stay on 3.x.
 - runtime translation lookups through `ITranslationToolsClient`
 - generated strongly typed localization classes from neutral `.resx` files
 - `{token}` placeholder substitution, including ambient global placeholders
+- Plural values that render in the form for a number
 - optional live updates for runtime translations
 - optional environment scoping and presence heartbeat
 - fallback to local `.resx` resources
@@ -270,6 +271,56 @@ builder.Services.AddTranslationToolsClient(options => {
 ```
 
 A value fetched at runtime (for example after a [live update](#live-updates)) may contain a token that did not exist in the neutral `.resx` at build time. Through a generated accessor such an unknown token is left untouched as a literal `{token}` without warning, so server-side edits never break a render.
+
+## Plurals
+
+A Plural is a value that is one ICU plural argument wrapping the whole value, with nothing before or after it:
+
+```
+{count, plural, =0 {Your cart is empty} one {# item in {cartName}} other {# items in {cartName}}}
+```
+
+The argument name (`count`) starts with a lowercase letter and continues with letters or digits. Each case is a selector followed by a form in braces. The selectors are `=N` (an exact number), `zero`, `one`, `two`, `few`, `many`, and `other`; a selector appears once per value, and at least one case is required. `offset:`, `select`, `selectordinal`, a second plural, and a plural nested in a form are not supported.
+
+The client picks the form for the number you pass. An exact case (`=0`) wins over the CLDR cardinal category of the number in the locale being rendered; a missing category falls back to `other`. Inside a form, `#` and the argument token (`{count}`) print the number with the locale's digit grouping (`1,000` in `en`, `1.000` in `nl`); an app that runs with `InvariantGlobalization` prints the invariant grouping. A negative number picks its form by its absolute value. Inside a form, `{cartName}` tokens and the apostrophe rules of [Placeholders](#placeholders) apply, and `'#'` prints a literal `#`.
+
+### Generated accessors
+
+A key whose Neutral value is a Plural always becomes a method. Its first parameter is the number, a `long` named after the argument, followed by one `string` parameter for each token in any form, in first-seen order. Declared global placeholders and the argument itself are not parameters, and words that are part of the ICU syntax (`file` in `one {file} other {files}`) are not tokens:
+
+```xml
+<data name="Cart.ItemCount">
+  <value>{count, plural, =0 {Your cart is empty} one {# item in {cartName}} other {# items in {cartName}}}</value>
+</data>
+```
+
+```csharp
+var text = Localizations.Cart_ItemCount(count: 5, cartName: "Groceries");
+// -> "5 items in Groceries"
+```
+
+Each locale holds its own Plural, with the forms its language needs. The Polish value of the same key has `few` and `many` cases.
+
+### Dynamic keys
+
+For a key looked up by string, pass the number to the fluent builder:
+
+```csharp
+var text = Translations.WithPlaceholders(Localizations.Keys.Cart_ItemCount)
+   .SetPlaceholder("cartName", "Groceries")
+   .SetPluralNumber(5)
+   .Render();
+```
+
+### Missing number and non-Plural values
+
+When a Plural is rendered without a number, the client logs the warning "No number supplied for the Plural in this value." and renders the `other` form with `#` left as it is. With `ThrowOnPlaceholderError = true` it throws `PlaceholderSubstitutionException` with that message instead. A number passed for a value that is not a Plural is ignored.
+
+### What is not a Plural
+
+A value that does not follow the shape above renders as plain text with ordinary placeholder substitution: a plural fragment inside other text (`You have {count, plural, one {# item} other {# items}} left`), a value with several plurals, and a plural nested in another plural's form.
+
+Put a Plural on a new key. An app build that runs an older client shows the raw ICU text of a Plural value.
 
 ## Per-locale seeding from sibling `.resx` files
 

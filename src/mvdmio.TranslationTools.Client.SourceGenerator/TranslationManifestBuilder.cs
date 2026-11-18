@@ -200,13 +200,17 @@ internal static class TranslationManifestBuilder
 
       foreach (var entry in entries.GroupBy(e => TranslationManifestPaths.SanitizeIdentifier(e.Key), StringComparer.Ordinal).Select(g => g.First()))
       {
-         var allTokens = PlaceholderTokenParser.TokenNames(entry.Value);
+         var plural = PluralParser.TryParse(entry.Value);
+         var pluralArgument = plural?.Argument;
+         var allTokens = plural is null ? PlaceholderTokenParser.TokenNames(entry.Value) : plural.TokenNames();
 
          var keyScopedTokens = allTokens
-            .Where(token => !globalNames.Contains(token))
+            .Where(token => !globalNames.Contains(token) && token != pluralArgument)
             .ToImmutableArray();
 
-         if (!TryDetectParameterCollision(entry.Key, keyScopedTokens, diagnostics))
+         var parameterNames = pluralArgument is null ? keyScopedTokens : keyScopedTokens.Insert(0, pluralArgument);
+
+         if (!TryDetectParameterCollision(entry.Key, parameterNames, diagnostics))
             continue;
 
          properties.Add(new TranslationManifestPropertyModel
@@ -216,6 +220,7 @@ internal static class TranslationManifestBuilder
             DefaultValue = entry.Value,
             LocaleValues = BuildLocaleValues(entry.Key, localeValuesByKey),
             Tokens = keyScopedTokens,
+            PluralArgument = pluralArgument,
             HasTokens = allTokens.Count > 0
          });
       }

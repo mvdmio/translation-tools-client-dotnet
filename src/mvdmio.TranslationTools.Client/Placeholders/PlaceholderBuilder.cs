@@ -19,6 +19,7 @@ public sealed class PlaceholderBuilder
    private readonly string? _defaultValue;
    private readonly Dictionary<string, string?> _bindings = new(StringComparer.Ordinal);
    private CultureInfo? _locale;
+   private long? _pluralNumber;
 
    internal PlaceholderBuilder(TranslationRef translation, string? defaultValue)
    {
@@ -39,6 +40,15 @@ public sealed class PlaceholderBuilder
    }
 
    /// <summary>
+   /// Set the number that picks the form of a Plural value, and that <c>#</c> prints. The number is ignored when the value is not a Plural.
+   /// </summary>
+   public PlaceholderBuilder SetPluralNumber(long number)
+   {
+      _pluralNumber = number;
+      return this;
+   }
+
+   /// <summary>
    /// Render for a specific locale instead of <see cref="CultureInfo.CurrentUICulture"/>.
    /// </summary>
    public PlaceholderBuilder ForLocale(CultureInfo locale)
@@ -53,8 +63,8 @@ public sealed class PlaceholderBuilder
    public string Render()
    {
       return _locale is null
-         ? Translations.GetWithPlaceholders(_translation, _defaultValue, localeValues: null, _bindings, knownSet: null)
-         : Translations.GetWithPlaceholders(_translation, _locale, _defaultValue, localeValues: null, _bindings, knownSet: null);
+         ? Translations.GetWithPlaceholders(_translation, _defaultValue, localeValues: null, _bindings, knownSet: null, _pluralNumber)
+         : Translations.GetWithPlaceholders(_translation, _locale, _defaultValue, localeValues: null, _bindings, knownSet: null, _pluralNumber);
    }
 
    /// <summary>
@@ -63,7 +73,7 @@ public sealed class PlaceholderBuilder
    public Task<string> RenderAsync(CancellationToken cancellationToken = default)
    {
       return _locale is null
-         ? Translations.GetWithPlaceholdersAsync(_translation, _defaultValue, localeValues: null, _bindings, knownSet: null, cancellationToken)
-         : Translations.GetWithPlaceholdersAsync(_translation, _locale, _defaultValue, localeValues: null, _bindings, knownSet: null, cancellationToken);
+         ? Translations.GetWithPlaceholdersAsync(_translation, _defaultValue, localeValues: null, _bindings, knownSet: null, _pluralNumber, cancellationToken)
+         : Translations.GetWithPlaceholdersAsync(_translation, _locale, _defaultValue, localeValues: null, _bindings, knownSet: null, _pluralNumber, cancellationToken);
    }
 }

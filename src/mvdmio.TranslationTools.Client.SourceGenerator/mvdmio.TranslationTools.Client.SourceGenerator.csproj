@@ -12,6 +12,10 @@
    </PropertyGroup>
 
    <ItemGroup>
+      <InternalsVisibleTo Include="mvdmio.TranslationTools.Client.Tests.Unit" />
+   </ItemGroup>
+
+   <ItemGroup>
       <!-- Pinned to Roslyn 4.8.0 so the bundled generator still loads in .NET 8-era SDK/IDE compiler hosts. -->
       <PackageReference Include="Microsoft.CodeAnalysis" Version="4.8.0" PrivateAssets="all" />
       <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />

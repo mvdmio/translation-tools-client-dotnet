@@ -136,6 +136,190 @@ public class PlaceholderGeneratorTests
       method!.Parameters.Should().BeEmpty();
    }
 
+   private const string CartPlural = "{count, plural, =0 {Your cart is empty} one {# item in {cartName}} other {# items in {cartName}}}";
+
+   [Fact]
+   public void PluralKey_EmitsMethodWithLongNumberFirstThenStringTokens()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Cart.ItemCount", CartPlural)))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+
+      result.GeneratedSource.Should().Contain("public static string Cart_ItemCount(long count, string cartName)");
+      result.GeneratedSource.Should().Contain("[\"cartName\"] = cartName");
+      result.GeneratedSource.Should().Contain("__bindings, __knownSet, count);");
+
+      var method = GetGeneratedMethod(result, "Cart_ItemCount");
+      method!.Parameters.Select(p => p.Name).Should().Equal("count", "cartName");
+      method.Parameters[0].Type.SpecialType.Should().Be(SpecialType.System_Int64);
+      method.Parameters[1].Type.SpecialType.Should().Be(SpecialType.System_String);
+      method.Parameters.Should().AllSatisfy(p => p.HasExplicitDefaultValue.Should().BeFalse());
+   }
+
+   [Fact]
+   public void PluralKey_KeepsRawIcuTextInDefaultValueAndKeys()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Cart.ItemCount", CartPlural)))
+         ]
+      );
+
+      result.GeneratedSource.Should().Contain("\"" + CartPlural + "\", GetLocaleValues(\"Cart.ItemCount\")");
+      result.GeneratedSource.Should().Contain("public static readonly global::mvdmio.TranslationTools.Client.TranslationRef Cart_ItemCount = new(Origin, \"Cart.ItemCount\");");
+   }
+
+   [Fact]
+   public void PluralKey_WithKeywordArgument_EscapesTheNumberParameter()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Things", "{long, plural, one {# thing} other {# things}}")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+
+      result.GeneratedSource.Should().Contain("public static string Things(long @long)");
+      result.GeneratedSource.Should().Contain("__bindings, __knownSet, @long);");
+      GetGeneratedMethod(result, "Things")!.Parameters.Select(p => p.Name).Should().Equal("long");
+   }
+
+   [Fact]
+   public void PluralKey_TokensFromEveryFormBecomeParametersInFirstSeenOrder()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Mail", "{count, plural, one {{userName} has # mail} other {{owner} has # mails in {userName}}}")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+
+      GetGeneratedMethod(result, "Mail")!.Parameters.Select(p => p.Name).Should().Equal("count", "userName", "owner");
+   }
+
+   [Fact]
+   public void PluralKey_WithIcuWordsInForms_HasOnlyTheNumberParameter()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Files.Count", "{count, plural, one {file} other {files}}")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+
+      result.GeneratedSource.Should().Contain("public static string Files_Count(long count)");
+      GetGeneratedMethod(result, "Files_Count")!.Parameters.Select(p => p.Name).Should().Equal("count");
+   }
+
+   [Fact]
+   public void PluralKey_WithoutTokens_GetsMethodNotProperty()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Items", "{count, plural, one {# item} other {# items}}")))
+         ]
+      );
+
+      result.GeneratedSource.Should().Contain("public static string Items(long count)");
+      GetGeneratedMethod(result, "Items")!.Parameters.Select(p => p.Name).Should().Equal("count");
+   }
+
+   [Fact]
+   public void PluralKey_WithGlobalNamedLikeArgument_KeepsNumberParameterAndExcludesOtherGlobals()
+   {
+      var source = """
+         using mvdmio.TranslationTools.Client;
+         namespace Demo;
+         public sealed class Globals
+         {
+            [GlobalPlaceholder]
+            public string Count => "x";
+
+            [GlobalPlaceholder]
+            public string Shop => "Acme";
+         }
+         """;
+
+      var result = RunGenerator(
+         source: source,
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Cart", "{count, plural, one {# item at {shop} for {userName}} other {# items at {shop} for {userName}}}")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+
+      var method = GetGeneratedMethod(result, "Cart");
+      method!.Parameters.Select(p => p.Name).Should().Equal("count", "userName");
+      method.Parameters[0].Type.SpecialType.Should().Be(SpecialType.System_Int64);
+      result.GeneratedSource.Should().Contain("\"shop\"");
+   }
+
+   [Fact]
+   public void PluralKey_WithArgumentTokenInForm_NeverMakesStringParameter()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Seats", "{count, plural, one {{count} seat} other {{count} seats}}")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+
+      result.GeneratedSource.Should().Contain("public static string Seats(long count)");
+      result.GeneratedSource.Should().NotContain("string count");
+   }
+
+   [Fact]
+   public void PluralFragmentInsideOtherText_GeneratesAsBefore()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Mixed", "You have {count, plural, one {# item} other {# items}} left")))
+         ]
+      );
+
+      result.GeneratorDiagnostics.Should().BeEmpty();
+      result.CompilationDiagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Should().BeEmpty();
+
+      result.GeneratedSource.Should().Contain("public static string Mixed");
+      GetGeneratedMethod(result, "Mixed").Should().BeNull();
+   }
+
+   [Fact]
+   public void ValueWithSingleWordsInBraces_KeepsTurningThemIntoStringParameters()
+   {
+      var result = RunGenerator(
+         source: "namespace Demo; public sealed class Marker;",
+         additionalFiles: [
+            ("src/Demo/Localizations.resx", Resx(("Words", "{file} and {files}")))
+         ]
+      );
+
+      GetGeneratedMethod(result, "Words")!.Parameters.Select(p => p.Name).Should().Equal("file", "files");
+   }
+
    private static IMethodSymbol? GetGeneratedMethod(GeneratorTestResult result, string methodName)
    {
       var compilation = result.OutputCompilation;
@@ -200,6 +384,10 @@ public class PlaceholderGeneratorTests
                 public static string GetWithPlaceholders(TranslationRef translation, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues, System.Collections.Generic.IReadOnlyDictionary<string, string?>? bindings, System.Collections.Generic.IReadOnlyCollection<string>? knownSet)
                    => defaultValue ?? translation.Key;
                 public static string GetWithPlaceholders(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues, System.Collections.Generic.IReadOnlyDictionary<string, string?>? bindings, System.Collections.Generic.IReadOnlyCollection<string>? knownSet)
+                   => defaultValue ?? translation.Key;
+                public static string GetWithPlaceholders(TranslationRef translation, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues, System.Collections.Generic.IReadOnlyDictionary<string, string?>? bindings, System.Collections.Generic.IReadOnlyCollection<string>? knownSet, long? pluralNumber)
+                   => defaultValue ?? translation.Key;
+                public static string GetWithPlaceholders(TranslationRef translation, System.Globalization.CultureInfo locale, string? defaultValue, System.Collections.Generic.IReadOnlyDictionary<string, string?>? localeValues, System.Collections.Generic.IReadOnlyDictionary<string, string?>? bindings, System.Collections.Generic.IReadOnlyCollection<string>? knownSet, long? pluralNumber)
                    => defaultValue ?? translation.Key;
              }
           }

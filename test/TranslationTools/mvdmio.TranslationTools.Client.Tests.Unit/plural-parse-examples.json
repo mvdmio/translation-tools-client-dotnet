@@ -1,0 +1,468 @@
+[
+ {
+  "input": "{count, plural, =0 {Your cart is empty} one {# item in {cartName}} other {# items in {cartName}}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "=0",
+     "segments": [
+      {
+       "literal": "Your cart is empty"
+      }
+     ]
+    },
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " item in "
+      },
+      {
+       "token": "cartName"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " items in "
+      },
+      {
+       "token": "cartName"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, =0 {Koszyk jest pusty} one {# produkt w {cartName}} few {# produkty w {cartName}} many {# produktów w {cartName}} other {# produktu w {cartName}}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "=0",
+     "segments": [
+      {
+       "literal": "Koszyk jest pusty"
+      }
+     ]
+    },
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " produkt w "
+      },
+      {
+       "token": "cartName"
+      }
+     ]
+    },
+    {
+     "selector": "few",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " produkty w "
+      },
+      {
+       "token": "cartName"
+      }
+     ]
+    },
+    {
+     "selector": "many",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " produktów w "
+      },
+      {
+       "token": "cartName"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " produktu w "
+      },
+      {
+       "token": "cartName"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, other {# items}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " items"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, one {item} other {items}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "literal": "item"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "literal": "items"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count,plural,one{#}other{# s}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "number": true
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "number": true
+      },
+      {
+       "literal": " s"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{ count , plural , =1 {One} zero {None} other {Many} }",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "=1",
+     "segments": [
+      {
+       "literal": "One"
+      }
+     ]
+    },
+    {
+     "selector": "zero",
+     "segments": [
+      {
+       "literal": "None"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "literal": "Many"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, one {{userName} has # item} other {{userName} has # items}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "token": "userName"
+      },
+      {
+       "literal": " has "
+      },
+      {
+       "number": true
+      },
+      {
+       "literal": " item"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "token": "userName"
+      },
+      {
+       "literal": " has "
+      },
+      {
+       "number": true
+      },
+      {
+       "literal": " items"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, one {Type '{'x'}' for # item} other {Type '{'x'}' for # items}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "literal": "Type {x} for "
+      },
+      {
+       "number": true
+      },
+      {
+       "literal": " item"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "literal": "Type {x} for "
+      },
+      {
+       "number": true
+      },
+      {
+       "literal": " items"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, one {Use '{' first} other {Use '}' first}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "literal": "Use { first"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "literal": "Use } first"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, one {Item '#' of #} other {Items '#' of #}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "literal": "Item # of "
+      },
+      {
+       "number": true
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "literal": "Items # of "
+      },
+      {
+       "number": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, one {It''s # item} other {It''s # items}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "literal": "It's "
+      },
+      {
+       "number": true
+      },
+      {
+       "literal": " item"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "literal": "It's "
+      },
+      {
+       "number": true
+      },
+      {
+       "literal": " items"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "{count, plural, one {{0} item} other {{0} items}}",
+  "expected": {
+   "argument": "count",
+   "cases": [
+    {
+     "selector": "one",
+     "segments": [
+      {
+       "literal": "{0} item"
+      }
+     ]
+    },
+    {
+     "selector": "other",
+     "segments": [
+      {
+       "literal": "{0} items"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "input": "You have {count, plural, one {# item} other {# items}} in {cartName}",
+  "expected": null
+ },
+ {
+  "input": "{a, plural, one {x} other {y}}{b, plural, one {x} other {y}}",
+  "expected": null
+ },
+ {
+  "input": "{count, plural, one {{n, plural, one {a} other {b}}} other {c}}",
+  "expected": null
+ },
+ {
+  "input": "{count, plural, one {{kind, select, a {x} other {y}}} other {z}}",
+  "expected": null
+ },
+ {
+  "input": "{count, plural, one {# item} other {# items}",
+  "expected": null
+ },
+ {
+  "input": "{count, plural, one {a} one {b} other {c}}",
+  "expected": null
+ },
+ {
+  "input": " {count, plural, one {a} other {b}}",
+  "expected": null
+ },
+ {
+  "input": "{count, plural, one {a} other {b}} ",
+  "expected": null
+ },
+ {
+  "input": "{count, plural, offset:1 one {# item} other {# items}}",
+  "expected": null
+ },
+ {
+  "input": "{gender, select, male {He} other {They}}",
+  "expected": null
+ },
+ {
+  "input": "{place, selectordinal, one {#st} other {#th}}",
+  "expected": null
+ },
+ {
+  "input": "{count, plural, }",
+  "expected": null
+ },
+ {
+  "input": "Hello {userName}!",
+  "expected": null
+ },
+ {
+  "input": "",
+  "expected": null
+ }
+]

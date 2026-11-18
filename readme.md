@@ -11,6 +11,7 @@ Use this package in your application when you want to:
 - fetch translations from the TranslationTools API
 - use generated strongly typed localization classes from `.resx` files
 - substitute `{token}` placeholders, including ambient global placeholders
+- render Plural values in the form for a number (see [Plurals](src/mvdmio.TranslationTools.Client/Readme.md#plurals))
 - keep local `.resx` resources as a fallback
 - send a Declaration of every local key to the service when the client initializes
 - optionally receive live translation updates at runtime

@@ -24,6 +24,8 @@ internal sealed class TranslationManifestPropertyModel
 
    public ImmutableArray<string> Tokens { get; set; } = ImmutableArray<string>.Empty;
 
+   public string? PluralArgument { get; set; }
+
    public bool HasTokens { get; set; }
 }
 

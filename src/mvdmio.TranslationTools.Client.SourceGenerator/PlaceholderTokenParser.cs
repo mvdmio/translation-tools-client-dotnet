@@ -5,28 +5,70 @@ namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
 internal static class PlaceholderTokenParser
 {
+   internal enum SegmentKind
+   {
+      Literal,
+      Token,
+      Number,
+   }
+
+   internal readonly struct Segment
+   {
+      private Segment(SegmentKind kind, string text)
+      {
+         Kind = kind;
+         Text = text;
+      }
+
+      public SegmentKind Kind { get; }
+
+      public bool IsToken => Kind == SegmentKind.Token;
+
+      public string Text { get; }
+
+      public static Segment Literal(string text) => new Segment(SegmentKind.Literal, text);
+      public static Segment Token(string name) => new Segment(SegmentKind.Token, name);
+      public static Segment Number() => new Segment(SegmentKind.Number, string.Empty);
+   }
+
    public static List<string> TokenNames(string? input)
    {
-      var result = new List<string>();
-      if (string.IsNullOrEmpty(input))
-         return result;
+      return DistinctTokenNames(Parse(input ?? string.Empty));
+   }
 
+   public static List<string> DistinctTokenNames(IEnumerable<Segment> segments)
+   {
+      var result = new List<string>();
       var seen = new HashSet<string>();
 
-      foreach (var name in Tokens(input!))
+      foreach (var segment in segments)
       {
-         if (seen.Add(name))
-            result.Add(name);
+         if (segment.IsToken && seen.Add(segment.Text))
+            result.Add(segment.Text);
       }
 
       return result;
    }
 
-   private static IEnumerable<string> Tokens(string input)
+   public static List<Segment> Parse(string input, bool numberSign = false)
    {
+      var segments = new List<Segment>();
+      if (string.IsNullOrEmpty(input))
+         return segments;
+
+      var buffer = new StringBuilder();
+
+      void Flush()
+      {
+         if (buffer.Length > 0)
+         {
+            segments.Add(Segment.Literal(buffer.ToString()));
+            buffer.Clear();
+         }
+      }
+
       var i = 0;
       var length = input.Length;
-      var buffer = new StringBuilder();
 
       while (i < length)
       {
@@ -34,37 +76,14 @@ internal static class PlaceholderTokenParser
 
          if (c == '\'')
          {
-            var next = i + 1 < length ? input[i + 1] : '\0';
+            i = ReadApostrophe(input, i, numberSign, buffer);
+            continue;
+         }
 
-            if (next == '\'')
-            {
-               i += 2;
-               continue;
-            }
-
-            if (next == '{' || next == '}')
-            {
-               i += 1;
-               while (i < length)
-               {
-                  if (input[i] == '\'')
-                  {
-                     if (i + 1 < length && input[i + 1] == '\'')
-                     {
-                        i += 2;
-                        continue;
-                     }
-
-                     i += 1;
-                     break;
-                  }
-
-                  i += 1;
-               }
-
-               continue;
-            }
-
+         if (numberSign && c == '#')
+         {
+            Flush();
+            segments.Add(Segment.Number());
             i += 1;
             continue;
          }
@@ -73,17 +92,62 @@ internal static class PlaceholderTokenParser
          {
             if (TryMatchToken(input, i, out var name, out var consumed))
             {
-               yield return name;
+               Flush();
+               segments.Add(Segment.Token(name));
                i += consumed;
                continue;
             }
 
+            buffer.Append('{');
             i += 1;
             continue;
          }
 
+         buffer.Append(c);
          i += 1;
       }
+
+      Flush();
+      return segments;
+   }
+
+   internal static int ReadApostrophe(string input, int start, bool numberSign, StringBuilder? buffer)
+   {
+      var length = input.Length;
+      var next = start + 1 < length ? input[start + 1] : '\0';
+
+      if (next == '\'')
+      {
+         buffer?.Append('\'');
+         return start + 2;
+      }
+
+      if (next == '{' || next == '}' || (numberSign && next == '#'))
+      {
+         var i = start + 1;
+         while (i < length)
+         {
+            if (input[i] == '\'')
+            {
+               if (i + 1 < length && input[i + 1] == '\'')
+               {
+                  buffer?.Append('\'');
+                  i += 2;
+                  continue;
+               }
+
+               return i + 1;
+            }
+
+            buffer?.Append(input[i]);
+            i += 1;
+         }
+
+         return i;
+      }
+
+      buffer?.Append('\'');
+      return start + 1;
    }
 
    private static bool TryMatchToken(string input, int start, out string name, out int consumed)

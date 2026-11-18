@@ -111,7 +111,7 @@ internal static class TranslationManifestEmitter
 
       foreach (var property in model.Properties)
       {
-         if (property.HasTokens)
+         if (property.HasTokens || property.PluralArgument is not null)
          {
             EmitPlaceholderMethod(builder, model, property);
             continue;
@@ -146,9 +146,15 @@ internal static class TranslationManifestEmitter
       builder.Append("   public static string ");
       builder.Append(property.Name);
       builder.Append("(");
+      if (property.PluralArgument is not null)
+      {
+         builder.Append("long ");
+         builder.Append(PlaceholderParameterNaming.ToParameterIdentifier(property.PluralArgument));
+      }
+
       for (var i = 0; i < property.Tokens.Length; i++)
       {
-         if (i > 0)
+         if (i > 0 || property.PluralArgument is not null)
             builder.Append(", ");
 
          builder.Append("string ");
@@ -200,7 +206,14 @@ internal static class TranslationManifestEmitter
       builder.Append(defaultValueLiteral);
       builder.Append(", GetLocaleValues(");
       builder.Append(GeneratedCodeText.ToStringLiteral(property.Key));
-      builder.AppendLine("), __bindings, __knownSet);");
+      builder.Append("), __bindings, __knownSet");
+      if (property.PluralArgument is not null)
+      {
+         builder.Append(", ");
+         builder.Append(PlaceholderParameterNaming.ToParameterIdentifier(property.PluralArgument));
+      }
+
+      builder.AppendLine(");");
       builder.AppendLine("   }");
    }
 }

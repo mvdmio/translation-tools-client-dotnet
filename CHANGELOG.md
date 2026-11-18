@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-18: Plural values render in the form for a number
+
+A key whose value is one ICU plural argument, such as `{count, plural, =0 {Your cart is empty} one {# item in {cartName}} other {# items in {cartName}}}`, now renders in the form for the number the app passes. The source generator turns such a key into a method with a `long` number first (named after the argument) and one `string` parameter per token in any form, so `Localizations.Cart_ItemCount(count: 5, cartName: "Groceries")` returns "5 items in Groceries". The client picks the form by exact case first, then by the CLDR cardinal category of the rendered locale, and prints the number with the locale's digit grouping. `Translations.GetWithPlaceholders` and `GetWithPlaceholdersAsync` gain overloads that take a `long?` number, and the dynamic-key builder gains `SetPluralNumber`. A Plural rendered without a number logs a warning and shows the `other` form; a value that is not a Plural renders as before. An app build with an older client shows the raw ICU text of a Plural value, so put a Plural on a new key. Depend on 4.1.0 for it. The package readme gains a section for Plurals.
+
 ## 2026-11-18: Packages target .NET 10 and .NET 11, drop .NET 8 and 9
 
 `mvdmio.TranslationTools.Client` and `mvdmio.TranslationTools.Tool` now target `net10.0` and `net11.0`; `net8.0` and `net9.0` are gone, so apps and tool installs on .NET 8 or 9 stay on 3.x. The source generator still targets `netstandard2.0`. No API change. Depend on 4.0.0 for it.

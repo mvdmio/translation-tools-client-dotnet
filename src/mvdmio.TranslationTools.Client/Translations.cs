@@ -1,3 +1,4 @@
+using mvdmio.TranslationTools.Client.Internal;
 using mvdmio.TranslationTools.Client.Placeholders;
 using System;
 using System.Collections.Generic;
@@ -13,10 +14,12 @@ namespace mvdmio.TranslationTools.Client;
 public static class Translations
 {
    private static ITranslationToolsClient? _client;
+   private static string _defaultLocale = "en";
 
-   internal static void SetClient(ITranslationToolsClient client)
+   internal static void SetClient(ITranslationToolsClient client, string defaultLocale = "en")
    {
       _client = client;
+      _defaultLocale = defaultLocale;
    }
 
    /// <summary>
@@ -97,8 +100,22 @@ public static class Translations
    /// <param name="knownSet">Key-scoped token names ∪ declared global names. Unknown tokens stay inert.</param>
    public static string GetWithPlaceholders(TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet)
    {
-      var value = Get(translation, CultureInfo.CurrentUICulture, defaultValue, localeValues);
-      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+      return GetWithPlaceholders(translation, defaultValue, localeValues, bindings, knownSet, pluralNumber: null);
+   }
+
+   /// <summary>
+   /// Get a translation and apply placeholder substitution, rendering a Plural value in the form for <paramref name="pluralNumber"/>.
+   /// Used by generated accessors of a key whose Neutral value is a Plural.
+   /// </summary>
+   /// <param name="translation">The translation reference.</param>
+   /// <param name="defaultValue">Fallback value seeded to the server when missing.</param>
+   /// <param name="localeValues">Per-locale values seeded to the server when missing.</param>
+   /// <param name="bindings">Token name -> supplied value.</param>
+   /// <param name="knownSet">Key-scoped token names ∪ declared global names. Unknown tokens stay inert.</param>
+   /// <param name="pluralNumber">The number that picks the Plural form and that <c>#</c> prints. Ignored when the value is not a Plural.</param>
+   public static string GetWithPlaceholders(TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, long? pluralNumber)
+   {
+      return GetWithPlaceholders(translation, CultureInfo.CurrentUICulture, defaultValue, localeValues, bindings, knownSet, pluralNumber);
    }
 
    /// <summary>
@@ -106,26 +123,49 @@ public static class Translations
    /// </summary>
    public static string GetWithPlaceholders(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet)
    {
+      return GetWithPlaceholders(translation, locale, defaultValue, localeValues, bindings, knownSet, pluralNumber: null);
+   }
+
+   /// <summary>
+   /// Get a translation for a specific locale and apply placeholder substitution, rendering a Plural value in the form for <paramref name="pluralNumber"/>.
+   /// </summary>
+   public static string GetWithPlaceholders(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, long? pluralNumber)
+   {
       var value = Get(translation, locale, defaultValue, localeValues);
-      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+      return PlaceholderRuntime.Apply(value, bindings, knownSet, pluralNumber, EffectiveLocale.Resolve(locale, _defaultLocale));
    }
 
    /// <summary>
    /// Get a translation asynchronously and apply placeholder substitution.
    /// </summary>
-   public static async Task<string> GetWithPlaceholdersAsync(TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, CancellationToken cancellationToken = default)
+   public static Task<string> GetWithPlaceholdersAsync(TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, CancellationToken cancellationToken = default)
    {
-      var value = await GetAsync(translation, CultureInfo.CurrentUICulture, defaultValue, localeValues, cancellationToken);
-      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+      return GetWithPlaceholdersAsync(translation, defaultValue, localeValues, bindings, knownSet, pluralNumber: null, cancellationToken);
+   }
+
+   /// <summary>
+   /// Get a translation asynchronously and apply placeholder substitution, rendering a Plural value in the form for <paramref name="pluralNumber"/>.
+   /// </summary>
+   public static Task<string> GetWithPlaceholdersAsync(TranslationRef translation, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, long? pluralNumber, CancellationToken cancellationToken = default)
+   {
+      return GetWithPlaceholdersAsync(translation, CultureInfo.CurrentUICulture, defaultValue, localeValues, bindings, knownSet, pluralNumber, cancellationToken);
    }
 
    /// <summary>
    /// Get a translation asynchronously for a specific locale and apply placeholder substitution.
    /// </summary>
-   public static async Task<string> GetWithPlaceholdersAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, CancellationToken cancellationToken = default)
+   public static Task<string> GetWithPlaceholdersAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, CancellationToken cancellationToken = default)
+   {
+      return GetWithPlaceholdersAsync(translation, locale, defaultValue, localeValues, bindings, knownSet, pluralNumber: null, cancellationToken);
+   }
+
+   /// <summary>
+   /// Get a translation asynchronously for a specific locale and apply placeholder substitution, rendering a Plural value in the form for <paramref name="pluralNumber"/>.
+   /// </summary>
+   public static async Task<string> GetWithPlaceholdersAsync(TranslationRef translation, CultureInfo locale, string? defaultValue, IReadOnlyDictionary<string, string?>? localeValues, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, long? pluralNumber, CancellationToken cancellationToken = default)
    {
       var value = await GetAsync(translation, locale, defaultValue, localeValues, cancellationToken);
-      return PlaceholderRuntime.Apply(value, bindings, knownSet);
+      return PlaceholderRuntime.Apply(value, bindings, knownSet, pluralNumber, EffectiveLocale.Resolve(locale, _defaultLocale));
    }
 
    /// <summary>

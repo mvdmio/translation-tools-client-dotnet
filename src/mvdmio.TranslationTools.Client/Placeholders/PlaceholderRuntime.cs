@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using mvdmio.TranslationTools.Client.Internal;
 using System;
 using System.Collections.Generic;
 
@@ -32,8 +33,8 @@ internal static class PlaceholderRuntime
       _logger?.LogWarning("TranslationTools placeholder: {Message}", message);
    };
 
-   public static string Apply(string value, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet)
+   public static string Apply(string value, IReadOnlyDictionary<string, string?>? bindings, IReadOnlyCollection<string>? knownSet, long? pluralNumber, EffectiveLocale locale)
    {
-      return PlaceholderSubstitution.Substitute(value, bindings, _globals, knownSet, ThrowOnError, Warn);
+      return PlaceholderSubstitution.Substitute(value, bindings, _globals, knownSet, pluralNumber, locale, ThrowOnError, Warn);
    }
 }
