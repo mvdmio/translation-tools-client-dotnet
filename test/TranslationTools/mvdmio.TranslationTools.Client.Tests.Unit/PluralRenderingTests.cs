@@ -21,7 +21,7 @@ public sealed class PluralRenderingTests : IDisposable
    private const string CartPl = "{count, plural, =0 {Koszyk jest pusty} one {# produkt w {cartName}} few {# produkty w {cartName}} many {# produktów w {cartName}} other {# produktu w {cartName}}}";
    private const string MissingNumberWarning = "TranslationTools placeholder: No number supplied for the Plural in this value.";
 
-   private static readonly TranslationRef Cart = new("o:/r.resx", "Cart.ItemCount");
+   private static readonly TranslationRef _cart = new("o:/r.resx", "Cart.ItemCount");
 
    private readonly FakeLogger _logger = new();
 
@@ -68,17 +68,17 @@ public sealed class PluralRenderingTests : IDisposable
    [Fact]
    public void Render_RegionLocaleWithoutRules_UsesLanguageRules()
    {
-      const string value = "{count, plural, one {# um} other {# outros}}";
+      const string VALUE = "{count, plural, one {# um} other {# outros}}";
 
-      Render("pt-xx", 1, ("pt-xx", value)).Should().Be("1 um");
+      Render("pt-xx", 1, ("pt-xx", VALUE)).Should().Be("1 um");
    }
 
    [Fact]
    public void Render_LanguageUnknownToCldr_UsesOtherForm()
    {
-      const string value = "{count, plural, one {# one} other {# other}}";
+      const string VALUE = "{count, plural, one {# one} other {# other}}";
 
-      Render("zz", 1, ("zz", value)).Should().Be("1 other");
+      Render("zz", 1, ("zz", VALUE)).Should().Be("1 other");
    }
 
    [Fact]
@@ -123,7 +123,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { [""] = CartPl }), defaultLocale: "pl");
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, logger: null);
 
-      var result = Translations.WithPlaceholders(Cart)
+      var result = Translations.WithPlaceholders(_cart)
          .ForLocale(CultureInfo.InvariantCulture)
          .SetPlaceholder("cartName", "Groceries")
          .SetPluralNumber(22)
@@ -138,7 +138,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = CartEn }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, _logger);
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPlaceholder("cartName", "Groceries").Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPlaceholder("cartName", "Groceries").Render();
 
       result.Should().Be("# items in Groceries");
       _logger.Entries.Select(e => e.Message).Should().ContainSingle().Which.Should().Be(MissingNumberWarning);
@@ -150,7 +150,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = "{count, plural, one {single} few {several # of them}}" }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, _logger);
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).Render();
 
       result.Should().Be("several # of them");
    }
@@ -161,7 +161,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = CartEn }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: true, logger: null);
 
-      var act = () => Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPlaceholder("cartName", "Groceries").Render();
+      var act = () => Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPlaceholder("cartName", "Groceries").Render();
 
       act.Should().Throw<PlaceholderSubstitutionException>().WithMessage("No number supplied for the Plural in this value.");
    }
@@ -172,7 +172,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = "Hello {userName}!" }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: true, _logger);
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPlaceholder("userName", "Bob").SetPluralNumber(5).Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPlaceholder("userName", "Bob").SetPluralNumber(5).Render();
 
       result.Should().Be("Hello Bob!");
       _logger.Entries.Should().BeEmpty();
@@ -186,7 +186,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = value }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: true, _logger);
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPluralNumber(1).Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPluralNumber(1).Render();
 
       result.Should().Be(expected);
       _logger.Entries.Should().BeEmpty();
@@ -198,7 +198,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = "You have {count, plural, one {# item} other {# items}} in {cartName}" }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: true, _logger);
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPlaceholder("cartName", "Groceries").SetPluralNumber(1).Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPlaceholder("cartName", "Groceries").SetPluralNumber(1).Render();
 
       result.Should().Be("You have {count, plural, one {# item} other {# items}} in Groceries");
       _logger.Entries.Should().BeEmpty();
@@ -207,11 +207,11 @@ public sealed class PluralRenderingTests : IDisposable
    [Fact]
    public void Render_BindingsUsedOnlyInUnchosenForm_RaiseNoWarning()
    {
-      const string value = "{count, plural, one {just {oneName}} other {# items in {otherName}}}";
-      Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = value }));
+      const string VALUE = "{count, plural, one {just {oneName}} other {# items in {otherName}}}";
+      Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = VALUE }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, _logger);
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPlaceholder("oneName", "x").SetPlaceholder("otherName", "y").SetPluralNumber(5).Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPlaceholder("oneName", "x").SetPlaceholder("otherName", "y").SetPluralNumber(5).Render();
 
       result.Should().Be("5 items in y");
       _logger.Entries.Should().BeEmpty();
@@ -220,11 +220,11 @@ public sealed class PluralRenderingTests : IDisposable
    [Fact]
    public void Render_UnboundTokenInUnchosenForm_RaisesNoWarning()
    {
-      const string value = "{count, plural, one {just {oneName}} other {# items in {otherName}}}";
-      Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = value }));
+      const string VALUE = "{count, plural, one {just {oneName}} other {# items in {otherName}}}";
+      Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = VALUE }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, _logger);
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPlaceholder("otherName", "y").SetPluralNumber(5).Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPlaceholder("otherName", "y").SetPluralNumber(5).Render();
 
       result.Should().Be("5 items in y");
       _logger.Entries.Should().BeEmpty();
@@ -236,7 +236,7 @@ public sealed class PluralRenderingTests : IDisposable
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, _logger);
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["en"] = CartEn }));
 
-      var result = Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("en")).SetPluralNumber(5).Render();
+      var result = Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("en")).SetPluralNumber(5).Render();
 
       result.Should().Be("5 items in {cartName}");
       _logger.Entries.Select(e => e.Message).Should().ContainSingle().Which.Should().Be("TranslationTools placeholder: No value supplied for placeholder '{cartName}'.");
@@ -248,7 +248,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(new Dictionary<string, string> { ["pl"] = CartPl }));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, logger: null);
 
-      var result = await Translations.WithPlaceholders(Cart).ForLocale(new CultureInfo("pl")).SetPlaceholder("cartName", "Groceries").SetPluralNumber(22).RenderAsync(TestContext.Current.CancellationToken);
+      var result = await Translations.WithPlaceholders(_cart).ForLocale(new CultureInfo("pl")).SetPlaceholder("cartName", "Groceries").SetPluralNumber(22).RenderAsync(TestContext.Current.CancellationToken);
 
       result.Should().Be("22 produkty w Groceries");
    }
@@ -260,7 +260,7 @@ public sealed class PluralRenderingTests : IDisposable
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, logger: null);
 
       var result = Translations.GetWithPlaceholders(
-         Cart,
+         _cart,
          new CultureInfo("pl"),
          defaultValue: null,
          localeValues: null,
@@ -283,7 +283,7 @@ public sealed class PluralRenderingTests : IDisposable
          PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, logger: null);
 
          var result = await Translations.GetWithPlaceholdersAsync(
-            Cart,
+            _cart,
             defaultValue: null,
             localeValues: null,
             bindings: new Dictionary<string, string?> { ["cartName"] = "Groceries" },
@@ -331,7 +331,7 @@ public sealed class PluralRenderingTests : IDisposable
       Translations.SetClient(new LocaleClient(values.ToDictionary(v => v.Locale, v => v.Value)));
       PlaceholderRuntime.Configure(GlobalPlaceholderResolver.Empty, throwOnError: false, _logger);
 
-      return Translations.WithPlaceholders(Cart)
+      return Translations.WithPlaceholders(_cart)
          .ForLocale(new CultureInfo(locale))
          .SetPlaceholder("cartName", "Groceries")
          .SetPluralNumber(number)

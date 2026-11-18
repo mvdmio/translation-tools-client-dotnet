@@ -50,7 +50,7 @@ public class HeartbeatAndEnvironmentTests
       var request = handler.Heartbeats.Single();
       request.Authorization.Should().Be("api-key");
 
-      var body = JsonSerializer.Deserialize<HeartbeatBody>(request.Body, JsonOptions)!;
+      var body = JsonSerializer.Deserialize<HeartbeatBody>(request.Body, _jsonOptions)!;
       Guid.TryParse(body.ClientId, out _).Should().BeTrue();
       body.Environment.Should().Be("staging");
       body.Platform.Should().Be("dotnet");
@@ -70,7 +70,7 @@ public class HeartbeatAndEnvironmentTests
       var count = await AdvanceUntilHeartbeatsAsync(handler, time, TimeSpan.FromHours(1), 2);
       count.Should().BeGreaterThanOrEqualTo(2);
 
-      var body = JsonSerializer.Deserialize<HeartbeatBody>(handler.Heartbeats.First().Body, JsonOptions)!;
+      var body = JsonSerializer.Deserialize<HeartbeatBody>(handler.Heartbeats.First().Body, _jsonOptions)!;
       body.Environment.Should().BeNull();
    }
 
@@ -197,8 +197,8 @@ public class HeartbeatAndEnvironmentTests
          await WaitForHeartbeatsAsync(handlerA, 1);
          await WaitForHeartbeatsAsync(handlerB, 1);
 
-         var idA = JsonSerializer.Deserialize<HeartbeatBody>(handlerA.Heartbeats.First().Body, JsonOptions)!.ClientId;
-         var idB = JsonSerializer.Deserialize<HeartbeatBody>(handlerB.Heartbeats.First().Body, JsonOptions)!.ClientId;
+         var idA = JsonSerializer.Deserialize<HeartbeatBody>(handlerA.Heartbeats.First().Body, _jsonOptions)!.ClientId;
+         var idB = JsonSerializer.Deserialize<HeartbeatBody>(handlerB.Heartbeats.First().Body, _jsonOptions)!.ClientId;
 
          idA.Should().Be(idB);
       }
@@ -296,7 +296,7 @@ public class HeartbeatAndEnvironmentTests
       throw new Xunit.Sdk.XunitException($"Timed out waiting for {expected} heartbeats. Saw {handler.Heartbeats.Count}.");
    }
 
-   private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+   private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
    private sealed record HeartbeatBody(string? ClientId, string? Environment, string? Platform, string? Version);
 

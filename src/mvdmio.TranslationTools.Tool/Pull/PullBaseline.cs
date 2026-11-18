@@ -19,7 +19,7 @@ internal sealed class PullBaselineItem
 
 internal sealed class PullBaselineLookup
 {
-   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+   private static readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web)
    {
       WriteIndented = true,
       PropertyNameCaseInsensitive = true
@@ -48,7 +48,7 @@ internal sealed class PullBaselineLookup
       {
          Items = items.ToArray()
       };
-      var json = JsonSerializer.Serialize(baseline, SerializerOptions);
+      var json = JsonSerializer.Serialize(baseline, _serializerOptions);
       await fileSystem.WriteAllTextAsync(GetPath(projectDirectory), json, cancellationToken);
    }
 
@@ -59,7 +59,7 @@ internal sealed class PullBaselineLookup
          return null;
 
       var json = await File.ReadAllTextAsync(path, cancellationToken);
-      var baseline = JsonSerializer.Deserialize<PullBaseline>(json, SerializerOptions);
+      var baseline = JsonSerializer.Deserialize<PullBaseline>(json, _serializerOptions);
       if (baseline?.Items is null)
          return null;
 

@@ -9,8 +9,8 @@ namespace mvdmio.TranslationTools.Client.Tests.Unit;
 
 public class PlaceholderSubstitutionTests
 {
-   private static readonly IGlobalPlaceholderResolver NoGlobals = new FakeGlobals();
-   private static readonly EffectiveLocale English = EffectiveLocale.Resolve("en", "en");
+   private static readonly IGlobalPlaceholderResolver _noGlobals = new FakeGlobals();
+   private static readonly EffectiveLocale _english = EffectiveLocale.Resolve("en", "en");
 
    [Fact]
    public void Substitute_HelloUserName_ReplacesBinding()
@@ -44,7 +44,7 @@ public class PlaceholderSubstitutionTests
    public void Substitute_MissingBinding_StringKeyed_DegradesAndWarns()
    {
       var warnings = new List<string>();
-      var result = PlaceholderSubstitution.Substitute("Hi {userName}", new Dictionary<string, string?>(), NoGlobals, knownSet: null, pluralNumber: null, locale: English, throwOnError: false, warnings.Add);
+      var result = PlaceholderSubstitution.Substitute("Hi {userName}", new Dictionary<string, string?>(), _noGlobals, knownSet: null, pluralNumber: null, locale: _english, throwOnError: false, warnings.Add);
 
       result.Should().Be("Hi {userName}");
       warnings.Should().ContainSingle();
@@ -54,7 +54,7 @@ public class PlaceholderSubstitutionTests
    public void Substitute_UnknownBraceLiteral_StringKeyed_NoWarn()
    {
       var warnings = new List<string>();
-      var result = PlaceholderSubstitution.Substitute("'{'x'}'", new Dictionary<string, string?>(), NoGlobals, knownSet: null, pluralNumber: null, locale: English, throwOnError: false, warnings.Add);
+      var result = PlaceholderSubstitution.Substitute("'{'x'}'", new Dictionary<string, string?>(), _noGlobals, knownSet: null, pluralNumber: null, locale: _english, throwOnError: false, warnings.Add);
 
       result.Should().Be("{x}");
       warnings.Should().BeEmpty();
@@ -67,8 +67,8 @@ public class PlaceholderSubstitutionTests
       var result = PlaceholderSubstitution.Substitute(
          "Hi {userName}, {legacyWord}",
          new Dictionary<string, string?> { ["userName"] = "Bob" },
-         NoGlobals,
-         knownSet: new[] { "userName" }, pluralNumber: null, locale: English,
+         _noGlobals,
+         knownSet: new[] { "userName" }, pluralNumber: null, locale: _english,
          throwOnError: false,
          warnings.Add);
 
@@ -83,8 +83,8 @@ public class PlaceholderSubstitutionTests
       var result = PlaceholderSubstitution.Substitute(
          "Hi {userName}",
          new Dictionary<string, string?>(),
-         NoGlobals,
-         knownSet: new[] { "userName" }, pluralNumber: null, locale: English,
+         _noGlobals,
+         knownSet: new[] { "userName" }, pluralNumber: null, locale: _english,
          throwOnError: false,
          warnings.Add);
 
@@ -98,8 +98,8 @@ public class PlaceholderSubstitutionTests
       Action act = () => PlaceholderSubstitution.Substitute(
          "Hi {userName}",
          new Dictionary<string, string?>(),
-         NoGlobals,
-         knownSet: new[] { "userName" }, pluralNumber: null, locale: English,
+         _noGlobals,
+         knownSet: new[] { "userName" }, pluralNumber: null, locale: _english,
          throwOnError: true,
          warn: null);
 
@@ -113,8 +113,8 @@ public class PlaceholderSubstitutionTests
       var result = PlaceholderSubstitution.Substitute(
          "Hello {userName}",
          new Dictionary<string, string?> { ["userName"] = "Bob", ["unused"] = "x" },
-         NoGlobals,
-         knownSet: null, pluralNumber: null, locale: English,
+         _noGlobals,
+         knownSet: null, pluralNumber: null, locale: _english,
          throwOnError: false,
          warnings.Add);
 
@@ -126,7 +126,7 @@ public class PlaceholderSubstitutionTests
    public void Substitute_RegisteredGlobal_ResolvedAmbiently()
    {
       var globals = new FakeGlobals(("companyName", "Acme"));
-      var result = PlaceholderSubstitution.Substitute("Welcome to {companyName}", bindings: null, globals, knownSet: new[] { "companyName" }, pluralNumber: null, locale: English, throwOnError: false, warn: null);
+      var result = PlaceholderSubstitution.Substitute("Welcome to {companyName}", bindings: null, globals, knownSet: new[] { "companyName" }, pluralNumber: null, locale: _english, throwOnError: false, warn: null);
 
       result.Should().Be("Welcome to Acme");
    }
@@ -138,7 +138,7 @@ public class PlaceholderSubstitutionTests
       globals.Register("companyName");
 
       var warnings = new List<string>();
-      var result = PlaceholderSubstitution.Substitute("Welcome to {companyName}", bindings: null, globals, knownSet: new[] { "companyName" }, pluralNumber: null, locale: English, throwOnError: false, warnings.Add);
+      var result = PlaceholderSubstitution.Substitute("Welcome to {companyName}", bindings: null, globals, knownSet: new[] { "companyName" }, pluralNumber: null, locale: _english, throwOnError: false, warnings.Add);
 
       result.Should().Be("Welcome to {companyName}");
       warnings.Should().ContainSingle();
@@ -152,7 +152,7 @@ public class PlaceholderSubstitutionTests
          "Welcome to {companyName}",
          new Dictionary<string, string?> { ["companyName"] = "Local" },
          globals,
-         knownSet: new[] { "companyName" }, pluralNumber: null, locale: English,
+         knownSet: new[] { "companyName" }, pluralNumber: null, locale: _english,
          throwOnError: false,
          warn: null);
 
@@ -161,7 +161,7 @@ public class PlaceholderSubstitutionTests
 
    private static string Render(string value, Dictionary<string, string?> bindings)
    {
-      return PlaceholderSubstitution.Substitute(value, bindings, NoGlobals, knownSet: null, pluralNumber: null, locale: English, throwOnError: false, warn: null);
+      return PlaceholderSubstitution.Substitute(value, bindings, _noGlobals, knownSet: null, pluralNumber: null, locale: _english, throwOnError: false, warn: null);
    }
 
    private sealed class FakeGlobals : IGlobalPlaceholderResolver

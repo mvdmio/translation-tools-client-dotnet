@@ -16,7 +16,7 @@ public class InitializeDeclarationTests
    private const string ORIGIN_A = "Fixture.App:/Localizations.resx";
    private const string ORIGIN_B = "Fixture.App:/Resources/Shared/Errors.resx";
 
-   private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+   private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
    [Fact]
    public async Task Initialize_SendsOneDeclarationWithNeutralAndSiblingValues()
@@ -672,7 +672,7 @@ public class InitializeDeclarationTests
          {
             var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
             DeclarationRawBodies.Enqueue(body);
-            Declarations.Enqueue(JsonSerializer.Deserialize<DeclarationBody>(body, JsonOptions) ?? new DeclarationBody());
+            Declarations.Enqueue(JsonSerializer.Deserialize<DeclarationBody>(body, _jsonOptions) ?? new DeclarationBody());
 
             if (DeclarationException is not null)
                throw DeclarationException;
@@ -701,7 +701,7 @@ public class InitializeDeclarationTests
 
             LocaleResponses.TryGetValue(locale, out var items);
             items ??= [];
-            var json = JsonSerializer.Serialize(items, JsonOptions);
+            var json = JsonSerializer.Serialize(items, _jsonOptions);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")

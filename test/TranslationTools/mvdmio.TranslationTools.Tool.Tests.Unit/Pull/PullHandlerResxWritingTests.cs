@@ -50,7 +50,7 @@ public class PullHandlerResxWritingTests
       Directory.CreateDirectory(projectDirectory);
       var englishPath = Path.Combine(projectDirectory, "Localizations.resx");
       var dutchPath = Path.Combine(projectDirectory, "Localizations.nl.resx");
-      const string originalEnglish = """
+      const string ORIGINAL_ENGLISH = """
          <?xml version="1.0" encoding="utf-8"?>
          <root>
            <data name="Button.Save" xml:space="preserve"><value>Save</value></data>
@@ -61,7 +61,7 @@ public class PullHandlerResxWritingTests
       try
       {
          File.WriteAllText(Path.Combine(projectDirectory, "mvdmio.Localization.csproj"), "<Project />");
-         fileSystem.Writes[englishPath] = originalEnglish;
+         fileSystem.Writes[englishPath] = ORIGINAL_ENGLISH;
          fileSystem.Writes[dutchPath] = """
             <?xml version="1.0" encoding="utf-8"?>
             <root>
@@ -81,7 +81,7 @@ public class PullHandlerResxWritingTests
             TestContext.Current.CancellationToken
          );
 
-         fileSystem.Writes[englishPath].Should().Be(originalEnglish);
+         fileSystem.Writes[englishPath].Should().Be(ORIGINAL_ENGLISH);
          fileSystem.Writes.Keys.Should().Contain(key => string.Equals(key, dutchPath, StringComparison.Ordinal));
          fileSystem.Writes.Keys.Should().NotContain(key => string.Equals(key, Path.Combine(projectDirectory, "localizations.nl.resx"), StringComparison.Ordinal));
          fileSystem.Writes[dutchPath].Should().Contain("Button.Save");

@@ -9,7 +9,7 @@ namespace mvdmio.TranslationTools.Client;
 /// </summary>
 public sealed class TranslationCatalogKey
 {
-   private static readonly IReadOnlyDictionary<string, string> EmptyLocaleValues =
+   private static readonly IReadOnlyDictionary<string, string> _emptyLocaleValues =
       new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
    /// <summary>
@@ -28,7 +28,7 @@ public sealed class TranslationCatalogKey
       Translation = new TranslationRef(origin, key);
       NeutralValue = string.IsNullOrEmpty(neutralValue) ? null : neutralValue;
       LocaleValues = localeValues is null || localeValues.Count == 0
-         ? EmptyLocaleValues
+         ? _emptyLocaleValues
          : new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(localeValues, StringComparer.OrdinalIgnoreCase));
    }
 

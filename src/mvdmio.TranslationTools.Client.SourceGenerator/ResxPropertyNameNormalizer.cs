@@ -7,7 +7,7 @@ namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
 internal static class ResxPropertyNameNormalizer
 {
-   private static readonly HashSet<string> CSharpKeywords = [
+   private static readonly HashSet<string> _cSharpKeywords = [
       "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const", "continue",
       "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern", "false", "finally",
       "fixed", "float", "for", "foreach", "goto", "if", "implicit", "in", "int", "interface", "internal", "is", "lock",
@@ -53,7 +53,7 @@ internal static class ResxPropertyNameNormalizer
          builder.Insert(0, '_');
 
       var normalized = builder.ToString();
-      if (CSharpKeywords.Contains(normalized.ToLowerInvariant()))
+      if (_cSharpKeywords.Contains(normalized.ToLowerInvariant()))
       {
          return normalized.Length == 1
             ? char.ToUpperInvariant(normalized[0]).ToString()

@@ -38,16 +38,16 @@ internal sealed class PluralValue
 
 internal static class PluralParser
 {
-   private static readonly Regex Header = new Regex(@"^\{[ \t\r\n]*([a-z][a-zA-Z0-9]*)[ \t\r\n]*,[ \t\r\n]*plural[ \t\r\n]*,", RegexOptions.CultureInvariant);
-   private static readonly Regex Selector = new Regex(@"\G(?:=[0-9]+|zero|one|two|few|many|other)", RegexOptions.CultureInvariant);
-   private static readonly Regex NestedArgument = new Regex(@"\G\{[ \t\r\n]*[A-Za-z0-9_]+[ \t\r\n]*,", RegexOptions.CultureInvariant);
+   private static readonly Regex _header = new Regex(@"^\{[ \t\r\n]*([a-z][a-zA-Z0-9]*)[ \t\r\n]*,[ \t\r\n]*plural[ \t\r\n]*,", RegexOptions.CultureInvariant);
+   private static readonly Regex _selector = new Regex(@"\G(?:=[0-9]+|zero|one|two|few|many|other)", RegexOptions.CultureInvariant);
+   private static readonly Regex _nestedArgument = new Regex(@"\G\{[ \t\r\n]*[A-Za-z0-9_]+[ \t\r\n]*,", RegexOptions.CultureInvariant);
 
    public static PluralValue? TryParse(string? input)
    {
       if (string.IsNullOrEmpty(input) || input![0] != '{' || input[input.Length - 1] != '}')
          return null;
 
-      var header = Header.Match(input);
+      var header = _header.Match(input);
       if (!header.Success)
          return null;
 
@@ -62,7 +62,7 @@ internal static class PluralParser
          if (i < input.Length && input[i] == '}')
             break;
 
-         var selector = Selector.Match(input, i);
+         var selector = _selector.Match(input, i);
          if (!selector.Success || !selectors.Add(selector.Value))
             return null;
 
@@ -110,7 +110,7 @@ internal static class PluralParser
 
          if (c == '{')
          {
-            if (depth > 0 && NestedArgument.IsMatch(input, i))
+            if (depth > 0 && _nestedArgument.IsMatch(input, i))
                return -1;
 
             depth++;

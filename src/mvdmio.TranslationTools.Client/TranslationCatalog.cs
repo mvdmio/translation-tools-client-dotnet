@@ -11,7 +11,7 @@ namespace mvdmio.TranslationTools.Client;
 /// </summary>
 public static class TranslationCatalog
 {
-   private static readonly object Gate = new();
+   private static readonly object _gate = new();
    private static Dictionary<TranslationRef, TranslationCatalogKey> _entries = new();
 
    /// <summary>
@@ -21,7 +21,7 @@ public static class TranslationCatalog
    {
       get
       {
-         lock (Gate)
+         lock (_gate)
             return _entries.Values.ToArray();
       }
    }
@@ -50,7 +50,7 @@ public static class TranslationCatalog
    {
       ArgumentNullException.ThrowIfNull(keys);
 
-      lock (Gate)
+      lock (_gate)
       {
          foreach (var key in keys)
          {
@@ -62,7 +62,7 @@ public static class TranslationCatalog
 
    internal static void Clear()
    {
-      lock (Gate)
+      lock (_gate)
          _entries = new Dictionary<TranslationRef, TranslationCatalogKey>();
    }
 
@@ -77,7 +77,7 @@ public static class TranslationCatalog
          next[key.Translation] = key;
       }
 
-      lock (Gate)
+      lock (_gate)
          _entries = next;
    }
 }

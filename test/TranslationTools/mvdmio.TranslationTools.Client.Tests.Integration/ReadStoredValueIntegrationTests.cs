@@ -16,8 +16,8 @@ public sealed class ReadStoredValueIntegrationTests
    private const string RuntimeOrigin = "Jewel.Unified.staging:/WorkProcessTemplates.resx";
    private const string KeyName = "WorkProcessTemplate.3f2a0c1e-5b7d-4e8a-9c11-2d6f0a7b9e44.Name";
 
-   private static readonly TranslationRef TemplateName = new(RuntimeOrigin, KeyName);
-   private static readonly CultureInfo Dutch = new("nl");
+   private static readonly TranslationRef _templateName = new(RuntimeOrigin, KeyName);
+   private static readonly CultureInfo _dutch = new("nl");
 
    [Fact]
    public async Task GetStoredValueAsync_WithStoredValue_ReturnsItUntrimmed()
@@ -27,7 +27,7 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var stored = await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var stored = await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       stored.Should().Be("  Intake NL \n");
    }
@@ -43,7 +43,7 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var stored = await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var stored = await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       stored.Should().BeNull();
    }
@@ -56,7 +56,7 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       server.SingleKeyRequests.Should().ContainSingle().Which.Should().Be(
          new TranslationToolsIntegrationTestHost.SingleKeyRequest(RuntimeOrigin, "nl", KeyName, "staging", Query: "")
@@ -71,7 +71,7 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: null);
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      await client.GetStoredValueAsync(TemplateName, CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
+      await client.GetStoredValueAsync(_templateName, CultureInfo.InvariantCulture, TestContext.Current.CancellationToken);
 
       server.SingleKeyRequests.Should().ContainSingle().Which.Locale.Should().Be("en");
    }
@@ -84,8 +84,8 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
-      await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
+      await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       server.SingleKeyRequests.Should().HaveCount(2);
    }
@@ -98,8 +98,8 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      (await client.GetStoredValueAsync(TemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Should().Be("Intake");
-      (await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken)).Should().BeNull();
+      (await client.GetStoredValueAsync(_templateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Should().Be("Intake");
+      (await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken)).Should().BeNull();
    }
 
    [Fact]
@@ -110,10 +110,10 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
       server.SingleKeyRequests.Should().HaveCount(1);
 
-      (await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken)).Value.Should().Be("Intake NL");
+      (await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken)).Value.Should().Be("Intake NL");
       server.SingleKeyRequests.Should().HaveCount(2);
    }
 
@@ -124,13 +124,13 @@ public sealed class ReadStoredValueIntegrationTests
       server.TranslationAnswer = _ => "Intake NL";
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
-      (await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken)).Value.Should().Be("Intake NL");
+      (await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken)).Value.Should().Be("Intake NL");
       server.TranslationAnswer = _ => "Edited elsewhere";
 
-      var stored = await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var stored = await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       stored.Should().Be("Edited elsewhere");
-      (await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken)).Value.Should().Be("Intake NL");
+      (await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken)).Value.Should().Be("Intake NL");
    }
 
    [Fact]
@@ -141,10 +141,10 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var act = async () => await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var act = async () => await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       await act.Should().ThrowAsync<HttpRequestException>().WithMessage("*500*");
-      (await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken)).Value.Should().BeNull();
+      (await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken)).Value.Should().BeNull();
    }
 
    [Fact]
@@ -155,7 +155,7 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var act = async () => await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var act = async () => await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       await act.Should().ThrowAsync<HttpRequestException>().WithMessage("*404*");
    }
@@ -167,10 +167,10 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging", baseUrl: "http://127.0.0.1:1");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var act = async () => await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var act = async () => await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       await act.Should().ThrowAsync<HttpRequestException>();
-      (await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken)).Value.Should().BeNull();
+      (await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken)).Value.Should().BeNull();
    }
 
    [Fact]
@@ -181,10 +181,10 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging", lookupTimeout: TimeSpan.FromMilliseconds(100));
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var act = async () => await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var act = async () => await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       await act.Should().ThrowAsync<TranslationLookupException>().WithMessage("*could not be reached*");
-      (await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken)).Value.Should().BeNull();
+      (await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken)).Value.Should().BeNull();
    }
 
    [Fact]
@@ -197,7 +197,7 @@ public sealed class ReadStoredValueIntegrationTests
       using var cancelled = new CancellationTokenSource();
       await cancelled.CancelAsync();
 
-      var act = async () => await client.GetStoredValueAsync(TemplateName, Dutch, cancelled.Token);
+      var act = async () => await client.GetStoredValueAsync(_templateName, _dutch, cancelled.Token);
 
       await act.Should().ThrowAsync<OperationCanceledException>();
    }
@@ -209,11 +209,11 @@ public sealed class ReadStoredValueIntegrationTests
       server.TranslationStatusCode = StatusCodes.Status500InternalServerError;
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
-      await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
       server.TranslationStatusCode = StatusCodes.Status200OK;
       server.TranslationAnswer = _ => "Intake NL";
 
-      var stored = await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var stored = await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       stored.Should().Be("Intake NL");
    }
@@ -225,12 +225,12 @@ public sealed class ReadStoredValueIntegrationTests
       server.TranslationStatusCode = StatusCodes.Status500InternalServerError;
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
-      var failing = async () => await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var failing = async () => await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
       await failing.Should().ThrowAsync<HttpRequestException>();
       server.TranslationStatusCode = StatusCodes.Status200OK;
       server.TranslationAnswer = _ => "Intake NL";
 
-      var item = await client.GetAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var item = await client.GetAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       item.Value.Should().Be("Intake NL");
    }
@@ -243,7 +243,7 @@ public sealed class ReadStoredValueIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var act = async () => await client.GetStoredValueAsync(TemplateName, Dutch, TestContext.Current.CancellationToken);
+      var act = async () => await client.GetStoredValueAsync(_templateName, _dutch, TestContext.Current.CancellationToken);
 
       await act.Should().ThrowAsync<HttpRequestException>().WithMessage("*503*");
    }

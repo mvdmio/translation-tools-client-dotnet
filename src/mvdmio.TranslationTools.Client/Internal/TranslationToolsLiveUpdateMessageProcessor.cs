@@ -9,7 +9,7 @@ namespace mvdmio.TranslationTools.Client.Internal;
 
 internal static class TranslationToolsLiveUpdateMessageProcessor
 {
-   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
+   private static readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
 
    public static async Task ProcessAsync(TranslationToolsClient client, string payload, CancellationToken cancellationToken)
    {
@@ -30,7 +30,7 @@ internal static class TranslationToolsLiveUpdateMessageProcessor
 
       try
       {
-         message = JsonSerializer.Deserialize<TranslationToolsLiveUpdateMessage>(payload, SerializerOptions);
+         message = JsonSerializer.Deserialize<TranslationToolsLiveUpdateMessage>(payload, _serializerOptions);
       }
       catch (JsonException exception)
       {

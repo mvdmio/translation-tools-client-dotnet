@@ -17,8 +17,8 @@ public sealed class RuntimeKeysIntegrationTests
    private const string KeyName = "WorkProcessTemplate.3f2a0c1e-5b7d-4e8a-9c11-2d6f0a7b9e44.Name";
    private const string OtherKeyName = "WorkProcessTemplate.7c1d4e92-0a3b-4f56-8d17-9b2e5c6a1f03.Name";
 
-   private static readonly TranslationRef TemplateName = new(RuntimeOrigin, KeyName);
-   private static readonly TranslationRef OtherTemplateName = new(RuntimeOrigin, OtherKeyName);
+   private static readonly TranslationRef _templateName = new(RuntimeOrigin, KeyName);
+   private static readonly TranslationRef _otherTemplateName = new(RuntimeOrigin, OtherKeyName);
 
    [Fact]
    public async Task DeclareAsync_PostsOneItemPerKeyAndLocaleWithEnvironment_AndNoPush()
@@ -132,13 +132,13 @@ public sealed class RuntimeKeysIntegrationTests
    public async Task GetAsync_ForKeyUnknownToCache_AfterDeclare_IsAnsweredByTheService()
    {
       await using var server = await StartServerAsync(
-         new Dictionary<TranslationRef, string?> { [TemplateName] = "Intake" }
+         new Dictionary<TranslationRef, string?> { [_templateName] = "Intake" }
       );
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
       await client.DeclareAsync([new TranslationCatalogKey(RuntimeOrigin, KeyName, "Intake")], TestContext.Current.CancellationToken);
-      var answer = await client.GetAsync(TemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken);
+      var answer = await client.GetAsync(_templateName, new CultureInfo("en"), TestContext.Current.CancellationToken);
 
       answer.Value.Should().Be("Intake");
       server.SingleKeyRequests.Should().ContainSingle().Which.Should().BeEquivalentTo(new { Origin = RuntimeOrigin, Locale = "en", Key = KeyName, Environment = "staging" });
@@ -153,8 +153,8 @@ public sealed class RuntimeKeysIntegrationTests
 
       await client.WriteAsync(
          [
-            new TranslationValueWrite(TemplateName, new CultureInfo("nl"), "Opname"),
-            new TranslationValueWrite(OtherTemplateName, CultureInfo.InvariantCulture, "New")
+            new TranslationValueWrite(_templateName, new CultureInfo("nl"), "Opname"),
+            new TranslationValueWrite(_otherTemplateName, CultureInfo.InvariantCulture, "New")
          ],
          TestContext.Current.CancellationToken
       );
@@ -180,8 +180,8 @@ public sealed class RuntimeKeysIntegrationTests
 
       var act = async () => await client.WriteAsync(
          [
-            new TranslationValueWrite(TemplateName, new CultureInfo("en"), "Intake v2"),
-            new TranslationValueWrite(OtherTemplateName, new CultureInfo("en"), null!)
+            new TranslationValueWrite(_templateName, new CultureInfo("en"), "Intake v2"),
+            new TranslationValueWrite(_otherTemplateName, new CultureInfo("en"), null!)
          ],
          TestContext.Current.CancellationToken
       );
@@ -198,7 +198,7 @@ public sealed class RuntimeKeysIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      var act = async () => await client.WriteAsync([new TranslationValueWrite(TemplateName, null!, "Intake")], TestContext.Current.CancellationToken);
+      var act = async () => await client.WriteAsync([new TranslationValueWrite(_templateName, null!, "Intake")], TestContext.Current.CancellationToken);
 
       await act.Should().ThrowAsync<ArgumentNullException>();
       server.ProjectPushes.Should().BeEmpty();
@@ -224,11 +224,11 @@ public sealed class RuntimeKeysIntegrationTests
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
 
-      await client.WriteAsync([new TranslationValueWrite(TemplateName, new CultureInfo("en"), "")], TestContext.Current.CancellationToken);
+      await client.WriteAsync([new TranslationValueWrite(_templateName, new CultureInfo("en"), "")], TestContext.Current.CancellationToken);
 
       server.ProjectPushes.Should().ContainSingle().Which.Items.Should().ContainSingle()
          .Which.Should().BeEquivalentTo(new { Origin = RuntimeOrigin, Locale = "en", Key = KeyName, Value = "" });
-      (await client.GetAsync(TemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("");
+      (await client.GetAsync(_templateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("");
       server.TranslationRequestCount.Should().Be(0);
    }
 
@@ -248,17 +248,17 @@ public sealed class RuntimeKeysIntegrationTests
    public async Task WriteAsync_WhenServiceFails_Throws_AndLeavesTheCacheAsItWas()
    {
       await using var server = await StartServerAsync(
-         new Dictionary<TranslationRef, string?> { [TemplateName] = "Intake" }
+         new Dictionary<TranslationRef, string?> { [_templateName] = "Intake" }
       );
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
-      (await client.GetAsync(TemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake");
+      (await client.GetAsync(_templateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake");
       server.ProjectPushStatusCode = StatusCodes.Status500InternalServerError;
 
-      var act = async () => await client.WriteAsync([new TranslationValueWrite(TemplateName, new CultureInfo("en"), "Intake v2")], TestContext.Current.CancellationToken);
+      var act = async () => await client.WriteAsync([new TranslationValueWrite(_templateName, new CultureInfo("en"), "Intake v2")], TestContext.Current.CancellationToken);
 
       await act.Should().ThrowAsync<HttpRequestException>().WithMessage("*500*");
-      (await client.GetAsync(TemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake");
+      (await client.GetAsync(_templateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake");
       server.TranslationRequestCount.Should().Be(1);
    }
 
@@ -271,7 +271,7 @@ public sealed class RuntimeKeysIntegrationTests
       using var cancelled = new CancellationTokenSource();
       await cancelled.CancelAsync();
 
-      var act = async () => await client.WriteAsync([new TranslationValueWrite(TemplateName, new CultureInfo("en"), "Intake")], cancelled.Token);
+      var act = async () => await client.WriteAsync([new TranslationValueWrite(_templateName, new CultureInfo("en"), "Intake")], cancelled.Token);
 
       await act.Should().ThrowAsync<OperationCanceledException>();
       server.ProjectPushes.Should().BeEmpty();
@@ -281,22 +281,22 @@ public sealed class RuntimeKeysIntegrationTests
    public async Task GetAsync_AfterSuccessfulWrite_AnswersTheWrittenValueWithNoRequest()
    {
       await using var server = await StartServerAsync(
-         new Dictionary<TranslationRef, string?> { [TemplateName] = "Intake" }
+         new Dictionary<TranslationRef, string?> { [_templateName] = "Intake" }
       );
       await using var app = BuildApp(server, environment: "staging");
       var client = app.Services.GetRequiredService<ITranslationToolsClient>();
-      (await client.GetAsync(TemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake");
+      (await client.GetAsync(_templateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake");
 
       await client.WriteAsync(
          [
-            new TranslationValueWrite(TemplateName, new CultureInfo("en"), "Intake v3"),
-            new TranslationValueWrite(OtherTemplateName, CultureInfo.InvariantCulture, "New")
+            new TranslationValueWrite(_templateName, new CultureInfo("en"), "Intake v3"),
+            new TranslationValueWrite(_otherTemplateName, CultureInfo.InvariantCulture, "New")
          ],
          TestContext.Current.CancellationToken
       );
 
-      (await client.GetAsync(TemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake v3");
-      (await client.GetAsync(OtherTemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("New");
+      (await client.GetAsync(_templateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("Intake v3");
+      (await client.GetAsync(_otherTemplateName, new CultureInfo("en"), TestContext.Current.CancellationToken)).Value.Should().Be("New");
       server.TranslationRequestCount.Should().Be(1);
    }
 

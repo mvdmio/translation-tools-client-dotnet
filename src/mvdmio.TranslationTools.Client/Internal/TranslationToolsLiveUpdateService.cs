@@ -14,8 +14,8 @@ namespace mvdmio.TranslationTools.Client.Internal;
 
 internal sealed class TranslationToolsLiveUpdateService : IDisposable
 {
-   private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(1);
-   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
+   private static readonly TimeSpan _reconnectDelay = TimeSpan.FromSeconds(1);
+   private static readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web)
    {
       PropertyNameCaseInsensitive = true
    };
@@ -122,7 +122,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
                _logger.LogInformation(
                   "TranslationTools live update websocket disconnected from {BaseUrl}. Retrying in {ReconnectDelay}",
                   baseUri,
-                  ReconnectDelay
+                  _reconnectDelay
                );
             }
          }
@@ -136,7 +136,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
                exception,
                "Failed to fetch TranslationTools live update socket token from {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
-               ReconnectDelay
+               _reconnectDelay
             );
          }
          catch (WebSocketException exception)
@@ -145,7 +145,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
                exception,
                "TranslationTools live update websocket failed for {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
-               ReconnectDelay
+               _reconnectDelay
             );
          }
          catch (JsonException exception)
@@ -154,7 +154,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
                exception,
                "Failed to deserialize the TranslationTools live update socket token response from {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
-               ReconnectDelay
+               _reconnectDelay
             );
          }
          catch (Exception exception)
@@ -163,13 +163,13 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
                exception,
                "Unexpected TranslationTools live update failure for {BaseUrl}. Retrying in {ReconnectDelay}",
                baseUri,
-               ReconnectDelay
+               _reconnectDelay
             );
          }
 
          try
          {
-            await Task.Delay(ReconnectDelay, cancellationToken);
+            await Task.Delay(_reconnectDelay, cancellationToken);
          }
          catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
          {
@@ -227,7 +227,7 @@ internal sealed class TranslationToolsLiveUpdateService : IDisposable
       response.EnsureSuccessStatusCode();
 
       await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-      return await JsonSerializer.DeserializeAsync<TranslationToolsSocketTokenResponse>(stream, SerializerOptions, cancellationToken)
+      return await JsonSerializer.DeserializeAsync<TranslationToolsSocketTokenResponse>(stream, _serializerOptions, cancellationToken)
              ?? throw new InvalidOperationException("Socket token response body was empty.");
    }
 

@@ -4,7 +4,7 @@ namespace mvdmio.TranslationTools.Client.SourceGenerator;
 
 public static class PlaceholderParameterNaming
 {
-   private static readonly HashSet<string> CSharpKeywords = new()
+   private static readonly HashSet<string> _cSharpKeywords = new()
    {
       "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const", "continue",
       "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern", "false", "finally",
@@ -17,7 +17,7 @@ public static class PlaceholderParameterNaming
 
    public static string ToParameterIdentifier(string token)
    {
-      return CSharpKeywords.Contains(token) ? "@" + token : token;
+      return _cSharpKeywords.Contains(token) ? "@" + token : token;
    }
 
    public static string ParameterKey(string token)

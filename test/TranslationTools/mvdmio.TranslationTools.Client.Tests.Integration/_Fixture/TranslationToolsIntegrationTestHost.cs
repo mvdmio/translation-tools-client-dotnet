@@ -15,7 +15,7 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
 {
    private const string SocketToken = "test-token";
 
-   private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+   private static readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
 
    private readonly TaskCompletionSource<WebSocket> _webSocketConnected = new(TaskCreationOptions.RunContinuationsAsynchronously);
    private readonly CancellationTokenSource _disposeCancellationTokenSource = new();
@@ -113,13 +113,13 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
             Value = item.Value
          });
 
-         return Results.Json(payload, SerializerOptions);
+         return Results.Json(payload, _serializerOptions);
       }
 
       app.MapGet("/api/v1/translations/{locale}", (HttpContext context, string locale) => ServeLocale(context, locale, environment: null));
       app.MapGet("/api/v1/translations/{locale}/{environment}", (HttpContext context, string locale, string environment) => ServeLocale(context, locale, environment));
 
-      async Task<IResult> ServeTranslation(HttpContext context, string origin, string locale, string key, string? environment)
+      async Task<IResult> ServeTranslationAsync(HttpContext context, string origin, string locale, string key, string? environment)
       {
          host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
          host.LastTranslationRequestQuery = context.Request.QueryString.Value;
@@ -152,7 +152,7 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
                Origin = origin,
                Key = key,
                Value = answer(singleKeyRequest)
-            }, SerializerOptions);
+            }, _serializerOptions);
          }
 
          if (host.Locales.TryGetValue(locale, out var values) && values.TryGetValue(new TranslationRef(origin, key), out var value))
@@ -162,27 +162,27 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
                Origin = origin,
                Key = key,
                Value = value
-            }, SerializerOptions);
+            }, _serializerOptions);
          }
 
          return Results.NotFound();
       }
 
-      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}", async (HttpContext context, string origin, string locale, string key) => await ServeTranslation(context, origin, locale, key, environment: null));
-      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}/{environment}", async (HttpContext context, string origin, string locale, string key, string environment) => await ServeTranslation(context, origin, locale, key, environment));
+      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}", async (HttpContext context, string origin, string locale, string key) => await ServeTranslationAsync(context, origin, locale, key, environment: null));
+      app.MapGet("/api/v1/translations/{origin}/{locale}/{key}/{environment}", async (HttpContext context, string origin, string locale, string key, string environment) => await ServeTranslationAsync(context, origin, locale, key, environment));
 
       app.MapGet("/api/v1/translations/socket-token", (HttpContext context) =>
       {
          host.LastAuthorizationHeader = context.Request.Headers.Authorization.ToString();
          Interlocked.Increment(ref host._socketTokenRequestCount);
-         return Results.Json(new { token = SocketToken }, SerializerOptions);
+         return Results.Json(new { token = SocketToken }, _serializerOptions);
       });
 
       app.MapPost("/api/v1/translations/heartbeat", async (HttpContext context) =>
       {
          host.LastHeartbeatAuthorizationHeader = context.Request.Headers.Authorization.ToString();
 
-         var body = await context.Request.ReadFromJsonAsync<HeartbeatBody>(SerializerOptions);
+         var body = await context.Request.ReadFromJsonAsync<HeartbeatBody>(_serializerOptions);
          host.LastHeartbeatBody = body;
          Interlocked.Increment(ref host._heartbeatRequestCount);
 
@@ -197,7 +197,7 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          var raw = await reader.ReadToEndAsync();
          host.ProjectPushRawBodies.Add(raw);
 
-         var parsed = JsonSerializer.Deserialize<ProjectPushBody>(raw, SerializerOptions) ?? new ProjectPushBody();
+         var parsed = JsonSerializer.Deserialize<ProjectPushBody>(raw, _serializerOptions) ?? new ProjectPushBody();
          host.ProjectPushes.Add(parsed);
 
          return Results.StatusCode(host.ProjectPushStatusCode);
@@ -211,7 +211,7 @@ internal sealed class TranslationToolsIntegrationTestHost : IAsyncDisposable
          var raw = await reader.ReadToEndAsync();
          host.DeclarationRawBodies.Add(raw);
 
-         var parsed = JsonSerializer.Deserialize<DeclarationBody>(raw, SerializerOptions) ?? new DeclarationBody();
+         var parsed = JsonSerializer.Deserialize<DeclarationBody>(raw, _serializerOptions) ?? new DeclarationBody();
          host.Declarations.Add(parsed);
 
          return Results.StatusCode(host.DeclarationStatusCode);

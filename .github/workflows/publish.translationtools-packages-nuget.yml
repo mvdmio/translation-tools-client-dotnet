@@ -39,6 +39,9 @@ jobs:
       -  name: Restore solution
          run: dotnet restore mvdmio.TranslationTools.Client.slnx
 
+      -  name: Verify formatting
+         run: dotnet format mvdmio.TranslationTools.Client.slnx --verify-no-changes --no-restore
+
       -  name: Build solution
          run: dotnet build mvdmio.TranslationTools.Client.slnx --configuration Release --no-restore
 
